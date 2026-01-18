@@ -1,0 +1,41 @@
+%!ps-Adobe-3.0
+%%Creator: Marcos Mazoti
+%%Title: ok.ps
+%%CreationDate: Tue Sep 23 16:56:39 2025
+%%DocumentData: Clean7Bit
+%%LanguageLevel: 2
+%%Pages: 1
+%%BoundingBox: 360 360 361 361
+%%EndComments
+%%BeginProlog
+% Use own dictionary to avoid conflicts
+10 dict begin
+%%EndProlog
+%%Page: 1 1
+% Translate for offset
+360 360 translate
+% Translate to begin of first scanline
+0 0.24000000000000002 translate
+0.24000000000000002 -0.24000000000000002 scale
+% Image geometry
+1 1 8
+% Transformation matrix
+[ 1 0 0 1 0 0 ]
+% Strings to hold RGB-samples per scanline
+/rstr 1 string def
+/gstr 1 string def
+/bstr 1 string def
+{currentfile /ASCII85Decode filter /RunLengthDecode filter rstr readstring pop}
+{currentfile /ASCII85Decode filter /RunLengthDecode filter gstr readstring pop}
+{currentfile /ASCII85Decode filter /RunLengthDecode filter bstr readstring pop}
+true 3
+%%BeginData:           32 ASCII Bytes
+colorimage
+!!%N~>
+!!%N~>
+!!%N~>
+%%EndData
+showpage
+%%Trailer
+end
+%%EOF

@@ -1,0 +1,6 @@
+<xml version="1.0" encoding="UTF-8"?>
+<greeting>
+    <message>Hello World!</message>
+    <language>English</language>
+    <timestamp>2025-09-22</timestamp>
+</greeting>

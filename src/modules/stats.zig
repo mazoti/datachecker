@@ -33,13 +33,23 @@ pub fn duplicateCharacters(args: anytype) !bool {
                 .{args[0], path_no_ext[path_no_ext.len - 2]});
     }
 
-    // Check for duplicate special characters throughout path
+    // Checks for duplicate special characters throughout path
     if (args[0].len < 2) return false;
 
     for (0..args[0].len - 1) |i| {
         if ((args[0][i] == args[0][i + 1]) and (args[0][i] == ' ' or args[0][i] == '-' or args[0][i] == '_'
             or args[0][i] == '.')) return core.messageSum(print.check, args[1], 1,
                 i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], args[0][i]});
+    }
+
+    // Checks for duplicated extensions
+    const index: usize = extension.len + extension.len;
+    if (args[0].len >= index) {
+        const tmp_extension: []const u8 = args[0][(args[0].len - index)..(args[0].len - extension.len)];
+        if (std.mem.eql(u8, extension, tmp_extension)) {
+            return core.messageSum(print.check, args[1], 1, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT,
+                .{args[0], extension});
+        }
     }
 
     return false;

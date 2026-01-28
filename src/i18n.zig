@@ -10,10 +10,90 @@ pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.2 by Marcos Mazoti" ++
 
 pub const HELP =
 \\Usage:
-\\        datachecker config (creates config.json file with default configuration)
 \\
-\\        datachecker <folder> or
-\\        datachecker <folder> 2> results.txt (redirects outputs to text file)
+\\    datachecker <folder>
+\\              or
+\\    datachecker <command> <directory>
+\\
+\\    datachecker config
+\\        Creates config.json file with default configuration
+\\
+\\Commands/Aliases:
+\\
+\\    --duplicate, -d, -D, duplicate, /D, DUPLICATE
+\\        Search for duplicate files
+\\
+\\    --duplicate_mt, -dmt, -DMT, duplicate_mt, /DMT, DUPLICATE_MT
+\\        Search for duplicate files using multithreading
+\\
+\\    --links, -ls, -LS, links, /LS, LINKS
+\\        Search for links and shortcuts
+\\
+\\    --integrity, -i, -I, integrity, /I, INTEGRITY
+\\        Create/verify file hashes
+\\
+\\    --integrity_mt, -imt, -IMT, integrity_mt, /IMT, INTEGRITY_MT
+\\        Create/verify file hashes using multithreading
+\\
+\\    --temp, -tf, -TF, temp, /TF, TEMP
+\\        Search for temporary files
+\\
+\\    --conf, -cf, -CF, conf, /CF, CONF
+\\        Search for confidential data in files
+\\        (create config.json to customize search patterns)
+\\
+\\    --compressed, -c, -C, compressed, /C, COMPRESSED
+\\        Search for optimization opportunities in lossless compressed files
+\\
+\\    --dupchars, -dc, -DC, dupchars, /DC, DUPCHARS
+\\        Search for duplicate characters in file names
+\\
+\\    --empty, -ef, -EF, empty, /EF, EMPTY
+\\        Search for empty files
+\\
+\\    --large, -lf, -LF, large, /LF, LARGE
+\\        Search for large files
+\\        (create config.json to customize size threshold)
+\\
+\\    --last, -l, -L, last, /L, LAST
+\\        Search for files not accessed recently
+\\        (create config.json to customize time period)
+\\
+\\    --legacy, -lg, -LG, legacy, /LG, LEGACY
+\\        Search for files using outdated formats
+\\
+\\    --magic, -m, -M, magic, /M, MAGIC
+\\        Search for files with mismatched magic numbers
+\\
+\\    --noext, -n, -N, noext, /N, NOEXT
+\\        Search for files without extensions and attempt to identify them
+\\
+\\    --json, -j, -J, json, /J, JSON
+\\        Search for JSON files with syntax errors
+\\
+\\    --wrong, -w, -W, wrong, /W, WRONG
+\\        Search for files with timestamps in the future
+\\
+\\    --emptydirs, -e, -E, emptydirs, /E, EMPTYDIRS
+\\        Search for empty directories
+\\
+\\    --manyitems, -mi, -MI, manyitems, /MI, MANYITEMS
+\\        Search for directories with excessive items
+\\        (create config.json to customize item threshold)
+\\
+\\    --oneitem, -o, -O, oneitem, /O, ONEITEM
+\\        Search for directories containing only one item
+\\
+\\    --dirsize, -ds, -DS, dirsize, /DS, DIRSIZE
+\\        Search for directories or files with excessively long names
+\\        (create config.json to customize length threshold)
+\\
+\\    --fullpathsize, -f, -F, fullpathsize, /F, FULLPATHSIZE
+\\        Search for excessively long absolute paths
+\\        (create config.json to customize path length threshold)
+\\
+\\    --uchars, -u, -U, uchars, /U, UCHARS
+\\        Search for non-portable characters in absolute paths
 \\
 \\
 ;
@@ -39,6 +119,7 @@ pub const DIR_FILE_NAME_SIZE_TOTALS        = "{d} files or directories\n";
 pub const DIR_FILE_NAME_SIZE_WARNING       = "\"{s}\" is larger than {d} characters";
 
 pub const DUPLICATE_CHARS_FILES_CHECK      = "\"{s}\" has a duplicate character \"{c}\"";
+pub const DUPLICATE_CHARS_FILES_CHECK_EXT  = "\"{s}\" has a duplicate extension \"{s}\"";
 pub const DUPLICATE_CHARS_FILES_HEADER     = "\n\tLooking for duplicate characters...\n";
 pub const DUPLICATE_CHARS_FILES_TOTAL      = "{d} item with duplicate characters\n";
 pub const DUPLICATE_CHARS_FILES_TOTALS     = "{d} items with duplicate characters\n";
@@ -136,6 +217,7 @@ pub const WARNING_MESSAGE                  = "\n\t\tWARNING ";
 pub const ERROR_ACCESS_DENIED              = "Access denied: root or admin permission needed\n";
 pub const ERROR_ALLOC_MEM                  = "Failed to allocate memory for path \"{s}\": {}\n";
 pub const ERROR_APPEND_PATH                = "Failed to append path to list: \"{}\"\n";
+pub const ERROR_COMMAND_NOT_FOUND          = "Command \"{s}\" not found\n";
 pub const ERROR_CONFIG_FILE                = "\"config.json\" already exists";
 pub const ERROR_HASH_FILE                  = "Failed to hash file \"{s}\": {}\n";
 pub const ERROR_INPUT_DIRECTORY            = "Can't read input directory";

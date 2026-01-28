@@ -61,7 +61,8 @@ pub fn err(comptime fmt: []const u8, args: anytype) !void {
 
 /// Prints error message at stderr and exits with error code 1
 pub fn errorDirectory(directory_path: []const u8) noreturn {
-    err("\n{s}", .{i18n.ERROR_INPUT_DIRECTORY}) catch {};
+    stderr("\n") catch {};
+    err("{s}", .{i18n.ERROR_INPUT_DIRECTORY}) catch {};
 
     const data: []const u8 = std.fmt.bufPrint(globals.buffer, " \"{s}\"\n\n", .{directory_path}) catch "";
     stderr(data) catch {};

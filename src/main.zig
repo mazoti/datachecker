@@ -11,11 +11,11 @@ const globals          = @import("globals");
 const i18n             = @import("i18n");
 const print            = @import("print");
 
-const HelpVersionConfig = *const fn() anyerror!void;
+const NoParameterFunc = *const fn() anyerror!void;
 
 /// Map of command-line flags to their corresponding handler functions
 /// Supports various help and version flag formats (Unix, Windows, case variations)
-const help_version_map = std.StaticStringMap(HelpVersionConfig).initComptime(.{
+const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "--config"    , &createConfig },
     .{ "--configure" , &createConfig },
     .{ "-c"          , &createConfig },
@@ -42,6 +42,190 @@ const help_version_map = std.StaticStringMap(HelpVersionConfig).initComptime(.{
     .{ "/V"          , &printVersion },
     .{ "version"     , &printVersion },
     .{ "VERSION"     , &printVersion },
+});
+
+const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
+    .{ "--duplicate"    , &core.duplicateFiles         },
+    .{ "-d"             , &core.duplicateFiles         },
+    .{ "-D"             , &core.duplicateFiles         },
+    .{ "-duplicate"     , &core.duplicateFiles         },
+    .{ "/D"             , &core.duplicateFiles         },
+    .{ "duplicate"      , &core.duplicateFiles         },
+    .{ "DUPLICATE"      , &core.duplicateFiles         },
+
+    .{ "--duplicate_mt" , &core.duplicateFilesParallel },
+    .{ "-dmt"           , &core.duplicateFilesParallel },
+    .{ "-DMT"           , &core.duplicateFilesParallel },
+    .{ "-duplicate_mt"  , &core.duplicateFilesParallel },
+    .{ "/DMT"           , &core.duplicateFilesParallel },
+    .{ "duplicate_mt"   , &core.duplicateFilesParallel },
+    .{ "DUPLICATE_MT"   , &core.duplicateFilesParallel },
+
+    .{ "--links"        , &core.linksShortcuts         },
+    .{ "-ls"            , &core.linksShortcuts         },
+    .{ "-LS"            , &core.linksShortcuts         },
+    .{ "-links"         , &core.linksShortcuts         },
+    .{ "/LS"            , &core.linksShortcuts         },
+    .{ "links"          , &core.linksShortcuts         },
+    .{ "LINKS"          , &core.linksShortcuts         },
+
+    .{ "--integrity"    , &core.integrityFiles         },
+    .{ "-i"             , &core.integrityFiles         },
+    .{ "-I"             , &core.integrityFiles         },
+    .{ "-integrity"     , &core.integrityFiles         },
+    .{ "/INTEGRITY"     , &core.integrityFiles         },
+    .{ "integrity"      , &core.integrityFiles         },
+    .{ "INTEGRITY"      , &core.integrityFiles         },
+
+    .{ "--integrity_mt" , &core.integrityFilesParallel },
+    .{ "-imt"           , &core.integrityFilesParallel },
+    .{ "-IMT"           , &core.integrityFilesParallel },
+    .{ "-integrity_mt"  , &core.integrityFilesParallel },
+    .{ "/INTEGRITY_MT"  , &core.integrityFilesParallel },
+    .{ "integrity_mt"   , &core.integrityFilesParallel },
+    .{ "INTEGRITY_MT"   , &core.integrityFilesParallel },
+
+    .{ "--temp"         , &core.temporaryFiles         },
+    .{ "-tf"            , &core.temporaryFiles         },
+    .{ "-TF"            , &core.temporaryFiles         },
+    .{ "-temp"          , &core.temporaryFiles         },
+    .{ "/TEMP"          , &core.temporaryFiles         },
+    .{ "temp"           , &core.temporaryFiles         },
+    .{ "TEMP"           , &core.temporaryFiles         },
+
+    .{ "--conf"         , &core.confidentialFiles      },
+    .{ "-cf"            , &core.confidentialFiles      },
+    .{ "-CF"            , &core.confidentialFiles      },
+    .{ "-conf"          , &core.confidentialFiles      },
+    .{ "/CONF"          , &core.confidentialFiles      },
+    .{ "conf"           , &core.confidentialFiles      },
+    .{ "CONF"           , &core.confidentialFiles      },
+
+    .{ "--compressed"   , &core.compressedFiles        },
+    .{ "-c"             , &core.compressedFiles        },
+    .{ "-C"             , &core.compressedFiles        },
+    .{ "-compressed"    , &core.compressedFiles        },
+    .{ "/COMPRESSED"    , &core.compressedFiles        },
+    .{ "compressed"     , &core.compressedFiles        },
+    .{ "COMPRESSED"     , &core.compressedFiles        },
+
+    .{ "--dupchars"     , &core.duplicateChars         },
+    .{ "-dc"            , &core.duplicateChars         },
+    .{ "-DC"            , &core.duplicateChars         },
+    .{ "-dupchars"      , &core.duplicateChars         },
+    .{ "/DC"            , &core.duplicateChars         },
+    .{ "dupchars"       , &core.duplicateChars         },
+    .{ "DUPCHARS"       , &core.duplicateChars         },
+
+    .{ "--empty"        , &core.emptyFiles             },
+    .{ "-ef"            , &core.emptyFiles             },
+    .{ "-EF"            , &core.emptyFiles             },
+    .{ "-empty"         , &core.emptyFiles             },
+    .{ "/EF"            , &core.emptyFiles             },
+    .{ "empty"          , &core.emptyFiles             },
+    .{ "EMPTY"          , &core.emptyFiles             },
+
+    .{ "--large"        , &core.largeFiles             },
+    .{ "-lf"            , &core.largeFiles             },
+    .{ "-LF"            , &core.largeFiles             },
+    .{ "-large"         , &core.largeFiles             },
+    .{ "/LF"            , &core.largeFiles             },
+    .{ "large"          , &core.largeFiles             },
+    .{ "LARGE"          , &core.largeFiles             },
+
+    .{ "--last"         , &core.lastAccess             },
+    .{ "-l"             , &core.lastAccess             },
+    .{ "-L"             , &core.lastAccess             },
+    .{ "-last"          , &core.lastAccess             },
+    .{ "/L"             , &core.lastAccess             },
+    .{ "last"           , &core.lastAccess             },
+    .{ "LAST"           , &core.lastAccess             },
+
+    .{ "--legacy"       , &core.legacyFiles            },
+    .{ "-legacy"        , &core.legacyFiles            },
+    .{ "/LEGACY"        , &core.legacyFiles            },
+    .{ "legacy"         , &core.legacyFiles            },
+    .{ "LEGACY"         , &core.legacyFiles            },
+
+    .{ "--magic"        , &core.magicNumbers           },
+    .{ "-m"             , &core.magicNumbers           },
+    .{ "-M"             , &core.magicNumbers           },
+    .{ "-magic"         , &core.magicNumbers           },
+    .{ "/M"             , &core.magicNumbers           },
+    .{ "magic"          , &core.magicNumbers           },
+    .{ "MAGIC"          , &core.magicNumbers           },
+
+    .{ "--noext"        , &core.noExtension            },
+    .{ "-n"             , &core.noExtension            },
+    .{ "-N"             , &core.noExtension            },
+    .{ "-noext"         , &core.noExtension            },
+    .{ "/N"             , &core.noExtension            },
+    .{ "noext"          , &core.noExtension            },
+    .{ "NOEXT"          , &core.noExtension            },
+
+    .{ "--json"         , &core.checkJSON              },
+    .{ "-j"             , &core.checkJSON              },
+    .{ "-J"             , &core.checkJSON              },
+    .{ "-json"          , &core.checkJSON              },
+    .{ "/J"             , &core.checkJSON              },
+    .{ "json"           , &core.checkJSON              },
+    .{ "JSON"           , &core.checkJSON              },
+
+    .{ "--wrong"        , &core.wrongDates             },
+    .{ "-w"             , &core.wrongDates             },
+    .{ "-W"             , &core.wrongDates             },
+    .{ "-wrong"         , &core.wrongDates             },
+    .{ "/W"             , &core.wrongDates             },
+    .{ "wrong"          , &core.wrongDates             },
+    .{ "WRONG"          , &core.wrongDates             },
+
+    .{ "--emptydirs"    , &core.emptyDirectories       },
+    .{ "-e"             , &core.emptyDirectories       },
+    .{ "-E"             , &core.emptyDirectories       },
+    .{ "-emptydirs"     , &core.emptyDirectories       },
+    .{ "/E"             , &core.emptyDirectories       },
+    .{ "emptydirs"      , &core.emptyDirectories       },
+    .{ "EMPTYDIRS"      , &core.emptyDirectories       },
+
+    .{ "--manyitems"    , &core.manyItemsDirectories   },
+    .{ "-mi"            , &core.manyItemsDirectories   },
+    .{ "-MI"            , &core.manyItemsDirectories   },
+    .{ "-manyitems"     , &core.manyItemsDirectories   },
+    .{ "/MI"            , &core.manyItemsDirectories   },
+    .{ "manyitems"      , &core.manyItemsDirectories   },
+    .{ "MANYITEMS"      , &core.manyItemsDirectories   },
+
+    .{ "--oneitem"      , &core.oneItemDirectories     },
+    .{ "-o"             , &core.oneItemDirectories     },
+    .{ "-O"             , &core.oneItemDirectories     },
+    .{ "-oneitem"       , &core.oneItemDirectories     },
+    .{ "/O"             , &core.oneItemDirectories     },
+    .{ "oneitem"        , &core.oneItemDirectories     },
+    .{ "ONEITEM"        , &core.oneItemDirectories     },
+
+    .{ "--dirsize"      , &core.dirFileNameSize        },
+    .{ "-ds"            , &core.dirFileNameSize        },
+    .{ "-DS"            , &core.dirFileNameSize        },
+    .{ "-dirsize"       , &core.dirFileNameSize        },
+    .{ "/DS"            , &core.dirFileNameSize        },
+    .{ "dirsize"        , &core.dirFileNameSize        },
+    .{ "DIRSIZE"        , &core.dirFileNameSize        },
+
+    .{ "--fullpathsize" , &core.fullPathSize           },
+    .{ "-f"             , &core.fullPathSize           },
+    .{ "-F"             , &core.fullPathSize           },
+    .{ "-fullpathsize"  , &core.fullPathSize           },
+    .{ "/F"             , &core.fullPathSize           },
+    .{ "fullpathsize"   , &core.fullPathSize           },
+    .{ "FULLPATHSIZE"   , &core.fullPathSize           },
+
+    .{ "--uchars"       , &core.unportableChars        },
+    .{ "-u"             , &core.unportableChars        },
+    .{ "-U"             , &core.unportableChars        },
+    .{ "-uchars"        , &core.unportableChars        },
+    .{ "/U"             , &core.unportableChars        },
+    .{ "uchars"         , &core.unportableChars        },
+    .{ "UCHARS"         , &core.unportableChars        },
 });
 
 /// Prints help and exits
@@ -141,7 +325,7 @@ fn commonMain(init: std.process.Init) !void {
     }
 
     if (args.len > 1) {
-        check_directory = try globals.alloc.*.dupe(u8, args[1]);
+        check_directory = try globals.alloc.*.dupe(u8, args[args.len - 1]);
     } else {
         if (globals.config_parsed.value.INPUT_FOLDER.len == 1) {
             check_directory = try std.process.getCwdAlloc(globals.alloc.*);
@@ -192,14 +376,24 @@ fn commonMain(init: std.process.Init) !void {
 
     globals.semaphore = std.Thread.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
 
-    // Runs all enabled check modules
-    core.run() catch |err| switch (err) {
-        error.AccessDenied => {
-            try print.err("\n{s}", .{i18n.ERROR_ACCESS_DENIED});
-            std.process.exit(3);
-        },
-        else => return err,
-    };
+    if (args.len > 2) {
+        if (command_map.get(args[1])) |func| {
+            globals.config_parsed.value.ENABLE_CACHE = false;
+			try func();
+        } else {
+            try print.stderr("\n");
+			try print.err(i18n.ERROR_COMMAND_NOT_FOUND, .{args[1]});
+        }
+    } else {
+        // Runs all enabled check modules
+        core.run() catch |err| switch (err) {
+            error.AccessDenied => {
+                try print.err("\n{s}", .{i18n.ERROR_ACCESS_DENIED});
+                std.process.exit(3);
+            },
+            else => return err,
+        };
+    }
 
     if (!globals.config_parsed.value.ENTER_TO_QUIT) return print.stdout("\n\n");
 

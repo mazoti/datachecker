@@ -2,24 +2,27 @@
 
 **DataChecker** is an open-source command-line tool that helps users save space, fix data and improve security. It is simple, fast and very easy to use.
 
-### Requirements:
+## Requirements:
 
-- [FreeBSD](https://freebsd.org)
-- Linux
-- [NetBSD](https://netbsd.org)
-- [Windows](https://windows.com)
+- [FreeBSD](https://freebsd.org), Linux, [NetBSD](https://netbsd.org) or [Windows](https://windows.com)
 - ANSI compatible terminal like [kitty](https://sw.kovidgoyal.net/kitty/), xterm, [alacritty](https://alacritty.org), [Cmder](https://cmder.app), [Windows Terminal](https://github.com/microsoft/terminal)
 
-### Download
+## Download
 
 Binaries for x86_64 are available [here](https://github.com/mazoti/datachecker/tree/main/download). If you don't find a binary release for your system, you can [build from source](#build-from-source).
 
-### Usage
+## Usage
 
 Just run:
 
 ```
 datachecker <directory>
+```
+
+To run just one command (see commands section below):
+
+```
+datachecker <command> <directory>
 ```
 
 If you want to configure the default behavior, create a default configuration:
@@ -39,6 +42,83 @@ Tip: if your results has too many issues, set COLOR and ENTER_TO_QUIT to false a
 ```
 datachecker 2> results.txt
 ```
+
+## Commands/Aliases
+
+- **--duplicate, -d, -D, duplicate, /D, DUPLICATE**  
+  Search for duplicate files
+
+- **--duplicate_mt, -dmt, -DMT, duplicate_mt, /DMT, DUPLICATE_MT**  
+  Search for duplicate files using multithreading
+
+- **--links, -ls, -LS, links, /LS, LINKS**  
+  Search for links and shortcuts
+
+- **--integrity, -i, -I, integrity, /I, INTEGRITY**  
+  Create or verify file hashes
+
+- **--integrity_mt, -imt, -IMT, integrity_mt, /IMT, INTEGRITY_MT**  
+  Create or verify file hashes using multithreading
+
+- **--temp, -tf, -TF, temp, /TF, TEMP**  
+  Search for temporary files
+
+- **--conf, -cf, -CF, conf, /CF, CONF**  
+  Search for confidential data in files  
+  (create `config.json` to customize search patterns)
+
+- **--compressed, -c, -C, compressed, /C, COMPRESSED**  
+  Search for optimization opportunities in lossless compressed files
+
+- **--dupchars, -dc, -DC, dupchars, /DC, DUPCHARS**  
+  Search for duplicate characters in filenames
+
+- **--empty, -ef, -EF, empty, /EF, EMPTY**  
+  Search for empty files
+
+- **--large, -lf, -LF, large, /LF, LARGE**  
+  Search for large files  
+  (create `config.json` to customize size threshold)
+
+- **--last, -l, -L, last, /L, LAST**  
+  Search for files not accessed recently  
+  (create `config.json` to customize time period)
+
+- **--legacy, -lg, -LG, legacy, /LG, LEGACY**  
+  Search for files using outdated formats
+
+- **--magic, -m, -M, magic, /M, MAGIC**  
+  Search for files with mismatched magic numbers
+
+- **--noext, -n, -N, noext, /N, NOEXT**  
+  Search for files without extensions and attempt to identify them
+
+- **--json, -j, -J, json, /J, JSON**  
+  Search for JSON files with syntax errors
+
+- **--wrong, -w, -W, wrong, /W, WRONG**  
+  Search for files with future timestamps
+
+- **--emptydirs, -e, -E, emptydirs, /E, EMPTYDIRS**  
+  Search for empty directories
+
+- **--manyitems, -mi, -MI, manyitems, /MI, MANYITEMS**  
+  Search for directories with excessive items  
+  (create `config.json` to customize item threshold)
+
+- **--oneitem, -o, -O, oneitem, /O, ONEITEM**  
+  Search for directories containing only one item
+
+- **--dirsize, -ds, -DS, dirsize, /DS, DIRSIZE**  
+  Search for directories or files with excessively long names  
+  (create `config.json` to customize length threshold)
+
+- **--fullpathsize, -f, -F, fullpathsize, /F, FULLPATHSIZE**  
+  Search for excessively long absolute paths  
+  (create `config.json` to customize path length threshold)
+
+- **--uchars, -u, -U, uchars, /U, UCHARS**  
+  Search for non-portable characters in absolute paths
 
 ## Build from source
 
@@ -83,7 +163,7 @@ zig build run -- .             (runs in debug mode using current folder)
 zig build test                 (runs unit tests)
 ```
 
-### Configurations
+## Configurations
 
 The following describes the configuration options in the config.json file. If this file does not exist in the same folder as the binary, the system uses the default values.
 

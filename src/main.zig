@@ -281,6 +281,8 @@ fn commonMain(init: std.process.Init) !void {
     defer _ = gpa.deinit();
     globals.alloc = &gpa.allocator();
 
+    globals.memory_limit = (try std.process.totalSystemMemory()) / 2;
+
     globals.io = init.io;
 
     globals.file_writer_stdout = .init(.stdout(), globals.io, &globals.io_buffer);
@@ -328,12 +330,12 @@ fn commonMain(init: std.process.Init) !void {
         check_directory = try globals.alloc.*.dupe(u8, args[args.len - 1]);
     } else {
         if (globals.config_parsed.value.INPUT_FOLDER.len == 1) {
-            check_directory = try std.process.getCwdAlloc(globals.alloc.*);
+            check_directory = try std.process.currentPathAlloc(globals.io, globals.alloc.*);
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 try print.stderr("\n");
                 try print.warning("{s}", .{i18n.CONFIG_MESSAGE_WARNING});
-                check_directory = try std.process.getCwdAlloc(globals.alloc.*);
+                check_directory = try std.process.currentPathAlloc(globals.io, globals.alloc.*);
             } else {
                 check_directory = try globals.alloc.*.dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
             }
@@ -374,25 +376,19 @@ fn commonMain(init: std.process.Init) !void {
     globals.now_stat = try std.Io.Dir.cwd().statFile(globals.io, "datachecker_empty", .{});
     std.Io.Dir.cwd().deleteFile(globals.io, "datachecker_empty") catch {};
 
-    globals.semaphore = std.Thread.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
+    globals.semaphore = std.Io.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
 
     if (args.len > 2) {
         if (command_map.get(args[1])) |func| {
             globals.config_parsed.value.ENABLE_CACHE = false;
-			try func();
+            try func();
         } else {
             try print.stderr("\n");
-			try print.err(i18n.ERROR_COMMAND_NOT_FOUND, .{args[1]});
+            try print.err(i18n.ERROR_COMMAND_NOT_FOUND, .{args[1]});
         }
     } else {
         // Runs all enabled check modules
-        core.run() catch |err| switch (err) {
-            error.AccessDenied => {
-                try print.err("\n{s}", .{i18n.ERROR_ACCESS_DENIED});
-                std.process.exit(3);
-            },
-            else => return err,
-        };
+        try core.run();
     }
 
     if (!globals.config_parsed.value.ENTER_TO_QUIT) return print.stdout("\n\n");

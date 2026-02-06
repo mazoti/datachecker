@@ -7,10 +7,13 @@ const std          = @import("std");
 
 const config       = @import("config");
 const globals      = @import("globals");
+const i18n         = @import("i18n");
+const print        = @import("print");
 
 const dup_parallel = @import("parallel.zig");
 const dup_single   = @import("single.zig");
 const modules      = @import("../core.zig");
+
 
 pub fn check(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items, walker)
@@ -32,16 +35,47 @@ walker: *std.Io.Dir.Walker) !void {
         return;
     }
 
-    while (try walker.next(globals.io)) |entry| {
-        if (entry.kind != .file and entry.kind != .directory) continue;
 
-        const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-            .{globals.absolute_input_path, std.fs.path.sep, entry.path});
 
-        // Add the file to cache
-        const stat: std.Io.File.Stat = try modules.fetchAdd(absolute_path);
+    while (true) {
+        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
+            error.AccessDenied => {
+                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
 
-        if (entry.kind == .file) try groupFileBySizeCore(&stat, map, absolute_path);
+                var total_items: u64 = 0;
+                _ = try modules.messageSum(print.err, &total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                continue;
+            },
+            else => return err,
+        };
+
+        if (entry_tmp) |entry| {
+            if (entry.kind != .file and entry.kind != .directory) continue;
+
+            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+
+            // Add the file to cache
+            const stat: std.Io.File.Stat = modules.fetchAdd(absolute_path) catch |err| switch (err) {
+                error.AccessDenied => {
+                    var total_items: u64 = 0;
+                    _ = try modules.messageSum(print.err, &total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                    continue;
+                },
+                error.FileBusy => {
+                    var total_items: u64 = 0;
+                    _ = try modules.messageSum(print.err, &total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
+                    continue;
+
+                },
+                else => return err,
+            };
+
+            if (entry.kind == .file) try groupFileBySizeCore(&stat, map, absolute_path);
+            continue;
+        }
+        return;
     }
 }
 

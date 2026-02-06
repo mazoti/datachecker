@@ -51,6 +51,9 @@ pub var file_writer_stdout_interface: std.Io.Writer      = undefined;
 pub var file_writer_stderr_interface: std.Io.Writer      = undefined;
 
 /// Parallel synchronization
-pub var mutex:     std.Thread.Mutex     = std.Thread.Mutex{};
-pub var semaphore: std.Thread.Semaphore = undefined;
-pub var group:     std.Io.Group         = undefined;
+pub var mutex:     std.Io.Mutex     = std.Io.Mutex{.state = std.atomic.Value(std.Io.Mutex.State).init(.unlocked)};
+pub var semaphore: std.Io.Semaphore = undefined;
+pub var group:     std.Io.Group     = undefined;
+
+/// Memory max usage
+pub var memory_limit: usize = undefined;

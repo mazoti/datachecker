@@ -17,7 +17,7 @@ pub fn checkJSON(args: anytype) !bool {
     if (!std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".json")) return true;
 
     const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
-        std.Io.Limit.limited64(globals.config_parsed.value.BUFFER_SIZE)) catch |err| {
+        std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
 
             if (err == error.StreamTooLong) return core.messageSum(print.err, args[1], 1,

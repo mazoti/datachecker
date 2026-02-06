@@ -139,7 +139,7 @@ fn checkParallel(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
                 //const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
 
                 if (hash_functions_map.get(extension)) |func| {
-                    globals.semaphore.wait();
+                    try globals.semaphore.wait(io);
                     globals.group.async(io, hashParallel, .{entry.*, total_items, false, func.parallel});
                 }
             }
@@ -148,30 +148,57 @@ fn checkParallel(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
         return globals.group.await(io);
     }
 
-    while (try walker.next(io)) |entry| {
-        if (entry.kind != .file and entry.kind != .directory) continue;
+    while (true) {
+        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
+            error.AccessDenied => {
+                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
 
-        const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-            .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+                messageSumMutex(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                continue;
+            },
+            else => return err,
+        };
 
-        // Add the file and directory to cache
-        _ = try core.fetchAdd(absolute_path);
-        if (entry.kind != .file) continue;
+        if (entry_tmp) |entry| {
+            if (entry.kind != .file and entry.kind != .directory) continue;
+      
+            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
 
-        // Extract extension and normalize to lowercase for case-insensitive matching
-        const extension: []const u8 = std.fs.path.extension(absolute_path);
-        if (extension.len == 0) continue;
+            // Add the file and directory to cache
+            _ = core.fetchAdd(absolute_path) catch |err| switch (err) {
+                error.AccessDenied => {
+                    messageSumMutex(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                    continue;
+                },
+                error.FileBusy => {
+                    messageSumMutex(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
+                    continue;
 
-        // Bounds check before lowercasing
-        if (extension.len > globals.buffer.len) continue;
+                },
+                else => return err,
+            };
 
-        const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
+            if (entry.kind != .file) continue;
+      
+            // Extract extension and normalize to lowercase for case-insensitive matching
+            const extension: []const u8 = std.fs.path.extension(absolute_path);
+            if (extension.len == 0) continue;
+      
+            // Bounds check before lowercasing
+            if (extension.len > globals.buffer.len) continue;
 
-        if (hash_functions_map.get(lowercase)) |func| {
-            const entry_path: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
-            globals.semaphore.wait();
-            globals.group.async(io, hashParallel, .{entry_path, total_items, true, func.parallel});
+            const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
+
+            if (hash_functions_map.get(lowercase)) |func| {
+                const entry_path: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
+                try globals.semaphore.wait(io);
+                globals.group.async(io, hashParallel, .{entry_path, total_items, true, func.parallel});
+            }
+            continue;
         }
+        return;
     }
 
     try globals.group.await(io);
@@ -190,16 +217,41 @@ fn checkSingle(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
         return;
     }
 
-    while (try walker.next(globals.io)) |entry| {
-        if (entry.kind != .file and entry.kind != .directory) continue;
+    while (true) {
+        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
+            error.AccessDenied => {
+                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
 
-        const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-            .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                continue;
+            },
+            else => return err,
+        };
 
-        // Add the file or directory to cache
-        _ = try core.fetchAdd(absolute_path);
-
-        if (entry.kind == .file) _ = try hashSingle(absolute_path, total_items);
+        if (entry_tmp) |entry| {
+            if (entry.kind != .file and entry.kind != .directory) continue;
+       
+            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+       
+            // Add the file or directory to cache
+            _ = core.fetchAdd(absolute_path) catch |err| switch (err) {
+                error.AccessDenied => {
+                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                    continue;
+                },
+                error.FileBusy => {
+                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
+                    continue;
+                },
+                else => return err,
+            };
+       
+            if (entry.kind == .file) _ = try hashSingle(absolute_path, total_items);
+            continue;
+        }
+        return;
     }
 }
 
@@ -221,7 +273,7 @@ fn hashSingle(absolute_path: []const u8, total_items: *u64) !bool {
 fn hashParallel(absolute_path: []const u8, total_items: *u64, defer_clean: bool, func: *const fn ([]const u8, *u64)
 void) void {
     defer {
-        globals.semaphore.post();
+        globals.semaphore.post(globals.io);
         if (defer_clean) globals.alloc.*.free(absolute_path);
     }
 
@@ -230,7 +282,8 @@ void) void {
 
 fn hashSingleCore(file_hash: []const u8, total_items: *u64, extension: []const u8, algorithm: type) anyerror!bool {
     const hex_size: usize = algorithm.digest_length * 2;
-    var hash_code: [hex_size]u8 = undefined;
+
+	var hash_code: [hex_size]u8 = undefined;
     var calc_hash: [algorithm.digest_length]u8 = undefined;
     var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
 
@@ -340,8 +393,11 @@ pub fn messageSumMutex(
     comptime fmt:   []const u8,
     args:           anytype
 ) void {
-    globals.mutex.lock();
-    defer globals.mutex.unlock();
+    globals.mutex.lock(globals.io) catch |err| {
+        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+        return;
+    };
+    defer globals.mutex.unlock(globals.io);
         total_items.* += sum_value;
         print_function(fmt, args) catch |err| {
             if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });

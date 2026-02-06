@@ -214,11 +214,12 @@ pub const QUIT_MESSAGE                     = "\n\nPress enter to quit";
 pub const TOTAL_MESSAGE                    = "\n\n\t\t Total:\n\t\t\t";
 pub const WARNING_MESSAGE                  = "\n\t\tWARNING ";
 
-pub const ERROR_ACCESS_DENIED              = "Access denied: root or admin permission needed\n";
+pub const ERROR_ACCESS_DENIED_PATH         = "\"{s}\": access denied";
 pub const ERROR_ALLOC_MEM                  = "Failed to allocate memory for path \"{s}\": {}\n";
 pub const ERROR_APPEND_PATH                = "Failed to append path to list: \"{}\"\n";
 pub const ERROR_COMMAND_NOT_FOUND          = "Command \"{s}\" not found\n";
 pub const ERROR_CONFIG_FILE                = "\"config.json\" already exists";
+pub const ERROR_FILE_BUSY                  = "\"{s}\" is busy";
 pub const ERROR_HASH_FILE                  = "Failed to hash file \"{s}\": {}\n";
 pub const ERROR_INPUT_DIRECTORY            = "Can't read input directory";
 pub const ERROR_INSERT_HASHMAP             = "Failed to insert into hash map: \"{}\"\n";

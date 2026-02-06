@@ -77,7 +77,7 @@ std.ArrayList([]const u8))) !void {
     defer globals.group.cancel(io);
 
     for (input.items) |filepath| {
-        globals.semaphore.wait();
+        try globals.semaphore.wait(io);
         globals.group.async(io, parallelHash, .{filepath, map_hash});
     }
 
@@ -88,7 +88,7 @@ std.ArrayList([]const u8))) !void {
 /// Each worker operates independently until the critical section (map update)
 fn parallelHash(filepath: []const u8, map_hash: *std.AutoArrayHashMapUnmanaged([32]u8, std.ArrayList([]const u8)))
 void {
-    defer globals.semaphore.post();
+    defer globals.semaphore.post(globals.io);
 
     var file_hash: [32]u8 = undefined;
 
@@ -113,8 +113,11 @@ void {
 
     errdefer globals.alloc.free(append_data);
 
-    globals.mutex.lock();
-    defer globals.mutex.unlock();
+    globals.mutex.lock(globals.io) catch |err| {
+        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+        return;
+    };
+    defer globals.mutex.unlock(globals.io);
 
         // Case 1: Hash already exists - append to existing list (duplicate detected)
         if (map_hash.getPtr(file_hash)) |paths| {

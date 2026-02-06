@@ -396,19 +396,45 @@ fn decorate(
             defer walker.deinit();
 
             // If no cached stats, walk the directory tree
-            while (try walker.next(globals.io)) |entry| {
-                if (comptime filter == .Files)       { if (entry.kind != .file)      continue; }
-                if (comptime filter == .Directories) { if (entry.kind != .directory) continue; }
-                if (comptime filter == .Both) {
-                    if (entry.kind != .directory and entry.kind != .file) continue;
+            while (true) {
+                const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
+                    error.AccessDenied => {
+                        const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                            .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
+
+                        _ = try messageSum(print.err, &total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                        continue;
+                    },
+                    else => return err,
+                };
+
+                if (entry_tmp) |entry| {
+                    if (comptime filter == .Files)       { if (entry.kind != .file)      continue; }
+                    if (comptime filter == .Directories) { if (entry.kind != .directory) continue; }
+                    if (comptime filter == .Both) {
+                        if (entry.kind != .directory and entry.kind != .file) continue;
+                    }
+
+                    const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                       .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+
+                    // Add the file and directory to cache
+                    const stat: std.Io.File.Stat = fetchAdd(absolute_path) catch |err| switch (err) {
+                        error.AccessDenied => {
+                            _ = try messageSum(print.err, &total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+                            continue;
+                        },
+                        error.FileBusy => {
+                            _ = try messageSum(print.err, &total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
+                            continue;
+                        },
+                        else => return err,
+                    };
+
+                   _ = try process_fn(.{absolute_path, &total_items, &stat});
+                   continue;
                 }
-
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                   .{globals.absolute_input_path, std.fs.path.sep, entry.path});
-
-               // Add the file and directory to cache
-               const stat: std.Io.File.Stat = try fetchAdd(absolute_path);
-               _ = try process_fn(.{absolute_path, &total_items, &stat});
+                break;
             }
 
             return print.results(total_items, header, total, totals);

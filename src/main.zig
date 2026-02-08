@@ -281,7 +281,9 @@ fn commonMain(init: std.process.Init) !void {
     defer _ = gpa.deinit();
     globals.alloc = &gpa.allocator();
 
-    globals.memory_limit = (try std.process.totalSystemMemory()) / 2;
+    const total_memory = try std.process.totalSystemMemory();
+    const half_memory = total_memory / 2;
+    globals.memory_limit = @intCast(@min(half_memory, std.math.maxInt(usize)));
 
     globals.io = init.io;
 

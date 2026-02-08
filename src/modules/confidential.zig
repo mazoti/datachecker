@@ -45,8 +45,14 @@ pub fn checkConfidential(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
             // skips directories
             const cached_stat: std.Io.File.Stat = globals.file_stats.get(entry.*) orelse continue;
 
-            if (cached_stat.kind == std.Io.File.Kind.file) try checkConfidentialFiles(.{entry.*,
-                total_items, &cached_stat, &ac});
+            if (cached_stat.kind == std.Io.File.Kind.file) checkConfidentialFiles(.{entry.*,
+                total_items, &cached_stat, &ac}) catch |err| switch (err) {
+                    error.FileNotFound => {
+                        _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{entry.*});
+                        continue;
+                    },
+                    else => return err,
+                };
         }
 
         return;

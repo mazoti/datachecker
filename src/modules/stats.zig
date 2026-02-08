@@ -98,7 +98,7 @@ pub fn linkShortcuts(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
                     i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
                 continue;
             }
-      
+
             // Adds the file or directory to cache
             _ = core.fetchAdd(absolute_path) catch |err| switch (err) {
                 error.AccessDenied => {
@@ -111,25 +111,25 @@ pub fn linkShortcuts(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
                 },
                 else => return err,
             };
-      
+
             if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
                 const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
                     .{.mode = .read_only, .lock = .shared});
                 defer input_file.close(globals.io);
-      
+
                 var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
                 const chunk = try file_reader.interface.take(4);
-      
+
                 if (chunk.len != 4) {
                     _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{absolute_path});
                     continue;
                 }
-      
+
                 if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
                     _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{absolute_path});
                     continue;
                 }
-      
+
                 _ = try core.messageSum(print.warning, total_items, 1,
                     i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
             }

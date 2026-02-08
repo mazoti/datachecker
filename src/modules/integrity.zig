@@ -175,7 +175,6 @@ fn checkParallel(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
                 error.FileBusy => {
                     messageSumMutex(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
                     continue;
-
                 },
                 else => return err,
             };
@@ -283,7 +282,7 @@ void) void {
 fn hashSingleCore(file_hash: []const u8, total_items: *u64, extension: []const u8, algorithm: type) anyerror!bool {
     const hex_size: usize = algorithm.digest_length * 2;
 
-	var hash_code: [hex_size]u8 = undefined;
+    var hash_code: [hex_size]u8 = undefined;
     var calc_hash: [algorithm.digest_length]u8 = undefined;
     var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
 

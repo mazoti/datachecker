@@ -2,10 +2,10 @@
 
 **DataChecker** is an open-source command-line tool that helps users save space, fix data and improve security. It is simple, fast and very easy to use.
 
-## Requirements:
+## Requirements
 
-- [FreeBSD](https://freebsd.org), Linux, [NetBSD](https://netbsd.org) or [Windows](https://windows.com)
-- ANSI compatible terminal like [kitty](https://sw.kovidgoyal.net/kitty/), xterm, [alacritty](https://alacritty.org), [Cmder](https://cmder.app), [Windows Terminal](https://github.com/microsoft/terminal)
+- [FreeBSD](https://freebsd.org), [Linux](https://distrowatch.org), [NetBSD](https://netbsd.org) or [Windows](https://windows.com)
+- ANSI compatible terminal like [kitty](https://sw.kovidgoyal.net/kitty/), xterm, [alacritty](https://alacritty.org), [Windows Terminal](https://github.com/microsoft/terminal)
 
 ## Download
 

@@ -5,7 +5,7 @@
 /// Spacing constant for alignment - matches the largest string size in output
 pub const ALIGNED_OK_SPACES: u32 = 49;
 
-pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.2 by Marcos Mazoti" ++
+pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.3 by Marcos Mazoti" ++
     " - https://mazoti.github.io/datachecker\x1b[0m\n\n\n";
 
 pub const HELP =
@@ -59,7 +59,7 @@ pub const HELP =
 \\        Search for files not accessed recently
 \\        (create config.json to customize time period)
 \\
-\\    --legacy, -lg, -LG, legacy, /LG, LEGACY
+\\    --legacy, -legacy, /LEGACY, legacy, LEGACY
 \\        Search for files using outdated formats
 \\
 \\    --magic, -m, -M, magic, /M, MAGIC
@@ -101,8 +101,8 @@ pub const HELP =
 pub const BYTES_TOTAL                      = "{d} byte\n";
 pub const BYTES_TOTALS                     = "{d} bytes\n";
 
-pub const CONFIG_MESSAGE                   = "\n\tLoading \"config.json\"...\n";
-pub const CONFIG_MESSAGE_CREATE            = "\n\tCreating \"config.json\"...\n";
+pub const CONFIG_MESSAGE                   = "\n\tLoading config.json...\n";
+pub const CONFIG_MESSAGE_CREATE            = "\n\tCreating config.json...\n";
 pub const CONFIG_MESSAGE_DEFAULT           = "\n\tLoading default configuration...\n";
 pub const CONFIG_MESSAGE_WARNING           = "\"config.json\" could not be parsed, using default values\n";
 
@@ -218,7 +218,8 @@ pub const ERROR_ACCESS_DENIED_PATH         = "\"{s}\": access denied";
 pub const ERROR_ALLOC_MEM                  = "Failed to allocate memory for path \"{s}\": {}\n";
 pub const ERROR_APPEND_PATH                = "Failed to append path to list: \"{}\"\n";
 pub const ERROR_COMMAND_NOT_FOUND          = "Command \"{s}\" not found\n";
-pub const ERROR_CONFIG_FILE                = "\"config.json\" already exists";
+pub const ERROR_CONFIG_FILE                = "config.json already exists";
+pub const ERROR_CONFIG_FILE_PARSE          = "\t\tFailed to parse config.json\n\n\n";
 pub const ERROR_FILE_BUSY                  = "\"{s}\" is busy";
 pub const ERROR_HASH_FILE                  = "Failed to hash file \"{s}\": {}\n";
 pub const ERROR_INPUT_DIRECTORY            = "Can't read input directory";

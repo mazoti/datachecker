@@ -138,15 +138,15 @@ pub fn check_mt(comptime fmt: []const u8, args: anytype) !void {
 /// Core printing function with optional ANSI color codes (multi-thread)
 fn core_mt(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8,
 args: anytype) !void {
-    const fmt_str: []const u8 = try std.fmt.allocPrint(globals.alloc.*, fmt, args);
-    defer globals.alloc.free(fmt_str);
+    var buf: [4096]u8 = undefined;
+    var buf2: [4096]u8 = undefined;
+
+    const fmt_str: []const u8 = try std.fmt.bufPrint(&buf, fmt, args);
 
     // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
-    const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.allocPrint(globals.alloc.*,
+    const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(&buf2,
         "{s}{s}\x1b[0m{s}", .{ansi_color, print_message, fmt_str}) else
-        try std.fmt.allocPrint(globals.alloc.*, "{s}{s}", .{print_message, fmt_str});
-
-    defer globals.alloc.free(data);
+        try std.fmt.bufPrint(&buf2, "{s}{s}", .{print_message, fmt_str});
 
     return stderr(data);
 }

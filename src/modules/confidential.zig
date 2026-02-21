@@ -15,7 +15,7 @@ const core        = @import("core.zig");
 /// Scans a directory tree for confidential files
 pub fn checkConfidential(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     // Initializes Aho-Corasick trie
-    var ac: ahocorasick.AhoCorasick() = try ahocorasick.AhoCorasick().initEmpty(globals.alloc.*);
+    var ac: ahocorasick.AhoCorasick = try ahocorasick.AhoCorasick.initEmpty(globals.alloc.*);
     defer ac.deinit();
 
     // Converts each hex pattern to bytes and add to trie
@@ -37,63 +37,14 @@ pub fn checkConfidential(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     // Set failure links
     try ac.configure();
 
-    // First check if there are cached file statistics
-    if (globals.file_stats.count() > 0) {
-        var iterator = globals.file_stats.keyIterator();
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    defer file_iterator.deinit();
 
-        while (iterator.next()) |entry| {
-            // skips directories
-            const cached_stat: std.Io.File.Stat = globals.file_stats.get(entry.*) orelse continue;
-
-            if (cached_stat.kind == std.Io.File.Kind.file) checkConfidentialFiles(.{entry.*,
-                total_items, &cached_stat, &ac}) catch |err| switch (err) {
-                    error.FileNotFound => {
-                        _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{entry.*});
-                        continue;
-                    },
-                    else => return err,
-                };
-        }
-
-        return;
+    while (try file_iterator.next(total_items)) |entry| {
+        try checkConfidentialFiles(.{entry.path, total_items, &entry.stat, &ac});
     }
 
-    while (true) {
-        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
-            error.AccessDenied => {
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
-
-                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                continue;
-            },
-            else => return err,
-        };
-
-        if (entry_tmp) |entry| {
-            if (entry.kind != .file and entry.kind != .directory) continue;
-
-            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
-
-            // Add the file or folder to cache
-            const stat: std.Io.File.Stat = core.fetchAdd(absolute_path) catch |err| switch (err) {
-                error.AccessDenied => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                    continue;
-                },
-                error.FileBusy => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
-                    continue;
-                },
-                else => return err,
-            };
-
-            if (entry.kind == .file) try checkConfidentialFiles(.{absolute_path, total_items, &stat, &ac});
-            continue;
-        }
-        return;
-    }
+    _ = walker;
 }
 
 /// Scans file contents for any string or byte pattern defined in config.json
@@ -109,7 +60,12 @@ fn checkConfidentialFiles(args: anytype) !void {
     while (true) {
         const chunk: []u8 = file_reader.interface.take(globals.config_parsed.value.BUFFER_SIZE)
             catch |err| switch (err) {
-                error.EndOfStream => return,
+                error.EndOfStream => {
+                    if (args[3].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end]))
+                        _ = try core.messageSum(print.warning, args[1], 1,
+                            i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+                    return;
+                },
                 else => return err,
             };
 

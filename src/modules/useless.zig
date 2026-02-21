@@ -307,92 +307,41 @@ const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initCompti
 
 /// Scans a directory tree for legacy file formats
 pub fn legacyFiles(args: anytype) !bool {
-    // Extract extension and normalize to lowercase for case-insensitive matching
-    const extension: []const u8 = std.fs.path.extension(args[0]);
-    if (extension.len == 0) return false;
+    if (core.getExtensionLowercase(args[0])) |lowercase| {
+        const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
 
-    // Bounds check before lowercasing
-    if (extension.len > globals.buffer.len) return false;
+        // Checks if the extension matches any known legacy format
+        return core.messageSum(print.warning, args[1], 1, i18n.LEGACY_FILES_WARNING, .{ args[0], description });
+    }
 
-    const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
-    const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
-
-    // Checks if the extension matches any known legacy format
-    return core.messageSum(print.warning, args[1], 1, i18n.LEGACY_FILES_WARNING, .{ args[0], description });
+    return false;
 }
 
 /// Scans a directory tree for temporary files
 pub fn temporaryFiles(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     // Initializes Aho-Corasick trie
-    var ac = try ahocorasick.AhoCorasick().init(globals.alloc.*, &CONTAINS);
+    var ac = try ahocorasick.AhoCorasick.init(globals.alloc.*, &CONTAINS);
     defer ac.deinit();
 
-    // First check if there are cached file statistics
-    if (globals.file_stats.count() > 0) {
-        var iterator = globals.file_stats.keyIterator();
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    defer file_iterator.deinit();
 
-        while (iterator.next()) |entry| {
-            // skips directories
-            const cached_stat: std.Io.File.Stat = globals.file_stats.get(entry.*) orelse continue;
-            if (cached_stat.kind == std.Io.File.Kind.file) _ = try checkTempFiles(.{entry.*,
-                total_items, &cached_stat, &ac});
-        }
-        return;
+    while (try file_iterator.next(total_items)) |entry| {
+        _ = try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac});
     }
 
-    while (true) {
-        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
-            error.AccessDenied => {
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
-
-                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                continue;
-            },
-            else => return err,
-        };
-
-        if (entry_tmp) |entry| {
-            if (entry.kind != .file and entry.kind != .directory) continue;
-
-            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
-
-            // Add the file or folder to cache
-            const stat: std.Io.File.Stat = core.fetchAdd(absolute_path) catch |err| switch (err) {
-                error.AccessDenied => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                    continue;
-                },
-                error.FileBusy => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
-                    continue;
-                },
-                else => return err,
-            };
-
-            if (entry.kind == .file) _ = try checkTempFiles(.{absolute_path, total_items, &stat, &ac});
-            continue;
-        }
-        return;
-    }
+_ = walker;
 }
 
 fn checkTempFiles(args: anytype) !bool {
     // Extract and normalize extension for case-insensitive matching
     const filename: []const u8 = std.fs.path.basename(args[0]);
 
-    // Extract extension and normalize to lowercase for case-insensitive matching
-    const extension: []const u8 = std.fs.path.extension(args[0]);
-    if (extension.len == 0) return false;
-
-    // Bounds check before lowercasing
-    if (extension.len > globals.buffer.len) return false;
-    const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
-
-    // Checks if the file extension is in the temporary extensions map
-    if (TEMPORARY_EXTENSIONS.has(lowercase)) return core.messageSum(print.warning, args[1], args[2].size,
-        i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+    if (core.getExtensionLowercase(args[0])) |lowercase| {
+        // Checks if the file extension is in the temporary extensions map
+        if (TEMPORARY_EXTENSIONS.has(lowercase)) return core.messageSum(print.warning, args[1], args[2].size,
+            i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+    }
 
     // Checks if the full filename matches exactly
     if (FULL_NAME.has(filename)) return core.messageSum(print.warning, args[1], args[2].size,

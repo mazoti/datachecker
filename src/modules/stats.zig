@@ -28,6 +28,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
 
     if (extension.len > 0) {
         const path_no_ext: []const u8 = args[0][0..(args[0].len - extension.len)];
+
         if (path_no_ext.len > 1 and path_no_ext[path_no_ext.len - 1] == path_no_ext[path_no_ext.len - 2])
             return core.messageSum(print.check, args[1], 1, i18n.DUPLICATE_CHARS_FILES_CHECK,
                 .{args[0], path_no_ext[path_no_ext.len - 2]});
@@ -58,16 +59,8 @@ pub fn duplicateCharacters(args: anytype) !bool {
 /// Detects shortcuts and symlinks and checks if symlinks are pointing to nowhere
 pub fn linkShortcuts(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     while (true) {
-        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
-            error.AccessDenied => {
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
-
-                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                continue;
-            },
-            else => return err,
-        };
+        var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
+        if (try core.nextEntry(walker, total_items, &entry_tmp)) continue;
 
         if (entry_tmp) |entry| {
             const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
@@ -99,18 +92,8 @@ pub fn linkShortcuts(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
                 continue;
             }
 
-            // Adds the file or directory to cache
-            _ = core.fetchAdd(absolute_path) catch |err| switch (err) {
-                error.AccessDenied => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                    continue;
-                },
-                error.FileBusy => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
-                    continue;
-                },
-                else => return err,
-            };
+            // Adds the file or folder to cache
+            if (try core.fetchStatWithErrorHandling(absolute_path, total_items) == null) continue;
 
             if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
                 const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
@@ -233,7 +216,7 @@ pub fn unportableCharacters(args: anytype) !bool {
 
         // Special handling for colon (allowed only in Windows drive letters)
         if (args[0][i] == ':') {
-            if (i < (args[0].len - 1) and args[0][i + 1] == '\\') continue;
+            if (i < (args[0].len - 1) and (args[0][i + 1] == '\\' or args[0][i + 1] == '/')) continue;
             return !(try core.messageSum(print.warning, args[1], 1, i18n.UNPORTABLE_CHARS_WARNING,
                 .{args[0]}));
         }
@@ -243,6 +226,8 @@ pub fn unportableCharacters(args: anytype) !bool {
 
 /// Helper function to count the number of items in a directory
 fn countItems(base_path: []const u8) !usize {
+    if (globals.dir_count.get(base_path)) |result_count| { return result_count; }
+
     var result: usize = 0;
 
     var input_dir: std.Io.Dir = try std.Io.Dir.openDirAbsolute(globals.io, base_path, .{ .iterate = true });
@@ -250,6 +235,14 @@ fn countItems(base_path: []const u8) !usize {
 
     var iterator: std.Io.Dir.Iterator = input_dir.iterate();
     while (try iterator.next(globals.io)) |_| { result += 1; }
+
+    // Not in cache, store the result
+    if (globals.config_parsed.value.ENABLE_CACHE) {
+        const key: []const u8 = try globals.alloc.*.dupe(u8, base_path);
+
+        errdefer globals.alloc.free(key);
+        try globals.dir_count.put(key, result);
+    }
 
     return result;
 }

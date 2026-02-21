@@ -1,6 +1,6 @@
 .{
     .name = .datachecker,
-    .version = "0.2.2",
+    .version = "0.2.3",
     .fingerprint = 0xc01ad948176ced7d, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0-dev.2471+e9eadee00",
     .paths = .{

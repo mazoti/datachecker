@@ -3,7 +3,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-const builtin = @import("builtin");
 
 const config  = @import("config");
 const globals = @import("globals");
@@ -17,90 +16,128 @@ const HashFunctions = struct {
     parallel:  *const fn ([]const u8, *u64) void,
 };
 
+fn makeHashFunction(comptime name: []const u8, comptime HashType: type) fn([]const u8, *u64) anyerror!bool {
+    return struct {
+        fn hash(f: []const u8, t: *u64) anyerror!bool {
+            return hashSingleCore(f, t, name, HashType);
+        }
+    }.hash;
+}
+
+fn makeHashFunctionMt(comptime name: []const u8, comptime HashType: type) fn([]const u8, *u64) void {
+    return struct {
+        fn hash(f: []const u8, t: *u64) void {
+            return hashParallelCore(f, t, name, HashType);
+        }
+    }.hash;
+}
+
 const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
-    .{ ".ascon256"   , HashFunctions{ .single = ascon256   , .parallel = ascon256_mt   }},
-    .{ ".blake2b128" , HashFunctions{ .single = blake2b128 , .parallel = blake2b128_mt }},
-    .{ ".blake2b160" , HashFunctions{ .single = blake2b160 , .parallel = blake2b160_mt }},
-    .{ ".blake2b256" , HashFunctions{ .single = blake2b256 , .parallel = blake2b256_mt }},
-    .{ ".blake2b384" , HashFunctions{ .single = blake2b384 , .parallel = blake2b384_mt }},
-    .{ ".blake2b512" , HashFunctions{ .single = blake2b512 , .parallel = blake2b512_mt }},
-    .{ ".blake2s128" , HashFunctions{ .single = blake2s128 , .parallel = blake2s128_mt }},
-    .{ ".blake2s160" , HashFunctions{ .single = blake2s160 , .parallel = blake2s160_mt }},
-    .{ ".blake2s224" , HashFunctions{ .single = blake2s224 , .parallel = blake2s224_mt }},
-    .{ ".blake2s256" , HashFunctions{ .single = blake2s256 , .parallel = blake2s256_mt }},
-    .{ ".blake3"     , HashFunctions{ .single = blake3     , .parallel = blake3_mt     }},
-    .{ ".md5"        , HashFunctions{ .single = md5        , .parallel = md5_mt        }},
-    .{ ".sha1"       , HashFunctions{ .single = sha1       , .parallel = sha1_mt       }},
-    .{ ".sha224"     , HashFunctions{ .single = sha224     , .parallel = sha224_mt     }},
-    .{ ".sha256"     , HashFunctions{ .single = sha256     , .parallel = sha256_mt     }},
-    .{ ".sha256t192" , HashFunctions{ .single = sha256t192 , .parallel = sha256t192_mt }},
-    .{ ".sha384"     , HashFunctions{ .single = sha384     , .parallel = sha384_mt     }},
-    .{ ".sha512"     , HashFunctions{ .single = sha512     , .parallel = sha512_mt     }},
-    .{ ".sha512_224" , HashFunctions{ .single = sha512_224 , .parallel = sha512_224_mt }},
-    .{ ".sha512t224" , HashFunctions{ .single = sha512t224 , .parallel = sha512t224_mt }},
-    .{ ".sha512_256" , HashFunctions{ .single = sha512_256 , .parallel = sha512_256_mt }},
-    .{ ".sha512t256" , HashFunctions{ .single = sha512t256 , .parallel = sha512t256_mt }},
-    .{ ".sha3_224"   , HashFunctions{ .single = sha3_224   , .parallel = sha3_224_mt   }},
-    .{ ".sha3_256"   , HashFunctions{ .single = sha3_256   , .parallel = sha3_256_mt   }},
-    .{ ".sha3_384"   , HashFunctions{ .single = sha3_384   , .parallel = sha3_384_mt   }},
-    .{ ".sha3_512"   , HashFunctions{ .single = sha3_512   , .parallel = sha3_512_mt   }},
+    .{ ".ascon256", HashFunctions{
+        .single   = makeHashFunction(  "ASCON256", std.crypto.hash.ascon.AsconHash256),
+        .parallel = makeHashFunctionMt("ASCON256", std.crypto.hash.ascon.AsconHash256),
+    }},
+    .{ ".blake2b128", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2B128", std.crypto.hash.blake2.Blake2b128),
+        .parallel = makeHashFunctionMt("BLAKE2B128", std.crypto.hash.blake2.Blake2b128),
+    }},
+    .{ ".blake2b160", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2B160", std.crypto.hash.blake2.Blake2b160),
+        .parallel = makeHashFunctionMt("BLAKE2B160", std.crypto.hash.blake2.Blake2b160),
+    }},
+    .{ ".blake2b256", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2B256", std.crypto.hash.blake2.Blake2b256),
+        .parallel = makeHashFunctionMt("BLAKE2B256", std.crypto.hash.blake2.Blake2b256),
+    }},
+    .{ ".blake2b384", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2B384", std.crypto.hash.blake2.Blake2b384),
+        .parallel = makeHashFunctionMt("BLAKE2B384", std.crypto.hash.blake2.Blake2b384),
+    }},
+    .{ ".blake2b512", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2B512", std.crypto.hash.blake2.Blake2b512),
+        .parallel = makeHashFunctionMt("BLAKE2B512", std.crypto.hash.blake2.Blake2b512),
+    }},
+    .{ ".blake2s128", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2S128", std.crypto.hash.blake2.Blake2s128),
+        .parallel = makeHashFunctionMt("BLAKE2S128", std.crypto.hash.blake2.Blake2s128),
+    }},
+    .{ ".blake2s160", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2S160", std.crypto.hash.blake2.Blake2s160),
+        .parallel = makeHashFunctionMt("BLAKE2S160", std.crypto.hash.blake2.Blake2s160),
+    }},
+    .{ ".blake2s224", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2S224", std.crypto.hash.blake2.Blake2s224),
+        .parallel = makeHashFunctionMt("BLAKE2S224", std.crypto.hash.blake2.Blake2s224),
+    }},
+    .{ ".blake2s256", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE2S256", std.crypto.hash.blake2.Blake2s256),
+        .parallel = makeHashFunctionMt("BLAKE2S256", std.crypto.hash.blake2.Blake2s256),
+    }},
+    .{ ".blake3", HashFunctions{
+        .single   = makeHashFunction(  "BLAKE3", std.crypto.hash.Blake3),
+        .parallel = makeHashFunctionMt("BLAKE3", std.crypto.hash.Blake3),
+    }},
+    .{ ".md5", HashFunctions{
+        .single   = makeHashFunction(  "MD5", std.crypto.hash.Md5),
+        .parallel = makeHashFunctionMt("MD5", std.crypto.hash.Md5),
+    }},
+    .{ ".sha1", HashFunctions{
+        .single   = makeHashFunction(  "SHA1", std.crypto.hash.Sha1),
+        .parallel = makeHashFunctionMt("SHA1", std.crypto.hash.Sha1),
+    }},
+    .{ ".sha224", HashFunctions{
+        .single   = makeHashFunction(  "SHA224", std.crypto.hash.sha2.Sha224),
+        .parallel = makeHashFunctionMt("SHA224", std.crypto.hash.sha2.Sha224),
+    }},
+    .{ ".sha256", HashFunctions{
+        .single   = makeHashFunction(  "SHA256", std.crypto.hash.sha2.Sha256),
+        .parallel = makeHashFunctionMt("SHA256", std.crypto.hash.sha2.Sha256),
+    }},
+    .{ ".sha256t192", HashFunctions{
+        .single   = makeHashFunction(  "SHA256T192", std.crypto.hash.sha2.Sha256T192),
+        .parallel = makeHashFunctionMt("SHA256T192", std.crypto.hash.sha2.Sha256T192),
+    }},
+    .{ ".sha384", HashFunctions{
+        .single   = makeHashFunction(  "SHA384", std.crypto.hash.sha2.Sha384),
+        .parallel = makeHashFunctionMt("SHA384", std.crypto.hash.sha2.Sha384),
+    }},
+    .{ ".sha512", HashFunctions{
+        .single   = makeHashFunction(  "SHA512", std.crypto.hash.sha2.Sha512),
+        .parallel = makeHashFunctionMt("SHA512", std.crypto.hash.sha2.Sha512),
+    }},
+    .{ ".sha512_224", HashFunctions{
+        .single   = makeHashFunction(  "SHA512_224", std.crypto.hash.sha2.Sha512_224),
+        .parallel = makeHashFunctionMt("SHA512_224", std.crypto.hash.sha2.Sha512_224),
+    }},
+    .{ ".sha512t224", HashFunctions{
+        .single   = makeHashFunction(  "SHA512T224", std.crypto.hash.sha2.Sha512T224),
+        .parallel = makeHashFunctionMt("SHA512T224", std.crypto.hash.sha2.Sha512T224),
+    }},
+    .{ ".sha512_256", HashFunctions{
+        .single   = makeHashFunction(  "SHA512_256", std.crypto.hash.sha2.Sha512_256),
+        .parallel = makeHashFunctionMt("SHA512_256", std.crypto.hash.sha2.Sha512_256),
+    }},
+    .{ ".sha512t256", HashFunctions{
+        .single   = makeHashFunction(  "SHA512T256", std.crypto.hash.sha2.Sha512T256),
+        .parallel = makeHashFunctionMt("SHA512T256", std.crypto.hash.sha2.Sha512T256),
+    }},
+    .{ ".sha3_224", HashFunctions{
+        .single   = makeHashFunction(  "SHA3_224", std.crypto.hash.sha3.Sha3_224),
+        .parallel = makeHashFunctionMt("SHA3_224", std.crypto.hash.sha3.Sha3_224),
+    }},
+    .{ ".sha3_256", HashFunctions{
+        .single   = makeHashFunction(  "SHA3_256", std.crypto.hash.sha3.Sha3_256),
+        .parallel = makeHashFunctionMt("SHA3_256", std.crypto.hash.sha3.Sha3_256),
+    }},
+    .{ ".sha3_384", HashFunctions{
+        .single   = makeHashFunction(  "SHA3_384", std.crypto.hash.sha3.Sha3_384),
+        .parallel = makeHashFunctionMt("SHA3_384", std.crypto.hash.sha3.Sha3_384),
+    }},
+    .{ ".sha3_512", HashFunctions{
+        .single   = makeHashFunction(  "SHA3_512", std.crypto.hash.sha3.Sha3_512),
+        .parallel = makeHashFunctionMt("SHA3_512", std.crypto.hash.sha3.Sha3_512),
+    }},
 });
-
-const cipher = std.crypto.hash;
-
-fn ascon256  (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "ASCON256",   cipher.ascon.AsconHash256); }
-fn blake2b128(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2B128", cipher.blake2.Blake2b128);  }
-fn blake2b160(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2B160", cipher.blake2.Blake2b160);  }
-fn blake2b256(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2B256", cipher.blake2.Blake2b256);  }
-fn blake2b384(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2B384", cipher.blake2.Blake2b384);  }
-fn blake2b512(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2B512", cipher.blake2.Blake2b512);  }
-fn blake2s128(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2S128", cipher.blake2.Blake2s128);  }
-fn blake2s160(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2S160", cipher.blake2.Blake2s160);  }
-fn blake2s224(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2S224", cipher.blake2.Blake2s224);  }
-fn blake2s256(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE2S256", cipher.blake2.Blake2s256);  }
-fn blake3    (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "BLAKE3",     cipher.Blake3);             }
-fn md5       (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "MD5",        cipher.Md5);                }
-fn sha1      (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA1",       cipher.Sha1);               }
-fn sha224    (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA224",     cipher.sha2.Sha224);        }
-fn sha256    (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA256",     cipher.sha2.Sha256);        }
-fn sha256t192(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA256T192", cipher.sha2.Sha256T192);    }
-fn sha384    (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA384",     cipher.sha2.Sha384);        }
-fn sha512    (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA512",     cipher.sha2.Sha512);        }
-fn sha512_224(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA512_224", cipher.sha2.Sha512_224);    }
-fn sha512t224(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA512T224", cipher.sha2.Sha512T224);    }
-fn sha512_256(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA512_256", cipher.sha2.Sha512_256);    }
-fn sha512t256(f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA512T256", cipher.sha2.Sha512T256);    }
-fn sha3_224  (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA3_224",   cipher.sha3.Sha3_224);      }
-fn sha3_256  (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA3_256",   cipher.sha3.Sha3_256);      }
-fn sha3_384  (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA3_384",   cipher.sha3.Sha3_384);      }
-fn sha3_512  (f: []const u8, t: *u64) anyerror!bool { return hashSingleCore(f, t, "SHA3_512",   cipher.sha3.Sha3_512);      }
-
-fn ascon256_mt  (f: []const u8, t: *u64) void { hashParallelCore(f, t, "ASCON256",   cipher.ascon.AsconHash256); }
-fn blake2b128_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2B128", cipher.blake2.Blake2b128);  }
-fn blake2b160_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2B160", cipher.blake2.Blake2b160);  }
-fn blake2b256_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2B256", cipher.blake2.Blake2b256);  }
-fn blake2b384_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2B384", cipher.blake2.Blake2b384);  }
-fn blake2b512_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2B512", cipher.blake2.Blake2b512);  }
-fn blake2s128_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2S128", cipher.blake2.Blake2s128);  }
-fn blake2s160_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2S160", cipher.blake2.Blake2s160);  }
-fn blake2s224_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2S224", cipher.blake2.Blake2s224);  }
-fn blake2s256_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE2S256", cipher.blake2.Blake2s256);  }
-fn blake3_mt    (f: []const u8, t: *u64) void { hashParallelCore(f, t, "BLAKE3",     cipher.Blake3);             }
-fn md5_mt       (f: []const u8, t: *u64) void { hashParallelCore(f, t, "MD5",        cipher.Md5);                }
-fn sha1_mt      (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA1",       cipher.Sha1);               }
-fn sha224_mt    (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA224",     cipher.sha2.Sha224);        }
-fn sha256_mt    (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA256",     cipher.sha2.Sha256);        }
-fn sha256t192_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA256T192", cipher.sha2.Sha256T192);    }
-fn sha384_mt    (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA384",     cipher.sha2.Sha384);        }
-fn sha512_mt    (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA512",     cipher.sha2.Sha512);        }
-fn sha512_224_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA512_224", cipher.sha2.Sha512_224);    }
-fn sha512t224_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA512T224", cipher.sha2.Sha512T224);    }
-fn sha512_256_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA512_256", cipher.sha2.Sha512_256);    }
-fn sha512t256_mt(f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA512T256", cipher.sha2.Sha512T256);    }
-fn sha3_224_mt  (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA3_224",   cipher.sha3.Sha3_224);      }
-fn sha3_256_mt  (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA3_256",   cipher.sha3.Sha3_256);      }
-fn sha3_384_mt  (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA3_384",   cipher.sha3.Sha3_384);      }
-fn sha3_512_mt  (f: []const u8, t: *u64) void { hashParallelCore(f, t, "SHA3_512",   cipher.sha3.Sha3_512);      }
 
 pub fn checkIntegrity(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     return if (globals.config_parsed.value.INTEGRITY_FILES_PARALLEL) checkParallel(total_items, walker)
@@ -119,152 +156,49 @@ fn checkParallel(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     globals.group = std.Io.Group.init;
     defer globals.group.cancel(io);
 
-    // First check if there are cached file statistics
-    if (globals.file_stats.count() > 0) {
-        var iterator = globals.file_stats.keyIterator();
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    defer file_iterator.deinit();
 
-        while (iterator.next()) |entry| {
-            // skips directories
-            const cached_stat: std.Io.File.Stat = globals.file_stats.get(entry.*) orelse continue;
+    while (try file_iterator.next(total_items)) |entry| {
+        if (file_iterator.using_cache) {
+            const extension: []const u8 = std.fs.path.extension(entry.path);
+            if (extension.len == 0) continue;
 
-            if (cached_stat.kind == std.Io.File.Kind.file) {
-
-                // Extract extension and normalize to lowercase for case-insensitive matching
-                const extension: []const u8 = std.fs.path.extension(entry.*);
-                if (extension.len == 0) continue;
-
-                // Bounds check before lowercasing
-                if (extension.len > globals.buffer.len) continue;
-
-                //const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
-
-                if (hash_functions_map.get(extension)) |func| {
+            if (hash_functions_map.get(extension)) |func| {
+                try globals.semaphore.wait(io);
+                globals.group.async(io, hashParallel, .{entry.path, total_items, false, func.parallel});
+            }
+        } else {
+            if (core.getExtensionLowercase(entry.path)) |lowercase| {
+                if (hash_functions_map.get(lowercase)) |func| {
+                    const entry_path: []const u8 = try globals.alloc.*.dupe(u8, entry.path);
                     try globals.semaphore.wait(io);
-                    globals.group.async(io, hashParallel, .{entry.*, total_items, false, func.parallel});
+                    globals.group.async(io, hashParallel, .{entry_path, total_items, true, func.parallel});
                 }
             }
         }
-
-        return globals.group.await(io);
     }
 
-    while (true) {
-        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
-            error.AccessDenied => {
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
-
-                messageSumMutex(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                continue;
-            },
-            else => return err,
-        };
-
-        if (entry_tmp) |entry| {
-            if (entry.kind != .file and entry.kind != .directory) continue;
-      
-            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
-
-            // Add the file and directory to cache
-            _ = core.fetchAdd(absolute_path) catch |err| switch (err) {
-                error.AccessDenied => {
-                    messageSumMutex(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                    continue;
-                },
-                error.FileBusy => {
-                    messageSumMutex(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
-                    continue;
-                },
-                else => return err,
-            };
-
-            if (entry.kind != .file) continue;
-      
-            // Extract extension and normalize to lowercase for case-insensitive matching
-            const extension: []const u8 = std.fs.path.extension(absolute_path);
-            if (extension.len == 0) continue;
-      
-            // Bounds check before lowercasing
-            if (extension.len > globals.buffer.len) continue;
-
-            const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
-
-            if (hash_functions_map.get(lowercase)) |func| {
-                const entry_path: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
-                try globals.semaphore.wait(io);
-                globals.group.async(io, hashParallel, .{entry_path, total_items, true, func.parallel});
-            }
-            continue;
-        }
-        return;
-    }
+_ = walker;
 
     try globals.group.await(io);
 }
 
 fn checkSingle(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
-    // First check if there are cached file statistics
-    if (globals.file_stats.count() > 0) {
-        var iterator = globals.file_stats.keyIterator();
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    defer file_iterator.deinit();
 
-        while (iterator.next()) |entry| {
-            // skips directories
-            const cached_stat: std.Io.File.Stat = globals.file_stats.get(entry.*) orelse continue;
-            if (cached_stat.kind == std.Io.File.Kind.file) _ = try hashSingle(entry.*, total_items);
-        }
-        return;
+    while (try file_iterator.next(total_items)) |entry| {
+        _ = try hashSingle(entry.path, total_items);
     }
 
-    while (true) {
-        const entry_tmp: ?std.Io.Dir.Walker.Entry = walker.next(globals.io) catch |err| switch (err) {
-            error.AccessDenied => {
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                    .{globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items});
-
-                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                continue;
-            },
-            else => return err,
-        };
-
-        if (entry_tmp) |entry| {
-            if (entry.kind != .file and entry.kind != .directory) continue;
-       
-            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
-       
-            // Add the file or directory to cache
-            _ = core.fetchAdd(absolute_path) catch |err| switch (err) {
-                error.AccessDenied => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-                    continue;
-                },
-                error.FileBusy => {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
-                    continue;
-                },
-                else => return err,
-            };
-       
-            if (entry.kind == .file) _ = try hashSingle(absolute_path, total_items);
-            continue;
-        }
-        return;
-    }
+_ = walker;
 }
 
 fn hashSingle(absolute_path: []const u8, total_items: *u64) !bool {
-    // Extract extension and normalize to lowercase for case-insensitive matching
-    const extension: []const u8 = std.fs.path.extension(absolute_path);
-    if (extension.len == 0) return false;
-
-    // Bounds check before lowercasing
-    if (extension.len > globals.buffer.len) return false;
-
-    const lowercase: []const u8 = std.ascii.lowerString(globals.buffer[0..extension.len], extension);
-
-    if (hash_functions_map.get(lowercase)) |func| { _ = try func.single(absolute_path, total_items); }
+    if (core.getExtensionLowercase(absolute_path)) |lowercase| {
+        if (hash_functions_map.get(lowercase)) |func| { _ = try func.single(absolute_path, total_items); }
+    }
 
     return false;
 }
@@ -279,14 +213,14 @@ void) void {
     _ = func(absolute_path, total_items);
 }
 
-fn hashSingleCore(file_hash: []const u8, total_items: *u64, extension: []const u8, algorithm: type) anyerror!bool {
+fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []const u8, algorithm: type) anyerror!bool {
     const hex_size: usize = algorithm.digest_length * 2;
 
     var hash_code: [hex_size]u8 = undefined;
     var calc_hash: [algorithm.digest_length]u8 = undefined;
     var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
 
-    const hash_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, file_hash, .{.mode = .read_write});
+    const hash_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write});
     defer hash_file.close(globals.io);
 
     var file_reader: std.Io.File.Reader = hash_file.reader(globals.io, hash_code[0..hex_size]);
@@ -296,7 +230,7 @@ fn hashSingleCore(file_hash: []const u8, total_items: *u64, extension: []const u
     };
 
     // removes the .cipher_extension
-    const input_file: []const u8 = file_hash[0..(file_hash.len - extension.len - 1)];
+    const input_file: []const u8 = hash_file_path[0..(hash_file_path.len - extension.len - 1)];
     core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
         if (err == error.FileNotFound) return core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE,
             .{input_file});
@@ -312,7 +246,7 @@ fn hashSingleCore(file_hash: []const u8, total_items: *u64, extension: []const u
     }
 
     if (chunk.len != hex_size) return core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE,
-        .{file_hash});
+        .{hash_file_path});
 
     const hash_code_bytes: []u8 = try std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code);
 
@@ -323,59 +257,51 @@ fn hashSingleCore(file_hash: []const u8, total_items: *u64, extension: []const u
     return core.messageSum(print.err, total_items, 1, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
 }
 
-fn hashParallelCore(file_hash: []const u8, total_items: *u64, extension: []const u8, algorithm: type) void {
+fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []const u8, algorithm: type) void {
     const hex_size: usize = algorithm.digest_length * 2;
 
     var hash_code: [hex_size]u8 = undefined;
     var calc_hash: [algorithm.digest_length]u8 = undefined;
     var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
 
-    const hash_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, file_hash, .{.mode = .read_write})
+    const hash_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write})
         catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return;
+            return core.debugPrintError(err);
         };
     defer hash_file.close(globals.io);
 
     var file_reader: std.Io.File.Reader = hash_file.reader(globals.io, hash_code[0..hex_size]);
     const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
         error.EndOfStream => break :blk "",
-        else => {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return;
-        }
+        else => return core.debugPrintError(err),
     };
 
     // removes the .cipher_extension
-    const input_file: []const u8 = file_hash[0..(file_hash.len - extension.len - 1)];
+    const input_file: []const u8 = hash_file_path[0..(hash_file_path.len - extension.len - 1)];
     core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
         if (err == error.FileNotFound) return messageSumMutex(print.err_mt, total_items, 1, i18n.ERROR_READING_FILE,
             .{input_file});
 
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-        return;
+        return core.debugPrintError(err);
     };
 
     if (chunk.len == 0) {
         var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
         file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower)) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return;
+            return core.debugPrintError(err);
         };
         file_writer.interface.flush() catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return;
+            return core.debugPrintError(err);
         };
 
         return messageSumMutex(print.check_mt, total_items, 1, i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
     }
 
     if (chunk.len != hex_size) return messageSumMutex(print.err_mt, total_items, 1, i18n.ERROR_READING_FILE,
-        .{file_hash});
+        .{hash_file_path});
 
     const hash_code_bytes: []u8 = std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code) catch |err| {
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-        return;
+        return core.debugPrintError(err);
     };
 
     if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) return messageSumMutex(print.ok_mt, total_items, 1,
@@ -392,13 +318,10 @@ pub fn messageSumMutex(
     comptime fmt:   []const u8,
     args:           anytype
 ) void {
-    globals.mutex.lock(globals.io) catch |err| {
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-        return;
-    };
+    globals.mutex.lock(globals.io) catch |err| { return core.debugPrintError(err); };
     defer globals.mutex.unlock(globals.io);
         total_items.* += sum_value;
         print_function(fmt, args) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+            return core.debugPrintError(err);
         };
 }

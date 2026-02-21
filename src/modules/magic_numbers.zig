@@ -3,7 +3,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-const builtin = @import("builtin");
 
 const config  = @import("config");
 const globals = @import("globals");
@@ -78,6 +77,102 @@ const MAGIC_NUMBERS_KEY = std.StaticStringMap([]const u8).initComptime(.{
     .{ "\xFF\xFE"                                                         , ".utf16lebom"  }, // UTF-16 Little Endian BOM (Does not exists .utf16lebom)
 });
 
+fn makeCheckerAND(comptime signatures: []const struct{ offset: usize, bytes: []const u8 }) fn([]const u8) bool {
+    return struct {
+        fn check(buffer: []const u8) bool {
+            inline for (signatures) |sig| {
+                if (!std.mem.eql(u8, buffer[sig.offset..sig.offset + sig.bytes.len], sig.bytes)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }.check;
+}
+
+fn makeCheckerOR(comptime signatures: []const struct{ offset: usize, bytes: []const u8 }) fn([]const u8) bool {
+    return struct {
+        fn check(buffer: []const u8) bool {
+            inline for (signatures) |sig| {
+                if (std.mem.eql(u8, buffer[sig.offset..sig.offset + sig.bytes.len], sig.bytes)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }.check;
+}
+
+const checkAVI = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
+    .{ .offset = 8, .bytes = "\x41\x56\x49\x20" },
+});
+
+const checkWAV = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
+    .{ .offset = 8, .bytes = "\x57\x41\x56\x45" },
+});
+
+const checkWebp = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
+    .{ .offset = 8, .bytes = "\x57\x45\x42\x50" },
+});
+
+const checkMP4 = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x00\x00\x00" },
+    .{ .offset = 4, .bytes = "\x66\x74\x79\x70" },
+});
+
+const checkMOV = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x00\x00\x00" },
+    .{ .offset = 4, .bytes = "\x66\x74\x79\x70\x71\x74\x20\x20" },
+});
+
+const checkAVIF = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x66\x74\x79\x70\x61\x76\x69\x66" },
+});
+
+const checkISO = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x43\x44\x30\x30\x31" },
+});
+
+const checkTar = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x75\x73\x74\x61\x72" },
+});
+
+const checkEOT = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x4C\x50" },
+});
+
+const checkGIF = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x47\x49\x46\x38\x37\x61" },
+    .{ .offset = 0, .bytes = "\x47\x49\x46\x38\x39\x61" },
+});
+
+const checkTIFF = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x49\x49\x2A\x00" },
+    .{ .offset = 0, .bytes = "\x4D\x4D\x00\x2A" },
+});
+
+const checkZIP = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x50\x4B\x03\x04" },
+    .{ .offset = 0, .bytes = "\x50\x4B\x05\x06" },
+});
+
+const checkMP3 = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\xFF\xF3"     },
+    .{ .offset = 0, .bytes = "\xFF\xFB"     },
+    .{ .offset = 0, .bytes = "\xFF\xF2"     },
+    .{ .offset = 0, .bytes = "\x49\x44\x33" },
+});
+
+const checkHTML = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x3C\x68\x74\x6D\x6C\x3E" },
+    .{ .offset = 0, .bytes = "\x3C\x48\x54\x4D\x4C\x3E" },
+    .{ .offset = 0, .bytes = "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x68\x74\x6D\x6C\x3E" },
+
+});
+
 const FormatConfig = struct {
     size:      usize,
     offset:    usize,
@@ -106,77 +201,46 @@ const format_config_map = std.StaticStringMap(FormatConfig).initComptime(.{
     .{ ".zip"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
 });
 
-fn checkAVI (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..4], "\x52\x49\x46\x46") and std.mem.eql(u8, buffer[8..12], "\x41\x56\x49\x20");}
-fn checkAVIF(buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..8], "\x66\x74\x79\x70\x61\x76\x69\x66");}
-fn checkEOT (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..2], "\x4C\x50");}
-fn checkGIF (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..6], "\x47\x49\x46\x38\x37\x61") or std.mem.eql(u8, buffer[0..6], "\x47\x49\x46\x38\x39\x61");}
-fn checkHTML(buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..6], "\x3C\x68\x74\x6D\x6C\x3E") or std.mem.eql(u8, buffer[0..6], "\x3C\x48\x54\x4D\x4C\x3E") or std.mem.eql(u8, buffer[0..15], "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x68\x74\x6D\x6C\x3E");}
-fn checkISO (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..5], "\x43\x44\x30\x30\x31");}
-fn checkMOV (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..3], "\x00\x00\x00") and std.mem.eql(u8, buffer[4..12], "\x66\x74\x79\x70\x71\x74\x20\x20");}
-fn checkMP3 (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..2], "\xFF\xF3") or std.mem.eql(u8, buffer[0..2], "\xFF\xFB") or std.mem.eql(u8, buffer[0..2], "\xFF\xF2") or std.mem.eql(u8, buffer[0..3], "\x49\x44\x33");}
-fn checkMP4 (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..3], "\x00\x00\x00") and std.mem.eql(u8, buffer[4..8], "\x66\x74\x79\x70");}
-fn checkTar (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..5], "\x75\x73\x74\x61\x72");}
-fn checkTIFF(buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..4], "\x49\x49\x2A\x00")  or std.mem.eql(u8, buffer[0..4],  "\x4D\x4D\x00\x2A");}
-fn checkWAV (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..4], "\x52\x49\x46\x46") and std.mem.eql(u8, buffer[8..12], "\x57\x41\x56\x45");}
-fn checkWebp(buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..4], "\x52\x49\x46\x46") and std.mem.eql(u8, buffer[8..12], "\x57\x45\x42\x50");}
-fn checkZIP (buffer: []const u8) bool { return std.mem.eql(u8, buffer[0..4], "\x50\x4B\x03\x04")  or std.mem.eql(u8, buffer[0..4],  "\x50\x4B\x05\x06");}
-
 /// Validates file format by checking magic numbers against file extension
 pub fn check(args: anytype) !bool {
-    // Extract extension and normalize to lowercase for case-insensitive matching
-    const extension: []const u8 = std.fs.path.extension(args[0]);
-    if (extension.len == 0) return false;
-
-    // Bounds check before lowercasing
-    if (extension.len > globals.buffer.len) return false;
-
-    const lowercase: []const u8 = std.ascii.lowerString(globals.buffer, extension);
-
     const file_check: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, args[0],
         .{.mode = .read_only, .lock = .shared});
     defer file_check.close(globals.io);
 
-    // Checks for simple magic numbers (single signature at start of file)
-    if (MAGIC_NUMBERS.get(lowercase)) |magic_number| {
+    if (core.getExtensionLowercase(args[0])) |lowercase| {
+        // Checks for simple magic numbers (single signature at start of file)
 
-        var file_reader: std.Io.File.Reader = file_check.reader(globals.io, globals.buffer[lowercase.len..
-            (lowercase.len + magic_number.len)]);
+        var total_items: u64 = 0;
 
-        const chunk: []const u8 = file_reader.interface.take(magic_number.len) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return core.messageSum(print.err, args[1], 1, i18n.ERROR_READING_FILE, .{args[0]});
-        };
+        if (MAGIC_NUMBERS.get(lowercase)) |magic_number| {
 
-        if (chunk.len != magic_number.len) return core.messageSum(print.err, args[1], 1,
-            i18n.ERROR_READING_FILE, .{args[0]});
+            var file_reader: std.Io.File.Reader = file_check.reader(globals.io, globals.buffer[lowercase.len..
+                (lowercase.len + magic_number.len)]);
 
-        if (!std.mem.eql(u8, chunk, magic_number))
-            return core.messageSum(print.err, args[1], 1, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+            if (try core.readExactChunk(&file_reader, magic_number.len, args[0], &total_items)) |chunk| {
+                if (!std.mem.eql(u8, chunk, magic_number)) return core.messageSum(print.err, args[1],
+                    1, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+            }
 
-        return false;
-    }
-
-    // Handles files with complex magic numbers (multiple signatures or offset positions)
-    if (format_config_map.get(lowercase)) |size_start_func| {
-
-        var file_reader: std.Io.File.Reader = file_check.reader(globals.io, globals.buffer[lowercase.len..
-            (lowercase.len + size_start_func.size)]);
-
-        if (size_start_func.offset > 0) try file_reader.seekTo(size_start_func.offset);
-
-        const chunk: []const u8 = file_reader.interface.take(size_start_func.size) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return core.messageSum(print.err, args[1], 1, i18n.ERROR_READING_FILE, .{args[0]});
-        };
-
-        if (chunk.len == size_start_func.size) {
-           if (!size_start_func.validator(globals.buffer[lowercase.len..(lowercase.len + size_start_func.size)]))
-               return core.messageSum(print.err, args[1], 1, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
-
-           return false;
+            return false;
         }
 
-        return core.messageSum(print.err, args[1], 1, i18n.ERROR_READING_FILE, .{args[0]});
+        // Handles files with complex magic numbers (multiple signatures or offset positions)
+        if (format_config_map.get(lowercase)) |size_start_func| {
+
+            var file_reader: std.Io.File.Reader = file_check.reader(globals.io, globals.buffer[lowercase.len..
+                (lowercase.len + size_start_func.size)]);
+
+            if (size_start_func.offset > 0) try file_reader.seekTo(size_start_func.offset);
+
+            if (try core.readExactChunk(&file_reader, size_start_func.size, args[0], &total_items)) |_| {
+                if (!size_start_func.validator(globals.buffer[lowercase.len..(lowercase.len + size_start_func.size)]))
+                   return core.messageSum(print.err, args[1], 1, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+               return false;
+            }
+
+            return core.messageSum(print.err, args[1], 1, i18n.ERROR_READING_FILE, .{args[0]});
+        }
     }
 
     return false;
@@ -203,45 +267,47 @@ pub fn checkNoExtension(args: anytype) !bool {
 fn findType(filepath: []const u8, buffer: []u8) ?[]const u8 {
     const input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, filepath,
         .{.mode = .read_only, .lock = .shared}) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+            core.debugPrintError(err);
             return null;
         };
     defer input_file.close(globals.io);
 
     var file_reader: std.Io.File.Reader = input_file.reader(globals.io, buffer[0..17]);
 
-    var chunk: []const u8 = file_reader.interface.take(16) catch |err| {
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+    var total_items: u64 = 0;
+    const chunk_tmp: ?[]const u8 = core.readExactChunk(&file_reader, 16, filepath, &total_items) catch |err| {
+        core.debugPrintError(err);
         return null;
     };
 
-    if (chunk.len < 2) return null;
+    if (chunk_tmp) |chunk| {
+        // Try matching against simple magic numbers of increasing sizes
+        for (2..chunk.len) |size| {
+            if (MAGIC_NUMBERS_KEY.get(buffer[0..size])) |filetype| { return filetype; }
+        }
 
-    // Try matching against simple magic numbers of increasing sizes
-    for (2..chunk.len) |size| {
-        if (MAGIC_NUMBERS_KEY.get(buffer[0..size])) |filetype| { return filetype; }
-    }
+        // Try matching against complex format validators
+        for (format_config_map.keys()) |key| {
+            file_reader.seekTo(0) catch |err| {
+                core.debugPrintError(err);
+                return null;
+            };
 
-    // Try matching against complex format validators
-    for (format_config_map.keys()) |key| {
-        file_reader.seekTo(0) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return null;
-        };
+            const value: FormatConfig = format_config_map.get(key).?;
 
-        const value: FormatConfig = format_config_map.get(key).?;
+            if (value.offset > 0) file_reader.seekTo(value.offset) catch |err| {
+                core.debugPrintError(err);
+                return null;
+            };
 
-        if (value.offset > 0) file_reader.seekTo(value.offset) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return null;
-        };
+            const chunk_tmp2: ?[]const u8 = core.readExactChunk(&file_reader, value.size, filepath, &total_items)
+                catch |err| {
+                    core.debugPrintError(err);
+                    return null;
+                };
 
-        chunk = file_reader.interface.take(value.size) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-            return null;
-        };
-
-        if (chunk.len == value.size and value.validator(buffer)) return key;
+            if (chunk_tmp2) |_| { if (value.validator(buffer)) return key; }
+        }
     }
 
     return null;

@@ -15,6 +15,9 @@ pub var now_stat: std.Io.File.Stat = undefined;
 /// Global hash map instance for caching file stats
 pub var file_stats: FileStatMap = undefined;
 
+/// Global hash map instance for caching directory items count
+pub var dir_count: std.StringHashMap(usize) = undefined;
+
 /// The processed input directory
 pub var input_directory: std.Io.Dir = undefined;
 
@@ -26,16 +29,16 @@ pub var buffer_size:  usize = undefined;
 pub var buffer_total: usize = undefined;
 
 /// The buffer with size specified by config.zig
-pub threadlocal var io_buffer: [config.IO_BUFFER_SIZE]u8 = undefined;
+pub var io_buffer: [config.IO_BUFFER_SIZE]u8 = undefined;
 
 /// The buffer with size specified by user
-pub threadlocal var buffer: []u8 = undefined;
+pub var buffer: []u8 = undefined;
 
 /// Thread-local buffer for storing file paths
-pub threadlocal var max_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+pub var max_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
 
 /// The full path string of the processed input directory
-pub threadlocal var absolute_input_path: []const u8 = undefined;
+pub var absolute_input_path: []const u8 = undefined;
 
 /// Default configurations or parsed from JSON
 pub var config_parsed: std.json.Parsed(config.Config) = undefined;

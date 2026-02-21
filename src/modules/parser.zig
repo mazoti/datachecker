@@ -3,7 +3,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-const builtin = @import("builtin");
 
 const config  = @import("config");
 const globals = @import("globals");
@@ -18,7 +17,7 @@ pub fn checkJSON(args: anytype) !bool {
 
     const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+            core.debugPrintError(err);
 
             if (err == error.StreamTooLong) return core.messageSum(print.err, args[1], 1,
                 i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
@@ -29,7 +28,7 @@ pub fn checkJSON(args: anytype) !bool {
 
     var parsed: std.json.Parsed(std.json.Value) = std.json.parseFromSlice(std.json.Value, globals.alloc.*,
     file_contents, .{}) catch |err| {
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+        core.debugPrintError(err);
         return core.messageSum(print.err, args[1], 1, i18n.PARSE_JSON_FILES_ERROR, .{args[0]});
     };
     defer parsed.deinit();

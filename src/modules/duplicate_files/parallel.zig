@@ -6,7 +6,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-const builtin = @import("builtin");
 
 const config  = @import("config");
 const globals = @import("globals");
@@ -25,6 +24,17 @@ pub fn check(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     try core.groupFileBySize(&same_size_files_map, walker);
     try core.removeUniques(&same_size_files_map);
 
+    const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
+
+    var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.alloc.*, .{.async_limit = max_jobs_limit,
+        .concurrent_limit = max_jobs_limit, .environ = std.process.Environ.empty });
+    defer parallel_threaded.deinit();
+
+    const io: std.Io = parallel_threaded.io();
+
+    globals.group = std.Io.Group.init;
+    defer globals.group.cancel(io);
+
     var i: usize = same_size_files_map.count();
 
     while (i > 0) {
@@ -41,7 +51,15 @@ pub fn check(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
         defer core.cleanHashMap([32]u8, &sizeAndHash);
 
         // Parallel hashing: most CPU-intensive phase, benefits greatly from multi-threading
-        try hashFiles(&removed_list, &sizeAndHash);
+        if (removed_list.items.len == 0) continue;
+
+        for (removed_list.items) |filepath| {
+            try globals.semaphore.wait(io);
+            globals.group.async(io, parallelHash, .{filepath, &sizeAndHash});
+        }
+
+        try globals.group.await(io);
+
         try removeUniquesHash(&sizeAndHash);
 
         // Processes each group of files sharing both size AND hash
@@ -60,30 +78,6 @@ pub fn check(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     }
 }
 
-/// Orchestrates parallel file hashing using a thread pool pattern
-fn hashFiles(input: *std.ArrayList([]const u8), map_hash: *std.AutoArrayHashMapUnmanaged([32]u8,
-std.ArrayList([]const u8))) !void {
-    if (input.items.len == 0) return;
-
-    const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
-
-    var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.alloc.*, .{.async_limit = max_jobs_limit,
-        .concurrent_limit = max_jobs_limit, .environ = std.process.Environ.empty });
-    defer parallel_threaded.deinit();
-
-    const io: std.Io = parallel_threaded.io();
-
-    globals.group = std.Io.Group.init;
-    defer globals.group.cancel(io);
-
-    for (input.items) |filepath| {
-        try globals.semaphore.wait(io);
-        globals.group.async(io, parallelHash, .{filepath, map_hash});
-    }
-
-    try globals.group.await(io);
-}
-
 /// Thread-safe worker function that hashes one file and updates shared state
 /// Each worker operates independently until the critical section (map update)
 fn parallelHash(filepath: []const u8, map_hash: *std.AutoArrayHashMapUnmanaged([32]u8, std.ArrayList([]const u8)))
@@ -95,26 +89,22 @@ void {
     // Blake3 chosen for: fast performance, strong collision resistance, streaming capability
     modules.hashFile(std.crypto.hash.Blake3, filepath, &file_hash) catch |err| {
         _ = print.err(i18n.ERROR_HASH_FILE, .{filepath, err}) catch |err_inside| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n",
-                .{ @src().file, @src().line, err_inside });
-                return;
-            };
+            modules.debugPrintError(err_inside);
+        };
         return;
     };
 
     const append_data: []const u8 = globals.alloc.*.dupe(u8, filepath) catch |err| {
         _ = print.err(i18n.ERROR_ALLOC_MEM, .{filepath, err}) catch |err_inside| {
-            if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n",
-                .{ @src().file, @src().line, err_inside });
-                return;
-            };
+            modules.debugPrintError(err_inside);
+        };
         return;
     };
 
     errdefer globals.alloc.free(append_data);
 
     globals.mutex.lock(globals.io) catch |err| {
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+        modules.debugPrintError(err);
         return;
     };
     defer globals.mutex.unlock(globals.io);
@@ -123,21 +113,17 @@ void {
         if (map_hash.getPtr(file_hash)) |paths| {
             paths.append(globals.alloc.*, append_data) catch |err| {
                 _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
-                    if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n",
-                        .{ @src().file, @src().line, err_inside });
-                    return;
+                    modules.debugPrintError(err_inside);
                 };
             };
             return;
-        } 
+        }
 
         // Case 2: New hash - create entry. This is the first file with this hash value
         var path_list: std.array_list.Aligned([]const u8, null) = std.ArrayList([]const u8){};
         path_list.append(globals.alloc.*, append_data) catch |err| {
             _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
-                if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n",
-                    .{ @src().file, @src().line, err_inside });
-                return;
+                modules.debugPrintError(err_inside);
             };
             return;
         };
@@ -145,9 +131,7 @@ void {
         // Insert new hash entry into map - subsequent files with same hash will hit Case 1
         map_hash.put(globals.alloc.*, file_hash, path_list) catch |err| {
             _ = print.err(i18n.ERROR_INSERT_HASHMAP, .{err}) catch |err_inside| {
-                if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n",
-                    .{ @src().file, @src().line, err_inside });
-                return;
+                modules.debugPrintError(err_inside);
             };
             return;
         };

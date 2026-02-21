@@ -3,7 +3,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-const builtin = @import("builtin");
 
 const i18n    = @import("i18n");
 
@@ -199,113 +198,83 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\
 ;
 
-/// Attempts to load configuration from a local "config.json" file in the current working directory
-pub fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), io: *std.Io,
-alloc: *const std.mem.Allocator) bool {
-    config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*,
-        std.Io.Limit.limited(IO_BUFFER_SIZE)) catch |err| blk: {
-            if (builtin.mode == .Debug) std.debug.print("Failed to read config.json: {any}\n", .{err});
-            break :blk "";
-        };
-
-    // Parses JSON with enum support, on error sets default values
-    const result: bool = (config_file.*.len > 0);
-    const data: []const u8 = if (result) config_file.* else DEFAULT_JSON_CONFIG;
-
-    config_parsed.* = parseJSON(data, alloc, config_file) catch {
-        std.debug.panic("\n\n\nPANIC: DEFAULT_JSON_CONFIG IS INVALID AND THIS SHOULD NEVER HAPPEN\n\n\n", .{});
-    };
-
-    return result;
-}
-
 pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: *const std.mem.Allocator)
 void {
     config_parsed.*.deinit();
     if (config_file.*.len > 0) alloc.*.free(config_file.*);
 }
 
-fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]const u8) !std.json.Parsed(Config) {
-    return std.json.parseFromSlice(Config, alloc.*, data, .{}) catch |err| {
-        if (builtin.mode == .Debug) std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
 
-        // Invalid config.json
-        alloc.*.free(config_file.*);
-        config_file.* = "";
-
-        return std.json.parseFromSlice(Config, alloc.*, DEFAULT_JSON_CONFIG, .{});
-    };
-}
-
-test "No config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const alloc = &gpa.allocator();
-
-    var tmp = std.Io.Threaded.init_single_threaded;
-    var io = tmp.io();
-
-    var config_parsed: std.json.Parsed(Config) = undefined;
-    var config_file:   []const u8              = "empty";
-
-    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-    defer deinit(&config_file, &config_parsed, alloc);
-
-    try std.testing.expect(!result);
-}
-
-test "Valid config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const alloc = &gpa.allocator();
-
-    var tmp = std.Io.Threaded.init_single_threaded;
-    var io = tmp.io();
-    var io_buffer: [65536]u8 = undefined;
-
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
-    defer {
-        file.close(io);
-        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
-    }
-
-    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
-    try file_writer.interface.writeAll(DEFAULT_JSON_CONFIG);
-    try file_writer.interface.flush();
-
-    var config_parsed: std.json.Parsed(Config) = undefined;
-    var config_file:   []const u8              = "empty";
-
-    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-    defer deinit(&config_file, &config_parsed, alloc);
-
-    try std.testing.expect(result);
-}
-
-test "Invalid config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const alloc = &gpa.allocator();
-
-    var tmp = std.Io.Threaded.init_single_threaded;
-    var io = tmp.io();
-    var io_buffer: [65536]u8 = undefined;
-
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
-    defer {
-        file.close(io);
-        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
-    }
-
-    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
-    try file_writer.interface.writeAll(DEFAULT_JSON_CONFIG[1..]);
-    try file_writer.interface.flush();
-
-    var config_parsed: std.json.Parsed(Config) = undefined;
-    var config_file:   []const u8              = "empty";
-
-    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-    defer deinit(&config_file, &config_parsed, alloc);
-
-    try std.testing.expect(result);
-}
+//test "No config file" {
+//    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+//    defer _ = gpa.deinit();
+//    const alloc = &gpa.allocator();
+//
+//    var tmp = std.Io.Threaded.init_single_threaded;
+//    var io = tmp.io();
+//
+//    var config_parsed: std.json.Parsed(Config) = undefined;
+//    var config_file:   []const u8              = "empty";
+//
+//    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
+//    defer deinit(&config_file, &config_parsed, alloc);
+//
+//    try std.testing.expect(!result);
+//}
+//
+//test "Valid config file" {
+//    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+//    defer _ = gpa.deinit();
+//    const alloc = &gpa.allocator();
+//
+//    var tmp = std.Io.Threaded.init_single_threaded;
+//    var io = tmp.io();
+//    var io_buffer: [65536]u8 = undefined;
+//
+//    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
+//    defer {
+//        file.close(io);
+//        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
+//    }
+//
+//    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
+//    try file_writer.interface.writeAll(DEFAULT_JSON_CONFIG);
+//    try file_writer.interface.flush();
+//
+//    var config_parsed: std.json.Parsed(Config) = undefined;
+//    var config_file:   []const u8              = "empty";
+//
+//    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
+//    defer deinit(&config_file, &config_parsed, alloc);
+//
+//    try std.testing.expect(result);
+//}
+//
+//test "Invalid config file" {
+//    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+//    defer _ = gpa.deinit();
+//    const alloc = &gpa.allocator();
+//
+//    var tmp = std.Io.Threaded.init_single_threaded;
+//    var io = tmp.io();
+//    var io_buffer: [65536]u8 = undefined;
+//
+//    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
+//    defer {
+//        file.close(io);
+//        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
+//    }
+//
+//    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
+//    try file_writer.interface.writeAll(DEFAULT_JSON_CONFIG[1..]);
+//    try file_writer.interface.flush();
+//
+//    var config_parsed: std.json.Parsed(Config) = undefined;
+//    var config_file:   []const u8              = "empty";
+//
+//    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
+//    defer deinit(&config_file, &config_parsed, alloc);
+//
+//    try std.testing.expect(result);
+//}
+//

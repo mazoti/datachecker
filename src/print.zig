@@ -2,24 +2,24 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
+const std = @import("std");
 
-const config  = @import("config");
+const config = @import("config");
 const globals = @import("globals");
-const i18n    = @import("i18n");
+const i18n = @import("i18n");
 
 /// Prints message with aligned "OK" status (moves cursor up and clears line)
 pub fn alignedOk(message: []const u8) !void {
-    const fmt_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[1A\x1b[2K{s}",
-        .{message[1..message.len - 1]});
+    const fmt_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[1A\x1b[2K{s}", .{message[1 .. message.len - 1]});
     try stdout(fmt_str);
 
     if (i18n.ALIGNED_OK_SPACES > message.len) {
-        for (0..(i18n.ALIGNED_OK_SPACES - message.len)) |_| { _ = try stdout(" "); }
+        for (0..(i18n.ALIGNED_OK_SPACES - message.len)) |_| {
+            _ = try stdout(" ");
+        }
 
         if (globals.config_parsed.value.COLOR) {
-            const ok_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[32m{s}\x1b[0m",
-                .{i18n.OK_MESSAGE});
+            const ok_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[32m{s}\x1b[0m", .{i18n.OK_MESSAGE});
             return stdout(ok_str);
         }
     }
@@ -35,14 +35,11 @@ pub fn check(comptime fmt: []const u8, args: anytype) !void {
 /// Prints duplicate files grouped by size
 pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8))) !void {
     for (duplicates.items) |results_list| {
-        const stat: std.Io.File.Stat = globals.file_stats.get(results_list.items[0])
-            orelse try std.Io.Dir.cwd().statFile(globals.io, results_list.items[0], .{});
+        const stat: std.Io.File.Stat = globals.file_stats.get(results_list.items[0]) orelse try std.Io.Dir.cwd().statFile(globals.io, results_list.items[0], .{});
 
         const plural: []const u8 = if (stat.size > 1) "bytes:" else "byte:";
 
-        const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(globals.buffer,
-            "\n\t\t\x1b[33m{} {s}\x1b[0m\n", .{stat.size, plural}) else
-            try std.fmt.bufPrint(globals.buffer, "\n\t\t{} {s}\n", .{stat.size, plural});
+        const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(globals.buffer, "\n\t\t\x1b[33m{} {s}\x1b[0m\n", .{ stat.size, plural }) else try std.fmt.bufPrint(globals.buffer, "\n\t\t{} {s}\n", .{ stat.size, plural });
 
         try stderr(data);
 
@@ -76,11 +73,10 @@ pub fn ok(comptime fmt: []const u8, args: anytype) !void {
 }
 
 /// Prints results using singular or plural after total
-pub fn results(total_items: u64, comptime header_message: []const u8, comptime message_total: []const u8,
-comptime message_totals: []const u8) !void {
+pub fn results(total_items: u64, comptime header_message: []const u8, comptime message_total: []const u8, comptime message_totals: []const u8) !void {
     return switch (total_items) {
-        0    => alignedOk(header_message),
-        1    => total(message_total,  .{total_items}),
+        0 => alignedOk(header_message),
+        1 => total(message_total, .{total_items}),
         else => total(message_totals, .{total_items}),
     };
 }
@@ -103,14 +99,11 @@ pub fn warning(comptime fmt: []const u8, args: anytype) !void {
 }
 
 /// Core printing function with optional ANSI color codes
-fn core(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8,
-args: anytype) !void {
+fn core(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
     const fmt_str: []const u8 = try std.fmt.bufPrint(globals.buffer, fmt, args);
 
     // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
-    const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(&globals.max_path_buffer,
-        "{s}{s}\x1b[0m{s}", .{ansi_color, print_message, fmt_str}) else
-            try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}", .{print_message, fmt_str});
+    const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}\x1b[0m{s}", .{ ansi_color, print_message, fmt_str }) else try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}", .{ print_message, fmt_str });
 
     return stderr(data);
 }
@@ -136,17 +129,14 @@ pub fn check_mt(comptime fmt: []const u8, args: anytype) !void {
 }
 
 /// Core printing function with optional ANSI color codes (multi-thread)
-fn core_mt(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8,
-args: anytype) !void {
-    var buf: [4096]u8 = undefined;
-    var buf2: [4096]u8 = undefined;
+fn core_mt(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
+    var buf: [config.IO_BUFFER_SIZE / 4]u8 = undefined;
+    var buf2: [config.IO_BUFFER_SIZE / 4]u8 = undefined;
 
     const fmt_str: []const u8 = try std.fmt.bufPrint(&buf, fmt, args);
 
     // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
-    const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(&buf2,
-        "{s}{s}\x1b[0m{s}", .{ansi_color, print_message, fmt_str}) else
-        try std.fmt.bufPrint(&buf2, "{s}{s}", .{print_message, fmt_str});
+    const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(&buf2, "{s}{s}\x1b[0m{s}", .{ ansi_color, print_message, fmt_str }) else try std.fmt.bufPrint(&buf2, "{s}{s}", .{ print_message, fmt_str });
 
     return stderr(data);
 }

@@ -57,10 +57,13 @@ pub fn duplicateCharacters(args: anytype) !bool {
 }
 
 /// Detects shortcuts and symlinks and checks if symlinks are pointing to nowhere
-pub fn linkShortcuts(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
+pub fn linkShortcuts(total_items: *u64) !void {
+    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
+    defer walker.deinit();
+
     while (true) {
         var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
-        if (try core.nextEntry(walker, total_items, &entry_tmp)) continue;
+        if (try core.nextEntry(&walker, total_items, &entry_tmp)) continue;
 
         if (entry_tmp) |entry| {
             const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",

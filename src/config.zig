@@ -2,81 +2,81 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
+const std = @import("std");
 
-const i18n    = @import("i18n");
+const i18n = @import("i18n");
 
 /// Compile-time feature flags to determine which checks are compiled into the binary
-pub const IO_BUFFER_SIZE:                   usize = 16384;
+pub const IO_BUFFER_SIZE: usize = 16384;
 
-pub const COMPTIME_DUPLICATE_FILES:          bool = true;
-pub const COMPTIME_LINKS_SHORTCUTS:          bool = true;
-pub const COMPTIME_INTEGRITY_FILES:          bool = true;
-pub const COMPTIME_TEMPORARY_FILES:          bool = true;
-pub const COMPTIME_CONFIDENTIAL_FILES:       bool = true;
+pub const COMPTIME_DUPLICATE_FILES: bool = true;
+pub const COMPTIME_LINKS_SHORTCUTS: bool = true;
+pub const COMPTIME_INTEGRITY_FILES: bool = true;
+pub const COMPTIME_TEMPORARY_FILES: bool = true;
+pub const COMPTIME_CONFIDENTIAL_FILES: bool = true;
 
-pub const COMPTIME_COMPRESSED_FILES:         bool = true;
-pub const COMPTIME_DUPLICATE_CHARS_FILES:    bool = true;
-pub const COMPTIME_EMPTY_FILES:              bool = true;
-pub const COMPTIME_LARGE_FILES:              bool = true;
-pub const COMPTIME_LAST_ACCESS_FILES:        bool = true;
-pub const COMPTIME_LEGACY_FILES:             bool = true;
-pub const COMPTIME_MAGIC_NUMBERS:            bool = true;
-pub const COMPTIME_NO_EXTENSION:             bool = true;
-pub const COMPTIME_PARSE_JSON_FILES:         bool = true;
-pub const COMPTIME_WRONG_DATES:              bool = true;
+pub const COMPTIME_COMPRESSED_FILES: bool = true;
+pub const COMPTIME_DUPLICATE_CHARS_FILES: bool = true;
+pub const COMPTIME_EMPTY_FILES: bool = true;
+pub const COMPTIME_LARGE_FILES: bool = true;
+pub const COMPTIME_LAST_ACCESS_FILES: bool = true;
+pub const COMPTIME_LEGACY_FILES: bool = true;
+pub const COMPTIME_MAGIC_NUMBERS: bool = true;
+pub const COMPTIME_NO_EXTENSION: bool = true;
+pub const COMPTIME_PARSE_JSON_FILES: bool = true;
+pub const COMPTIME_WRONG_DATES: bool = true;
 
-pub const COMPTIME_EMPTY_DIRECTORIES:        bool = true;
-pub const COMPTIME_MANY_ITEMS_DIRECTORY:     bool = true;
-pub const COMPTIME_ONE_ITEM_DIRECTORY:       bool = true;
+pub const COMPTIME_EMPTY_DIRECTORIES: bool = true;
+pub const COMPTIME_MANY_ITEMS_DIRECTORY: bool = true;
+pub const COMPTIME_ONE_ITEM_DIRECTORY: bool = true;
 
 pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE: bool = true;
-pub const COMPTIME_FULL_PATH_SIZE:           bool = true;
-pub const COMPTIME_UNPORTABLE_CHARS:         bool = true;
+pub const COMPTIME_FULL_PATH_SIZE: bool = true;
+pub const COMPTIME_UNPORTABLE_CHARS: bool = true;
 
 /// Configuration structure that holds runtime-configurable parameters
 pub const Config = struct {
-    INPUT_FOLDER:                      []const u8 = "",
-    BUFFER_SIZE:                            usize = 65536,
-    COLOR:                                   bool = true,
-    ENABLE_CACHE:                            bool = true,
-    ENTER_TO_QUIT:                           bool = false,
-    MAX_JOBS:                               usize = 0,                 // Uses maximum number of threads
+    INPUT_FOLDER: []const u8 = "",
+    BUFFER_SIZE: usize = 65536,
+    COLOR: bool = true,
+    ENABLE_CACHE: bool = true,
+    ENTER_TO_QUIT: bool = false,
+    MAX_JOBS: usize = 0, // Uses maximum number of threads
 
     // Runtime toggles for each check type (can be overridden by config.json)
-    DUPLICATE_FILES:                         bool = true,
-        DUPLICATE_FILES_PARALLEL:            bool = true,
-    LINKS_SHORTCUTS:                         bool = true,
-    INTEGRITY_FILES:                         bool = true,
-        INTEGRITY_FILES_PARALLEL:            bool = true,
-    TEMPORARY_FILES:                         bool = true,              // Looks for for .tmp, .temp, ~ and .swp
-    CONFIDENTIAL_FILES:                      bool = true,
-        PATTERNS:                    [][]const u8 = &[_][]const u8{},
-        PATTERN_BASE64_BYTES:        [][]const u8 = &[_][]const u8{},
+    DUPLICATE_FILES: bool = true,
+    DUPLICATE_FILES_PARALLEL: bool = true,
+    LINKS_SHORTCUTS: bool = true,
+    INTEGRITY_FILES: bool = true,
+    INTEGRITY_FILES_PARALLEL: bool = true,
+    TEMPORARY_FILES: bool = true, // Looks for for .tmp, .temp, ~ and .swp
+    CONFIDENTIAL_FILES: bool = true,
+    PATTERNS: [][]const u8 = &[_][]const u8{},
+    PATTERN_BASE64_BYTES: [][]const u8 = &[_][]const u8{},
 
-    COMPRESSED_FILES:                        bool = true,
-    DUPLICATE_CHARS_FILES:                   bool = true,
-    EMPTY_FILES:                             bool = true,
-    LARGE_FILES:                             bool = true,
-        LARGE_FILE_SIZE:                      u64 = 107374182400,      // 100 GB
-    LAST_ACCESS_FILES:                       bool = true,
-        LAST_ACCESS_TIME:                     u64 = 31536000000000000, // ~1 year in nanoseconds
-    LEGACY_FILES:                            bool = true,
-    MAGIC_NUMBERS:                           bool = true,              // Validates file signatures
-    NO_EXTENSION:                            bool = true,
-    PARSE_JSON_FILES:                        bool = true,
-    WRONG_DATES:                             bool = true,
+    COMPRESSED_FILES: bool = true,
+    DUPLICATE_CHARS_FILES: bool = true,
+    EMPTY_FILES: bool = true,
+    LARGE_FILES: bool = true,
+    LARGE_FILE_SIZE: u64 = 107374182400, // 100 GB
+    LAST_ACCESS_FILES: bool = true,
+    LAST_ACCESS_TIME: u64 = 31536000000000000, // ~1 year in nanoseconds
+    LEGACY_FILES: bool = true,
+    MAGIC_NUMBERS: bool = true, // Validates file signatures
+    NO_EXTENSION: bool = true,
+    PARSE_JSON_FILES: bool = true,
+    WRONG_DATES: bool = true,
 
-    EMPTY_DIRECTORIES:                       bool = true,
-    FULL_PATH_SIZE:                          bool = true,              // Checks for deeply nested paths
-        MAX_FULL_PATH_SIZE:                   u32 = 1024,
-    MANY_ITEMS_DIRECTORY:                    bool = true,
-        MAX_ITEMS_DIRECTORY:                  u32 = 10000,
-    ONE_ITEM_DIRECTORY:                      bool = true,              // Detects unnecessary directory nesting
+    EMPTY_DIRECTORIES: bool = true,
+    FULL_PATH_SIZE: bool = true, // Checks for deeply nested paths
+    MAX_FULL_PATH_SIZE: u32 = 1024,
+    MANY_ITEMS_DIRECTORY: bool = true,
+    MAX_ITEMS_DIRECTORY: u32 = 10000,
+    ONE_ITEM_DIRECTORY: bool = true, // Detects unnecessary directory nesting
 
-    DIRECTORY_FILE_NAME_SIZE:                bool = true,
-    MAX_DIR_FILE_NAME_SIZE:                   u32 = 200,
-    UNPORTABLE_CHARS:                        bool = true,
+    DIRECTORY_FILE_NAME_SIZE: bool = true,
+    MAX_DIR_FILE_NAME_SIZE: u32 = 200,
+    UNPORTABLE_CHARS: bool = true,
 };
 
 pub const DEFAULT_JSON_CONFIG: []const u8 =
@@ -198,83 +198,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\
 ;
 
-pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: *const std.mem.Allocator)
-void {
+pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: *const std.mem.Allocator) void {
     config_parsed.*.deinit();
     if (config_file.*.len > 0) alloc.*.free(config_file.*);
 }
-
-
-//test "No config file" {
-//    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-//    defer _ = gpa.deinit();
-//    const alloc = &gpa.allocator();
-//
-//    var tmp = std.Io.Threaded.init_single_threaded;
-//    var io = tmp.io();
-//
-//    var config_parsed: std.json.Parsed(Config) = undefined;
-//    var config_file:   []const u8              = "empty";
-//
-//    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-//    defer deinit(&config_file, &config_parsed, alloc);
-//
-//    try std.testing.expect(!result);
-//}
-//
-//test "Valid config file" {
-//    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-//    defer _ = gpa.deinit();
-//    const alloc = &gpa.allocator();
-//
-//    var tmp = std.Io.Threaded.init_single_threaded;
-//    var io = tmp.io();
-//    var io_buffer: [65536]u8 = undefined;
-//
-//    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
-//    defer {
-//        file.close(io);
-//        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
-//    }
-//
-//    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
-//    try file_writer.interface.writeAll(DEFAULT_JSON_CONFIG);
-//    try file_writer.interface.flush();
-//
-//    var config_parsed: std.json.Parsed(Config) = undefined;
-//    var config_file:   []const u8              = "empty";
-//
-//    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-//    defer deinit(&config_file, &config_parsed, alloc);
-//
-//    try std.testing.expect(result);
-//}
-//
-//test "Invalid config file" {
-//    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-//    defer _ = gpa.deinit();
-//    const alloc = &gpa.allocator();
-//
-//    var tmp = std.Io.Threaded.init_single_threaded;
-//    var io = tmp.io();
-//    var io_buffer: [65536]u8 = undefined;
-//
-//    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
-//    defer {
-//        file.close(io);
-//        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
-//    }
-//
-//    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
-//    try file_writer.interface.writeAll(DEFAULT_JSON_CONFIG[1..]);
-//    try file_writer.interface.flush();
-//
-//    var config_parsed: std.json.Parsed(Config) = undefined;
-//    var config_file:   []const u8              = "empty";
-//
-//    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-//    defer deinit(&config_file, &config_parsed, alloc);
-//
-//    try std.testing.expect(result);
-//}
-//

@@ -12,139 +12,72 @@ const print   = @import("print");
 const core    = @import("core.zig");
 
 const HashFunctions = struct {
-    single:    *const fn ([]const u8, *u64) anyerror!bool,
-    parallel:  *const fn ([]const u8, *u64) void,
+    single:   *const fn ([]const u8, *u64) anyerror!bool,
+    parallel: *const fn ([]const u8, *u64) void,
+
+    fn init(comptime name: []const u8, comptime HashType: type) HashFunctions {
+        return .{
+            .single   = makeHashFunction(  name, HashType),
+            .parallel = makeHashFunctionMt(name, HashType),
+        };
+    }
 };
 
-fn makeHashFunction(comptime name: []const u8, comptime HashType: type) fn([]const u8, *u64) anyerror!bool {
-    return struct {
+fn makeHashFunction(comptime name: []const u8, comptime HashType: type) *const fn ([]const u8, *u64) anyerror!bool {
+    return &struct {
         fn hash(f: []const u8, t: *u64) anyerror!bool {
             return hashSingleCore(f, t, name, HashType);
         }
     }.hash;
 }
 
-fn makeHashFunctionMt(comptime name: []const u8, comptime HashType: type) fn([]const u8, *u64) void {
-    return struct {
+fn makeHashFunctionMt(comptime name: []const u8, comptime HashType: type) *const fn ([]const u8, *u64) void {
+    return &struct {
         fn hash(f: []const u8, t: *u64) void {
             return hashParallelCore(f, t, name, HashType);
         }
     }.hash;
 }
 
-const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
-    .{ ".ascon256", HashFunctions{
-        .single   = makeHashFunction(  "ASCON256", std.crypto.hash.ascon.AsconHash256),
-        .parallel = makeHashFunctionMt("ASCON256", std.crypto.hash.ascon.AsconHash256),
-    }},
-    .{ ".blake2b128", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2B128", std.crypto.hash.blake2.Blake2b128),
-        .parallel = makeHashFunctionMt("BLAKE2B128", std.crypto.hash.blake2.Blake2b128),
-    }},
-    .{ ".blake2b160", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2B160", std.crypto.hash.blake2.Blake2b160),
-        .parallel = makeHashFunctionMt("BLAKE2B160", std.crypto.hash.blake2.Blake2b160),
-    }},
-    .{ ".blake2b256", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2B256", std.crypto.hash.blake2.Blake2b256),
-        .parallel = makeHashFunctionMt("BLAKE2B256", std.crypto.hash.blake2.Blake2b256),
-    }},
-    .{ ".blake2b384", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2B384", std.crypto.hash.blake2.Blake2b384),
-        .parallel = makeHashFunctionMt("BLAKE2B384", std.crypto.hash.blake2.Blake2b384),
-    }},
-    .{ ".blake2b512", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2B512", std.crypto.hash.blake2.Blake2b512),
-        .parallel = makeHashFunctionMt("BLAKE2B512", std.crypto.hash.blake2.Blake2b512),
-    }},
-    .{ ".blake2s128", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2S128", std.crypto.hash.blake2.Blake2s128),
-        .parallel = makeHashFunctionMt("BLAKE2S128", std.crypto.hash.blake2.Blake2s128),
-    }},
-    .{ ".blake2s160", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2S160", std.crypto.hash.blake2.Blake2s160),
-        .parallel = makeHashFunctionMt("BLAKE2S160", std.crypto.hash.blake2.Blake2s160),
-    }},
-    .{ ".blake2s224", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2S224", std.crypto.hash.blake2.Blake2s224),
-        .parallel = makeHashFunctionMt("BLAKE2S224", std.crypto.hash.blake2.Blake2s224),
-    }},
-    .{ ".blake2s256", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE2S256", std.crypto.hash.blake2.Blake2s256),
-        .parallel = makeHashFunctionMt("BLAKE2S256", std.crypto.hash.blake2.Blake2s256),
-    }},
-    .{ ".blake3", HashFunctions{
-        .single   = makeHashFunction(  "BLAKE3", std.crypto.hash.Blake3),
-        .parallel = makeHashFunctionMt("BLAKE3", std.crypto.hash.Blake3),
-    }},
-    .{ ".md5", HashFunctions{
-        .single   = makeHashFunction(  "MD5", std.crypto.hash.Md5),
-        .parallel = makeHashFunctionMt("MD5", std.crypto.hash.Md5),
-    }},
-    .{ ".sha1", HashFunctions{
-        .single   = makeHashFunction(  "SHA1", std.crypto.hash.Sha1),
-        .parallel = makeHashFunctionMt("SHA1", std.crypto.hash.Sha1),
-    }},
-    .{ ".sha224", HashFunctions{
-        .single   = makeHashFunction(  "SHA224", std.crypto.hash.sha2.Sha224),
-        .parallel = makeHashFunctionMt("SHA224", std.crypto.hash.sha2.Sha224),
-    }},
-    .{ ".sha256", HashFunctions{
-        .single   = makeHashFunction(  "SHA256", std.crypto.hash.sha2.Sha256),
-        .parallel = makeHashFunctionMt("SHA256", std.crypto.hash.sha2.Sha256),
-    }},
-    .{ ".sha256t192", HashFunctions{
-        .single   = makeHashFunction(  "SHA256T192", std.crypto.hash.sha2.Sha256T192),
-        .parallel = makeHashFunctionMt("SHA256T192", std.crypto.hash.sha2.Sha256T192),
-    }},
-    .{ ".sha384", HashFunctions{
-        .single   = makeHashFunction(  "SHA384", std.crypto.hash.sha2.Sha384),
-        .parallel = makeHashFunctionMt("SHA384", std.crypto.hash.sha2.Sha384),
-    }},
-    .{ ".sha512", HashFunctions{
-        .single   = makeHashFunction(  "SHA512", std.crypto.hash.sha2.Sha512),
-        .parallel = makeHashFunctionMt("SHA512", std.crypto.hash.sha2.Sha512),
-    }},
-    .{ ".sha512_224", HashFunctions{
-        .single   = makeHashFunction(  "SHA512_224", std.crypto.hash.sha2.Sha512_224),
-        .parallel = makeHashFunctionMt("SHA512_224", std.crypto.hash.sha2.Sha512_224),
-    }},
-    .{ ".sha512t224", HashFunctions{
-        .single   = makeHashFunction(  "SHA512T224", std.crypto.hash.sha2.Sha512T224),
-        .parallel = makeHashFunctionMt("SHA512T224", std.crypto.hash.sha2.Sha512T224),
-    }},
-    .{ ".sha512_256", HashFunctions{
-        .single   = makeHashFunction(  "SHA512_256", std.crypto.hash.sha2.Sha512_256),
-        .parallel = makeHashFunctionMt("SHA512_256", std.crypto.hash.sha2.Sha512_256),
-    }},
-    .{ ".sha512t256", HashFunctions{
-        .single   = makeHashFunction(  "SHA512T256", std.crypto.hash.sha2.Sha512T256),
-        .parallel = makeHashFunctionMt("SHA512T256", std.crypto.hash.sha2.Sha512T256),
-    }},
-    .{ ".sha3_224", HashFunctions{
-        .single   = makeHashFunction(  "SHA3_224", std.crypto.hash.sha3.Sha3_224),
-        .parallel = makeHashFunctionMt("SHA3_224", std.crypto.hash.sha3.Sha3_224),
-    }},
-    .{ ".sha3_256", HashFunctions{
-        .single   = makeHashFunction(  "SHA3_256", std.crypto.hash.sha3.Sha3_256),
-        .parallel = makeHashFunctionMt("SHA3_256", std.crypto.hash.sha3.Sha3_256),
-    }},
-    .{ ".sha3_384", HashFunctions{
-        .single   = makeHashFunction(  "SHA3_384", std.crypto.hash.sha3.Sha3_384),
-        .parallel = makeHashFunctionMt("SHA3_384", std.crypto.hash.sha3.Sha3_384),
-    }},
-    .{ ".sha3_512", HashFunctions{
-        .single   = makeHashFunction(  "SHA3_512", std.crypto.hash.sha3.Sha3_512),
-        .parallel = makeHashFunctionMt("SHA3_512", std.crypto.hash.sha3.Sha3_512),
-    }},
-});
-
-pub fn checkIntegrity(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
-    return if (globals.config_parsed.value.INTEGRITY_FILES_PARALLEL) checkParallel(total_items, walker)
-        else checkSingle(total_items, walker);
+fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) struct { []const u8, HashFunctions } {
+    return .{ ext, HashFunctions.init(name, T) };
 }
 
-fn checkParallel(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
+const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
+    H(".ascon256",    "ASCON256",    std.crypto.hash.ascon.AsconHash256),
+    H(".blake2b128",  "BLAKE2B128",  std.crypto.hash.blake2.Blake2b128),
+    H(".blake2b160",  "BLAKE2B160",  std.crypto.hash.blake2.Blake2b160),
+    H(".blake2b256",  "BLAKE2B256",  std.crypto.hash.blake2.Blake2b256),
+    H(".blake2b384",  "BLAKE2B384",  std.crypto.hash.blake2.Blake2b384),
+    H(".blake2b512",  "BLAKE2B512",  std.crypto.hash.blake2.Blake2b512),
+    H(".blake2s128",  "BLAKE2S128",  std.crypto.hash.blake2.Blake2s128),
+    H(".blake2s160",  "BLAKE2S160",  std.crypto.hash.blake2.Blake2s160),
+    H(".blake2s224",  "BLAKE2S224",  std.crypto.hash.blake2.Blake2s224),
+    H(".blake2s256",  "BLAKE2S256",  std.crypto.hash.blake2.Blake2s256),
+    H(".blake3",      "BLAKE3",      std.crypto.hash.Blake3),
+    H(".md5",         "MD5",         std.crypto.hash.Md5),
+    H(".sha1",        "SHA1",        std.crypto.hash.Sha1),
+    H(".sha224",      "SHA224",      std.crypto.hash.sha2.Sha224),
+    H(".sha256",      "SHA256",      std.crypto.hash.sha2.Sha256),
+    H(".sha256t192",  "SHA256T192",  std.crypto.hash.sha2.Sha256T192),
+    H(".sha384",      "SHA384",      std.crypto.hash.sha2.Sha384),
+    H(".sha512",      "SHA512",      std.crypto.hash.sha2.Sha512),
+    H(".sha512_224",  "SHA512_224",  std.crypto.hash.sha2.Sha512_224),
+    H(".sha512t224",  "SHA512T224",  std.crypto.hash.sha2.Sha512T224),
+    H(".sha512_256",  "SHA512_256",  std.crypto.hash.sha2.Sha512_256),
+    H(".sha512t256",  "SHA512T256",  std.crypto.hash.sha2.Sha512T256),
+    H(".sha3_224",    "SHA3_224",    std.crypto.hash.sha3.Sha3_224),
+    H(".sha3_256",    "SHA3_256",    std.crypto.hash.sha3.Sha3_256),
+    H(".sha3_384",    "SHA3_384",    std.crypto.hash.sha3.Sha3_384),
+    H(".sha3_512",    "SHA3_512",    std.crypto.hash.sha3.Sha3_512),
+});
+
+pub fn checkIntegrity(total_items: *u64) !void {
+    return if (globals.config_parsed.value.INTEGRITY_FILES_PARALLEL) checkParallel(total_items)
+        else checkSingle(total_items);
+}
+
+fn checkParallel(total_items: *u64) !void {
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
 
     var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.alloc.*, .{.async_limit = max_jobs_limit,
@@ -179,20 +112,16 @@ fn checkParallel(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
         }
     }
 
-_ = walker;
-
     try globals.group.await(io);
 }
 
-fn checkSingle(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
+fn checkSingle(total_items: *u64) !void {
     var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
         _ = try hashSingle(entry.path, total_items);
     }
-
-_ = walker;
 }
 
 fn hashSingle(absolute_path: []const u8, total_items: *u64) !bool {

@@ -67,7 +67,7 @@ const MAGIC_NUMBERS_KEY = std.StaticStringMap([]const u8).initComptime(.{
     .{ "\x66\x4C\x61\x43\x00\x00\x00\x22"                                 , ".flac"        }, // Free Lossless Audio Codec
     .{ "\x77\x4F\x46\x46"                                                 , ".woff"        }, // Web Open Font Format
     .{ "\x7B\x5C\x72\x74\x66\x31"                                         , ".rtf"         }, // Rich Text Format
-    .{ "\x7F\x45\x4C\x46"                                                 , "elf"         }, // Linux Executable and Linkable Format (.elf DOES NOT EXISTS)
+    .{ "\x7F\x45\x4C\x46"                                                 , "elf"          }, // Linux Executable and Linkable Format (.elf DOES NOT EXISTS)
     .{ "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"                                 , ".png"         }, // Portable Network Graphics
     .{ "\xCA\xFE\xBA\xBE"                                                 , ".class"       }, // Java compiled class file
     .{ "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"                                 , ".doc/ppt/xls" }, // Microsoft Word/PowerPoint/XML Document

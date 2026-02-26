@@ -67,6 +67,8 @@ fn checkPNG(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
 
         if (try core.readExactChunk(file_reader, 128, fullpath, total_items)) |chunk2| {
             if (std.mem.indexOf(u8, chunk2[0..128], "IDAT")) |pos| {
+                if (pos > 122) return core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{fullpath});
+
                 // FLEVEL = 11xx xxxx == max compression
                 if (chunk2[pos+5] & 0xC0 != 0xC0) return core.messageSum(print.warning, total_items, 1,
                     i18n.COMPRESSED_FILES_WARNING, .{fullpath});

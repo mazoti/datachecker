@@ -1,8 +1,8 @@
 IDI_MYICON ICON "icon.ico"
 
 1 VERSIONINFO
-FILEVERSION 0,0,2,2
-PRODUCTVERSION 0,0,2,2
+FILEVERSION 0,0,2,4
+PRODUCTVERSION 0,0,2,4
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS 0x4L
@@ -15,12 +15,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Marcos Mazoti"
             VALUE "FileDescription", "Application"
-            VALUE "FileVersion", "0.0.2.2"
+            VALUE "FileVersion", "0.0.2.4"
             VALUE "InternalName", "datachecker"
             VALUE "LegalCopyright", "Copyright Marcos Mazoti. All rights reserved."
             VALUE "OriginalFilename", "datachecker.exe"
             VALUE "ProductName", "datachecker"
-            VALUE "ProductVersion", "0.0.2.2"
+            VALUE "ProductVersion", "0.0.2.4"
         END
     END
     BLOCK "VarFileInfo"

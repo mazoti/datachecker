@@ -318,7 +318,7 @@ pub fn legacyFiles(args: anytype) !bool {
 }
 
 /// Scans a directory tree for temporary files
-pub fn temporaryFiles(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
+pub fn temporaryFiles(total_items: *u64) !void {
     // Initializes Aho-Corasick trie
     var ac = try ahocorasick.AhoCorasick.init(globals.alloc.*, &CONTAINS);
     defer ac.deinit();
@@ -329,8 +329,6 @@ pub fn temporaryFiles(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     while (try file_iterator.next(total_items)) |entry| {
         _ = try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac});
     }
-
-_ = walker;
 }
 
 fn checkTempFiles(args: anytype) !bool {

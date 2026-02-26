@@ -16,12 +16,12 @@ const core    = @import("core.zig");
 
 const modules = @import("../core.zig");
 
-pub fn check(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
+pub fn check(total_items: *u64) !void {
     var same_size_files_map: std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))
         = std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)){};
     defer core.cleanHashMap(u64, &same_size_files_map);
 
-    try core.groupFileBySize(&same_size_files_map, walker);
+    try core.groupFileBySize(&same_size_files_map);
     try core.removeUniques(&same_size_files_map);
 
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);

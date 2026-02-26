@@ -3,209 +3,219 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std              = @import("std");
+const std = @import("std");
 
-const config           = @import("config");
-const core             = @import("core");
-const globals          = @import("globals");
-const i18n             = @import("i18n");
-const print            = @import("print");
+const config = @import("config");
+const core = @import("core");
+const globals = @import("globals");
+const i18n = @import("i18n");
+const print = @import("print");
 
-const NoParameterFunc = *const fn() anyerror!void;
+const NoParameterFunc = *const fn () anyerror!void;
 
 /// Map of command-line flags to their corresponding handler functions
 /// Supports various help and version flag formats (Unix, Windows, case variations)
 const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
-    .{ "--config"    , &createConfig },
-    .{ "--configure" , &createConfig },
-    .{ "-config"     , &createConfig },
-    .{ "-configure"  , &createConfig },
-    .{ "config"      , &createConfig },
-    .{ "configure"   , &createConfig },
+    .{ "--config", &createConfig },
+    .{ "--configure", &createConfig },
+    .{ "-config", &createConfig },
+    .{ "-configure", &createConfig },
+    .{ "config", &createConfig },
+    .{ "configure", &createConfig },
 
-    .{ "--help"      , &printHelp    },
-    .{ "-?"          , &printHelp    },
-    .{ "-h"          , &printHelp    },
-    .{ "-H"          , &printHelp    },
-    .{ "-help"       , &printHelp    },
-    .{ "/?"          , &printHelp    },
-    .{ "/h"          , &printHelp    },
-    .{ "help"        , &printHelp    },
-    .{ "HELP"        , &printHelp    },
+    .{ "--help", &printHelp },
+    .{ "-?", &printHelp },
+    .{ "-h", &printHelp },
+    .{ "-H", &printHelp },
+    .{ "-help", &printHelp },
+    .{ "/?", &printHelp },
+    .{ "/h", &printHelp },
+    .{ "help", &printHelp },
+    .{ "HELP", &printHelp },
 
-    .{ "--version"   , &printVersion },
-    .{ "-v"          , &printVersion },
-    .{ "-V"          , &printVersion },
-    .{ "-version"    , &printVersion },
-    .{ "/V"          , &printVersion },
-    .{ "version"     , &printVersion },
-    .{ "VERSION"     , &printVersion },
+    .{ "--version", &printVersion },
+    .{ "-v", &printVersion },
+    .{ "-V", &printVersion },
+    .{ "-version", &printVersion },
+    .{ "/V", &printVersion },
+    .{ "version", &printVersion },
+    .{ "VERSION", &printVersion },
 });
 
 const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
-    .{ "--duplicate"    , &core.duplicateFiles         },
-    .{ "-d"             , &core.duplicateFiles         },
-    .{ "-D"             , &core.duplicateFiles         },
-    .{ "duplicate"      , &core.duplicateFiles         },
-    .{ "/D"             , &core.duplicateFiles         },
-    .{ "DUPLICATE"      , &core.duplicateFiles         },
+    .{ "--duplicate", &core.duplicateFiles },
+    .{ "-d", &core.duplicateFiles },
+    .{ "-D", &core.duplicateFiles },
+    .{ "duplicate", &core.duplicateFiles },
+    .{ "/D", &core.duplicateFiles },
+    .{ "DUPLICATE", &core.duplicateFiles },
 
-    .{ "--duplicate_mt" , &core.duplicateFilesParallel },
-    .{ "-dmt"           , &core.duplicateFilesParallel },
-    .{ "-DMT"           , &core.duplicateFilesParallel },
-    .{ "duplicate_mt"   , &core.duplicateFilesParallel },
-    .{ "/DMT"           , &core.duplicateFilesParallel },
-    .{ "DUPLICATE_MT"   , &core.duplicateFilesParallel },
+    .{ "--duplicate_mt", &core.duplicateFilesParallel },
+    .{ "-dmt", &core.duplicateFilesParallel },
+    .{ "-DMT", &core.duplicateFilesParallel },
+    .{ "duplicate_mt", &core.duplicateFilesParallel },
+    .{ "/DMT", &core.duplicateFilesParallel },
+    .{ "DUPLICATE_MT", &core.duplicateFilesParallel },
 
-    .{ "--links"        , &core.linksShortcuts         },
-    .{ "-ls"            , &core.linksShortcuts         },
-    .{ "-LS"            , &core.linksShortcuts         },
-    .{ "links"          , &core.linksShortcuts         },
-    .{ "/LS"            , &core.linksShortcuts         },
-    .{ "LINKS"          , &core.linksShortcuts         },
+    .{ "--links", &core.linksShortcuts },
+    .{ "-ls", &core.linksShortcuts },
+    .{ "-LS", &core.linksShortcuts },
+    .{ "links", &core.linksShortcuts },
+    .{ "/LS", &core.linksShortcuts },
+    .{ "LINKS", &core.linksShortcuts },
 
-    .{ "--integrity"    , &core.integrityFiles         },
-    .{ "-i"             , &core.integrityFiles         },
-    .{ "-I"             , &core.integrityFiles         },
-    .{ "integrity"      , &core.integrityFiles         },
-    .{ "/I"             , &core.integrityFiles         },
-    .{ "INTEGRITY"      , &core.integrityFiles         },
+    .{ "--integrity", &core.integrityFiles },
+    .{ "-i", &core.integrityFiles },
+    .{ "-I", &core.integrityFiles },
+    .{ "integrity", &core.integrityFiles },
+    .{ "/I", &core.integrityFiles },
+    .{ "INTEGRITY", &core.integrityFiles },
 
-    .{ "--integrity_mt" , &core.integrityFilesParallel },
-    .{ "-imt"           , &core.integrityFilesParallel },
-    .{ "-IMT"           , &core.integrityFilesParallel },
-    .{ "integrity_mt"   , &core.integrityFilesParallel },
-    .{ "/IMT"           , &core.integrityFilesParallel },
-    .{ "INTEGRITY_MT"   , &core.integrityFilesParallel },
+    .{ "--integrity_mt", &core.integrityFilesParallel },
+    .{ "-imt", &core.integrityFilesParallel },
+    .{ "-IMT", &core.integrityFilesParallel },
+    .{ "integrity_mt", &core.integrityFilesParallel },
+    .{ "/IMT", &core.integrityFilesParallel },
+    .{ "INTEGRITY_MT", &core.integrityFilesParallel },
 
-    .{ "--temp"         , &core.temporaryFiles         },
-    .{ "-tf"            , &core.temporaryFiles         },
-    .{ "-TF"            , &core.temporaryFiles         },
-    .{ "temp"           , &core.temporaryFiles         },
-    .{ "/TF"            , &core.temporaryFiles         },
-    .{ "TEMP"           , &core.temporaryFiles         },
+    .{ "--temp", &core.temporaryFiles },
+    .{ "-tf", &core.temporaryFiles },
+    .{ "-TF", &core.temporaryFiles },
+    .{ "temp", &core.temporaryFiles },
+    .{ "/TF", &core.temporaryFiles },
+    .{ "TEMP", &core.temporaryFiles },
 
-    .{ "--conf"         , &core.confidentialFiles      },
-    .{ "-cf"            , &core.confidentialFiles      },
-    .{ "-CF"            , &core.confidentialFiles      },
-    .{ "conf"           , &core.confidentialFiles      },
-    .{ "/CF"            , &core.confidentialFiles      },
-    .{ "CONF"           , &core.confidentialFiles      },
+    .{ "--conf", &core.confidentialFiles },
+    .{ "-cf", &core.confidentialFiles },
+    .{ "-CF", &core.confidentialFiles },
+    .{ "conf", &core.confidentialFiles },
+    .{ "/CF", &core.confidentialFiles },
+    .{ "CONF", &core.confidentialFiles },
 
-    .{ "--compressed"   , &core.compressedFiles        },
-    .{ "-c"             , &core.compressedFiles        },
-    .{ "-C"             , &core.compressedFiles        },
-    .{ "compressed"     , &core.compressedFiles        },
-    .{ "/C"             , &core.compressedFiles        },
-    .{ "COMPRESSED"     , &core.compressedFiles        },
+    .{ "--compressed", &core.compressedFiles },
+    .{ "-c", &core.compressedFiles },
+    .{ "-C", &core.compressedFiles },
+    .{ "compressed", &core.compressedFiles },
+    .{ "/C", &core.compressedFiles },
+    .{ "COMPRESSED", &core.compressedFiles },
 
-    .{ "--dupchars"     , &core.duplicateChars         },
-    .{ "-dc"            , &core.duplicateChars         },
-    .{ "-DC"            , &core.duplicateChars         },
-    .{ "dupchars"       , &core.duplicateChars         },
-    .{ "/DC"            , &core.duplicateChars         },
-    .{ "DUPCHARS"       , &core.duplicateChars         },
+    .{ "--dupchars", &core.duplicateChars },
+    .{ "-dc", &core.duplicateChars },
+    .{ "-DC", &core.duplicateChars },
+    .{ "dupchars", &core.duplicateChars },
+    .{ "/DC", &core.duplicateChars },
+    .{ "DUPCHARS", &core.duplicateChars },
 
-    .{ "--empty"        , &core.emptyFiles             },
-    .{ "-ef"            , &core.emptyFiles             },
-    .{ "-EF"            , &core.emptyFiles             },
-    .{ "empty"          , &core.emptyFiles             },
-    .{ "/EF"            , &core.emptyFiles             },
-    .{ "EMPTY"          , &core.emptyFiles             },
+    .{ "--empty", &core.emptyFiles },
+    .{ "-ef", &core.emptyFiles },
+    .{ "-EF", &core.emptyFiles },
+    .{ "empty", &core.emptyFiles },
+    .{ "/EF", &core.emptyFiles },
+    .{ "EMPTY", &core.emptyFiles },
 
-    .{ "--large"        , &core.largeFiles             },
-    .{ "-lf"            , &core.largeFiles             },
-    .{ "-LF"            , &core.largeFiles             },
-    .{ "large"          , &core.largeFiles             },
-    .{ "/LF"            , &core.largeFiles             },
-    .{ "LARGE"          , &core.largeFiles             },
+    .{ "--large", &core.largeFiles },
+    .{ "-lf", &core.largeFiles },
+    .{ "-LF", &core.largeFiles },
+    .{ "large", &core.largeFiles },
+    .{ "/LF", &core.largeFiles },
+    .{ "LARGE", &core.largeFiles },
 
-    .{ "--last"         , &core.lastAccess             },
-    .{ "-l"             , &core.lastAccess             },
-    .{ "-L"             , &core.lastAccess             },
-    .{ "last"           , &core.lastAccess             },
-    .{ "/L"             , &core.lastAccess             },
-    .{ "LAST"           , &core.lastAccess             },
+    .{ "--last", &core.lastAccess },
+    .{ "-l", &core.lastAccess },
+    .{ "-L", &core.lastAccess },
+    .{ "last", &core.lastAccess },
+    .{ "/L", &core.lastAccess },
+    .{ "LAST", &core.lastAccess },
 
-    .{ "--legacy"       , &core.legacyFiles            },
-    .{ "-legacy"        , &core.legacyFiles            },
-    .{ "/LEGACY"        , &core.legacyFiles            },
-    .{ "legacy"         , &core.legacyFiles            },
-    .{ "LEGACY"         , &core.legacyFiles            },
+    .{ "--legacy", &core.legacyFiles },
+    .{ "-legacy", &core.legacyFiles },
+    .{ "/LEGACY", &core.legacyFiles },
+    .{ "legacy", &core.legacyFiles },
+    .{ "LEGACY", &core.legacyFiles },
 
-    .{ "--magic"        , &core.magicNumbers           },
-    .{ "-m"             , &core.magicNumbers           },
-    .{ "-M"             , &core.magicNumbers           },
-    .{ "magic"          , &core.magicNumbers           },
-    .{ "/M"             , &core.magicNumbers           },
-    .{ "MAGIC"          , &core.magicNumbers           },
+    .{ "--magic", &core.magicNumbers },
+    .{ "-m", &core.magicNumbers },
+    .{ "-M", &core.magicNumbers },
+    .{ "magic", &core.magicNumbers },
+    .{ "/M", &core.magicNumbers },
+    .{ "MAGIC", &core.magicNumbers },
 
-    .{ "--noext"        , &core.noExtension            },
-    .{ "-n"             , &core.noExtension            },
-    .{ "-N"             , &core.noExtension            },
-    .{ "noext"          , &core.noExtension            },
-    .{ "/N"             , &core.noExtension            },
-    .{ "NOEXT"          , &core.noExtension            },
+    .{ "--noext", &core.noExtension },
+    .{ "-n", &core.noExtension },
+    .{ "-N", &core.noExtension },
+    .{ "noext", &core.noExtension },
+    .{ "/N", &core.noExtension },
+    .{ "NOEXT", &core.noExtension },
 
-    .{ "--json"         , &core.checkJSON              },
-    .{ "-j"             , &core.checkJSON              },
-    .{ "-J"             , &core.checkJSON              },
-    .{ "json"           , &core.checkJSON              },
-    .{ "/J"             , &core.checkJSON              },
-    .{ "JSON"           , &core.checkJSON              },
+    .{ "--json", &core.checkJSON },
+    .{ "-j", &core.checkJSON },
+    .{ "-J", &core.checkJSON },
+    .{ "json", &core.checkJSON },
+    .{ "/J", &core.checkJSON },
+    .{ "JSON", &core.checkJSON },
 
-    .{ "--wrong"        , &core.wrongDates             },
-    .{ "-w"             , &core.wrongDates             },
-    .{ "-W"             , &core.wrongDates             },
-    .{ "wrong"          , &core.wrongDates             },
-    .{ "/W"             , &core.wrongDates             },
-    .{ "WRONG"          , &core.wrongDates             },
+    .{ "--wrong", &core.wrongDates },
+    .{ "-w", &core.wrongDates },
+    .{ "-W", &core.wrongDates },
+    .{ "wrong", &core.wrongDates },
+    .{ "/W", &core.wrongDates },
+    .{ "WRONG", &core.wrongDates },
 
-    .{ "--emptydirs"    , &core.emptyDirectories       },
-    .{ "-e"             , &core.emptyDirectories       },
-    .{ "-E"             , &core.emptyDirectories       },
-    .{ "emptydirs"      , &core.emptyDirectories       },
-    .{ "/E"             , &core.emptyDirectories       },
-    .{ "EMPTYDIRS"      , &core.emptyDirectories       },
+    .{ "--emptydirs", &core.emptyDirectories },
+    .{ "-e", &core.emptyDirectories },
+    .{ "-E", &core.emptyDirectories },
+    .{ "emptydirs", &core.emptyDirectories },
+    .{ "/E", &core.emptyDirectories },
+    .{ "EMPTYDIRS", &core.emptyDirectories },
 
-    .{ "--manyitems"    , &core.manyItemsDirectories   },
-    .{ "-mi"            , &core.manyItemsDirectories   },
-    .{ "-MI"            , &core.manyItemsDirectories   },
-    .{ "manyitems"      , &core.manyItemsDirectories   },
-    .{ "/MI"            , &core.manyItemsDirectories   },
-    .{ "MANYITEMS"      , &core.manyItemsDirectories   },
+    .{ "--manyitems", &core.manyItemsDirectories },
+    .{ "-mi", &core.manyItemsDirectories },
+    .{ "-MI", &core.manyItemsDirectories },
+    .{ "manyitems", &core.manyItemsDirectories },
+    .{ "/MI", &core.manyItemsDirectories },
+    .{ "MANYITEMS", &core.manyItemsDirectories },
 
-    .{ "--oneitem"      , &core.oneItemDirectories     },
-    .{ "-o"             , &core.oneItemDirectories     },
-    .{ "-O"             , &core.oneItemDirectories     },
-    .{ "oneitem"        , &core.oneItemDirectories     },
-    .{ "/O"             , &core.oneItemDirectories     },
-    .{ "ONEITEM"        , &core.oneItemDirectories     },
+    .{ "--oneitem", &core.oneItemDirectories },
+    .{ "-o", &core.oneItemDirectories },
+    .{ "-O", &core.oneItemDirectories },
+    .{ "oneitem", &core.oneItemDirectories },
+    .{ "/O", &core.oneItemDirectories },
+    .{ "ONEITEM", &core.oneItemDirectories },
 
-    .{ "--dirsize"      , &core.dirFileNameSize        },
-    .{ "-ds"            , &core.dirFileNameSize        },
-    .{ "-DS"            , &core.dirFileNameSize        },
-    .{ "dirsize"        , &core.dirFileNameSize        },
-    .{ "/DS"            , &core.dirFileNameSize        },
-    .{ "DIRSIZE"        , &core.dirFileNameSize        },
+    .{ "--dirsize", &core.dirFileNameSize },
+    .{ "-ds", &core.dirFileNameSize },
+    .{ "-DS", &core.dirFileNameSize },
+    .{ "dirsize", &core.dirFileNameSize },
+    .{ "/DS", &core.dirFileNameSize },
+    .{ "DIRSIZE", &core.dirFileNameSize },
 
-    .{ "--fullpathsize" , &core.fullPathSize           },
-    .{ "-f"             , &core.fullPathSize           },
-    .{ "-F"             , &core.fullPathSize           },
-    .{ "fullpathsize"   , &core.fullPathSize           },
-    .{ "/F"             , &core.fullPathSize           },
-    .{ "FULLPATHSIZE"   , &core.fullPathSize           },
+    .{ "--fullpathsize", &core.fullPathSize },
+    .{ "-f", &core.fullPathSize },
+    .{ "-F", &core.fullPathSize },
+    .{ "fullpathsize", &core.fullPathSize },
+    .{ "/F", &core.fullPathSize },
+    .{ "FULLPATHSIZE", &core.fullPathSize },
 
-    .{ "--uchars"       , &core.unportableChars        },
-    .{ "-u"             , &core.unportableChars        },
-    .{ "-U"             , &core.unportableChars        },
-    .{ "uchars"         , &core.unportableChars        },
-    .{ "/U"             , &core.unportableChars        },
-    .{ "UCHARS"         , &core.unportableChars        },
+    .{ "--uchars", &core.unportableChars },
+    .{ "-u", &core.unportableChars },
+    .{ "-U", &core.unportableChars },
+    .{ "uchars", &core.unportableChars },
+    .{ "/U", &core.unportableChars },
+    .{ "UCHARS", &core.unportableChars },
+
+    .{ "--nocolors", &core.noColors },
+    .{ "-nc", &core.noColors },
+    .{ "-NC", &core.noColors },
+    .{ "nocolors", &core.noColors },
+    .{ "/NC", &core.noColors },
+    .{ "NOCOLORS", &core.noColors },
+
 });
 
 /// Prints help and exits
-fn printHelp() !void { try print.stdout(i18n.HELP); }
+fn printHelp() !void {
+    try print.stdout(i18n.HELP);
+}
 
 /// Do nothing: version already is on system header
 fn printVersion() !void {}
@@ -234,13 +244,11 @@ fn createConfig() !void {
 }
 
 /// Attempts to load configuration from a local "config.json" file in the current working directory
-pub fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io,
-alloc: *const std.mem.Allocator) bool {
-    config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*,
-        std.Io.Limit.limited(config.IO_BUFFER_SIZE)) catch |err| blk: {
-            core.debugPrintError(err);
-            break :blk "";
-        };
+pub fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io, alloc: *const std.mem.Allocator) bool {
+    config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*, std.Io.Limit.limited(config.IO_BUFFER_SIZE)) catch |err| blk: {
+        core.debugPrintError(err);
+        break :blk "";
+    };
 
     // Parses JSON with enum support, on error sets default values
     var result: bool = (config_file.*.len > 0);
@@ -301,17 +309,19 @@ fn commonMain(init: std.process.Init) !void {
     globals.file_writer_stderr_interface = globals.file_writer_stderr.interface;
 
     globals.file_stats = globals.FileStatMap.init(globals.alloc.*);
-    globals.dir_count  = std.StringHashMap(usize).init(globals.alloc.*);
+    globals.dir_count = std.StringHashMap(usize).init(globals.alloc.*);
 
     defer {
-        var iterator: std.hash_map.HashMapUnmanaged([]const u8, usize, std.hash_map.StringContext,
-            80).Iterator = globals.dir_count.iterator();
-        while (iterator.next()) |entry| { globals.alloc.*.free(entry.key_ptr.*); }
+        var iterator: std.hash_map.HashMapUnmanaged([]const u8, usize, std.hash_map.StringContext, 80).Iterator = globals.dir_count.iterator();
+        while (iterator.next()) |entry| {
+            globals.alloc.*.free(entry.key_ptr.*);
+        }
         globals.dir_count.deinit();
 
-        var iterator2: std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext,
-            80).Iterator = globals.file_stats.iterator();
-        while (iterator2.next()) |entry| { globals.alloc.*.free(entry.key_ptr.*); }
+        var iterator2: std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext, 80).Iterator = globals.file_stats.iterator();
+        while (iterator2.next()) |entry| {
+            globals.alloc.*.free(entry.key_ptr.*);
+        }
         globals.file_stats.deinit();
     }
 
@@ -324,16 +334,16 @@ fn commonMain(init: std.process.Init) !void {
         _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
             return if (err == error.FileNotFound) printHelp() else err;
         };
-   }
+    }
 
     if (args.len == 2) {
-        if (help_version_map.get(args[1])) |func| { return func(); }
+        if (help_version_map.get(args[1])) |func| {
+            return func();
+        }
     }
 
     // Loads configurations from config.json or uses default values
-    const config_message: []const u8 = if (loadLocal(&globals.config_file, &globals.config_parsed, &globals.io,
-        globals.alloc)) i18n.CONFIG_MESSAGE else i18n.CONFIG_MESSAGE_DEFAULT;
-
+    const config_message: []const u8 = if (loadLocal(&globals.config_file, &globals.config_parsed, &globals.io, globals.alloc)) i18n.CONFIG_MESSAGE else i18n.CONFIG_MESSAGE_DEFAULT;
     defer config.deinit(&globals.config_file, &globals.config_parsed, globals.alloc);
 
     try print.alignedOk(config_message);
@@ -369,7 +379,7 @@ fn commonMain(init: std.process.Init) !void {
     defer globals.alloc.*.free(globals.buffer);
 
     // Prevents bugs with odd sizes of buffer
-    globals.buffer_size  = globals.config_parsed.value.BUFFER_SIZE / 2;
+    globals.buffer_size = globals.config_parsed.value.BUFFER_SIZE / 2;
     globals.buffer_total = globals.buffer_size * 2;
 
     // Checks input directory
@@ -415,4 +425,77 @@ fn commonMain(init: std.process.Init) !void {
     try print.stdout(i18n.QUIT_MESSAGE);
     var file_reader: std.Io.File.Reader = std.Io.File.stdin().reader(globals.io, globals.buffer);
     _ = try file_reader.interface.take(1);
+}
+
+test "No config file" {
+    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = &gpa.allocator();
+
+    var tmp = std.Io.Threaded.init_single_threaded;
+    var io = tmp.io();
+
+    var config_parsed: std.json.Parsed(config.Config) = undefined;
+    var config_file: []const u8 = "empty";
+
+    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
+    defer config.deinit(&config_file, &config_parsed, alloc);
+
+    try std.testing.expect(!result);
+}
+
+test "Valid config file" {
+    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = &gpa.allocator();
+
+    var tmp = std.Io.Threaded.init_single_threaded;
+    var io = tmp.io();
+    var io_buffer: [65536]u8 = undefined;
+
+    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
+    defer {
+        file.close(io);
+        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
+    }
+
+    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
+    try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG);
+    try file_writer.interface.flush();
+
+    var config_parsed: std.json.Parsed(config.Config) = undefined;
+    var config_file: []const u8 = "empty";
+
+    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
+    defer config.deinit(&config_file, &config_parsed, alloc);
+
+    try std.testing.expect(result);
+}
+
+test "Invalid config file" {
+    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = &gpa.allocator();
+
+    var tmp = std.Io.Threaded.init_single_threaded;
+    var io = tmp.io();
+    var io_buffer: [65536]u8 = undefined;
+
+    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
+    defer {
+        file.close(io);
+        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
+    }
+
+    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
+    try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG[1..]);
+    try file_writer.interface.flush();
+
+    var config_parsed: std.json.Parsed(config.Config) = undefined;
+    var config_file: []const u8 = "empty";
+
+    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
+    defer config.deinit(&config_file, &config_parsed, alloc);
+
+    try std.testing.expect(result);
 }

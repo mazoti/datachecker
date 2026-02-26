@@ -13,7 +13,7 @@ const print       = @import("print");
 const core        = @import("core.zig");
 
 /// Scans a directory tree for confidential files
-pub fn checkConfidential(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
+pub fn checkConfidential(total_items: *u64) !void {
     // Initializes Aho-Corasick trie
     var ac: ahocorasick.AhoCorasick = try ahocorasick.AhoCorasick.initEmpty(globals.alloc.*);
     defer ac.deinit();
@@ -41,10 +41,18 @@ pub fn checkConfidential(total_items: *u64, walker: *std.Io.Dir.Walker) !void {
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
-        try checkConfidentialFiles(.{entry.path, total_items, &entry.stat, &ac});
+        checkConfidentialFiles(.{entry.path, total_items, &entry.stat, &ac}) catch |err| switch (err) {
+            error.AccessDenied => {
+                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
+                return;
+            },
+            error.FileNotFound => {
+                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{entry.path});
+                return;
+            },
+            else => return err,
+        };
     }
-
-    _ = walker;
 }
 
 /// Scans file contents for any string or byte pattern defined in config.json

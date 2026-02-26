@@ -74,6 +74,8 @@ pub const AhoCorasick = struct {
                     if (failure_link.?.next[i]) |target| {
                         if (target != child) {
                             child.failure_link = target;
+                            // Propagates end flag through failure links
+                            if (target.end) child.end = true;
                             continue;
                         }
                     }
@@ -215,4 +217,18 @@ test "Nested overlaps" {
 
     try std.testing.expect(ac.contains("aaa")); // Should detect at least one match
     try std.testing.expect(ac.contains("baaab"));
+}
+
+test "Suffix match mid-stream" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    // "he" is a suffix of "she" — the failure link from 's'->'h'->'e'
+    // must surface the "he" match
+    var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "he", "she" });
+    defer ac.deinit();
+
+    // After matching "she", the node for 'e' in "she" path
+    // should also signal "he" matched via failure link
+    try std.testing.expect(ac.contains("she")); // matches "she" AND "he" suffix
 }

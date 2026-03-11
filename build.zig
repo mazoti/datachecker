@@ -82,81 +82,176 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_config_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
-    const freebsd_step = b.step("freebsd" , "Build for all FreeBSD targets");
-    const linux_step   = b.step("linux"   , "Build for all Linux targets"  );
-    const netbsd_step  = b.step("netbsd"  , "Build for all NetBSD targets" );
-    const windows_step = b.step("windows" , "Build for all Windows targets");
+    // -------------------------------------------------------------------------
+    // all: every target Zig can cross-compile to
+    // -------------------------------------------------------------------------
+    const build_all_step = b.step("all", "Build for every target Zig supports");
 
-    const freebsd_targets = [_]std.Target.Query{
-        .{ .cpu_arch = .x86_64  , .os_tag = .freebsd },
-        .{ .cpu_arch = .x86     , .os_tag = .freebsd },
-        .{ .cpu_arch = .aarch64 , .os_tag = .freebsd },
-        .{ .cpu_arch = .arm     , .os_tag = .freebsd },
-        .{ .cpu_arch = .riscv64 , .os_tag = .freebsd },
+    // All targets are expressed as { query, output_folder_name } pairs so the
+    // deploy helper's allocPrint format strings are bypassed and each triple
+    // gets a stable, unique directory under zig-out/.
+    const all_targets = [_]std.Target.Query{
+        // ── FreeBSD ──────────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .freebsd                         },
+        .{ .cpu_arch = .x86         , .os_tag = .freebsd                         },
+        .{ .cpu_arch = .aarch64     , .os_tag = .freebsd                         },
+        .{ .cpu_arch = .arm         , .os_tag = .freebsd                         },
+        .{ .cpu_arch = .riscv64     , .os_tag = .freebsd                         },
+        .{ .cpu_arch = .powerpc64   , .os_tag = .freebsd                         },
+        .{ .cpu_arch = .mips        , .os_tag = .freebsd                         },
+        // ── NetBSD ───────────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .netbsd                          },
+        .{ .cpu_arch = .x86         , .os_tag = .netbsd                          },
+        .{ .cpu_arch = .aarch64     , .os_tag = .netbsd                          },
+        .{ .cpu_arch = .arm         , .os_tag = .netbsd                          },
+        .{ .cpu_arch = .sparc64     , .os_tag = .netbsd                          },
+        .{ .cpu_arch = .powerpc     , .os_tag = .netbsd                          },
+        .{ .cpu_arch = .mips        , .os_tag = .netbsd                          },
+        // ── OpenBSD ──────────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .x86         , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .aarch64     , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .arm         , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .riscv64     , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .mips64el    , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .powerpc64   , .os_tag = .openbsd                         },
+        .{ .cpu_arch = .sparc64     , .os_tag = .openbsd                         },
+        // ── DragonFlyBSD ─────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .dragonfly                       },
+        // ── Solaris / illumos ─────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .illumos                         },
+        // ── macOS ─────────────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .macos                           },
+        .{ .cpu_arch = .aarch64     , .os_tag = .macos                           },
+        // ── iOS ───────────────────────────────────────────────────────────────
+        .{ .cpu_arch = .aarch64     , .os_tag = .ios                             },
+        .{ .cpu_arch = .x86_64      , .os_tag = .ios    , .abi = .simulator      },
+        .{ .cpu_arch = .aarch64     , .os_tag = .ios    , .abi = .simulator      },
+        // ── tvOS ──────────────────────────────────────────────────────────────
+        .{ .cpu_arch = .aarch64     , .os_tag = .tvos                            },
+        .{ .cpu_arch = .x86_64      , .os_tag = .tvos   , .abi = .simulator      },
+        .{ .cpu_arch = .aarch64     , .os_tag = .tvos   , .abi = .simulator      },
+        // ── watchOS ───────────────────────────────────────────────────────────
+        .{ .cpu_arch = .arm         , .os_tag = .watchos                         },
+        .{ .cpu_arch = .x86_64      , .os_tag = .watchos, .abi = .simulator      },
+        .{ .cpu_arch = .aarch64     , .os_tag = .watchos, .abi = .simulator      },
+        // ── visionOS ──────────────────────────────────────────────────────────
+        .{ .cpu_arch = .aarch64     , .os_tag = .visionos                        },
+        .{ .cpu_arch = .aarch64     , .os_tag = .visionos, .abi = .simulator     },
+        // ── Windows ───────────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .windows, .abi = .gnu            },
+        .{ .cpu_arch = .x86_64      , .os_tag = .windows, .abi = .msvc           },
+        .{ .cpu_arch = .x86         , .os_tag = .windows, .abi = .gnu            },
+        .{ .cpu_arch = .x86         , .os_tag = .windows, .abi = .msvc           },
+        .{ .cpu_arch = .aarch64     , .os_tag = .windows, .abi = .gnu            },
+        .{ .cpu_arch = .aarch64     , .os_tag = .windows, .abi = .msvc           },
+        .{ .cpu_arch = .thumb       , .os_tag = .windows, .abi = .gnu            },
+        // ── Linux / glibc ─────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .x86         , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .aarch64     , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .aarch64_be  , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .arm         , .os_tag = .linux, .abi = .gnueabi          },
+        .{ .cpu_arch = .arm         , .os_tag = .linux, .abi = .gnueabihf        },
+        .{ .cpu_arch = .armeb       , .os_tag = .linux, .abi = .gnueabi          },
+        .{ .cpu_arch = .armeb       , .os_tag = .linux, .abi = .gnueabihf        },
+        .{ .cpu_arch = .thumb       , .os_tag = .linux, .abi = .gnueabi          },
+        .{ .cpu_arch = .thumb       , .os_tag = .linux, .abi = .gnueabihf        },
+        .{ .cpu_arch = .mips        , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .mipsel      , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .mips64      , .os_tag = .linux, .abi = .gnuabi64         },
+        .{ .cpu_arch = .mips64el    , .os_tag = .linux, .abi = .gnuabi64         },
+        .{ .cpu_arch = .powerpc     , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .powerpc64   , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .powerpc64le , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .riscv32     , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .riscv64     , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .sparc       , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .sparc64     , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .s390x       , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .loongarch64 , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .csky        , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .m68k        , .os_tag = .linux, .abi = .gnu              },
+        .{ .cpu_arch = .hexagon     , .os_tag = .linux, .abi = .gnu              },
+        // ── Linux / musl ──────────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .x86         , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .aarch64     , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .aarch64_be  , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .arm         , .os_tag = .linux, .abi = .musleabi         },
+        .{ .cpu_arch = .arm         , .os_tag = .linux, .abi = .musleabihf       },
+        .{ .cpu_arch = .armeb       , .os_tag = .linux, .abi = .musleabi         },
+        .{ .cpu_arch = .armeb       , .os_tag = .linux, .abi = .musleabihf       },
+        .{ .cpu_arch = .thumb       , .os_tag = .linux, .abi = .musleabi         },
+        .{ .cpu_arch = .thumb       , .os_tag = .linux, .abi = .musleabihf       },
+        .{ .cpu_arch = .mips        , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .mipsel      , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .mips64      , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .mips64el    , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .powerpc     , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .powerpc64   , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .powerpc64le , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .riscv32     , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .riscv64     , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .sparc64     , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .s390x       , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .loongarch64 , .os_tag = .linux, .abi = .musl             },
+        .{ .cpu_arch = .m68k        , .os_tag = .linux, .abi = .musl             },
+        // ── Linux / Android ───────────────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .linux, .abi = .android          },
+        .{ .cpu_arch = .x86         , .os_tag = .linux, .abi = .android          },
+        .{ .cpu_arch = .aarch64     , .os_tag = .linux, .abi = .android          },
+        .{ .cpu_arch = .arm         , .os_tag = .linux, .abi = .android          },
+        // ── WASI ──────────────────────────────────────────────────────────────
+        .{ .cpu_arch = .wasm32      , .os_tag = .wasi                            },
+        // ── WebAssembly / freestanding ────────────────────────────────────────
+        .{ .cpu_arch = .wasm32      , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .wasm64      , .os_tag = .freestanding                    },
+        // ── Freestanding (bare-metal) ─────────────────────────────────────────
+        .{ .cpu_arch = .x86_64      , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .x86         , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .aarch64     , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .aarch64_be  , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .arm         , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .armeb       , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .thumb       , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .mips        , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .mipsel      , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .mips64      , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .mips64el    , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .powerpc     , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .powerpc64   , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .powerpc64le , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .riscv32     , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .riscv64     , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .sparc       , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .sparc64     , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .s390x       , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .loongarch64 , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .m68k        , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .avr         , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .bpfel       , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .bpfeb       , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .nvptx64     , .os_tag = .cuda                            },
+        .{ .cpu_arch = .spirv32     , .os_tag = .opencl                          },
+        .{ .cpu_arch = .spirv64     , .os_tag = .opencl                          },
+        .{ .cpu_arch = .hexagon     , .os_tag = .freestanding                    },
+        .{ .cpu_arch = .ve          , .os_tag = .freestanding                    },
     };
 
-    const linux_targets = [_]std.Target.Query{
-        .{ .cpu_arch = .x86_64  , .os_tag = .linux, .abi = .gnu        },
-        .{ .cpu_arch = .x86_64  , .os_tag = .linux, .abi = .musl       },
-        .{ .cpu_arch = .x86     , .os_tag = .linux, .abi = .gnu        },
-        .{ .cpu_arch = .x86     , .os_tag = .linux, .abi = .musl       },
-        .{ .cpu_arch = .aarch64 , .os_tag = .linux, .abi = .gnu        },
-        .{ .cpu_arch = .aarch64 , .os_tag = .linux, .abi = .musl       },
-        .{ .cpu_arch = .arm     , .os_tag = .linux, .abi = .gnueabihf  },
-        .{ .cpu_arch = .arm     , .os_tag = .linux, .abi = .musleabihf },
-        .{ .cpu_arch = .riscv64 , .os_tag = .linux, .abi = .gnu        },
-        .{ .cpu_arch = .riscv64 , .os_tag = .linux, .abi = .musl       },
-    };
-
-    const netbsd_targets = [_]std.Target.Query{
-        .{ .cpu_arch = .x86_64  , .os_tag = .netbsd },
-        .{ .cpu_arch = .x86     , .os_tag = .netbsd },
-        .{ .cpu_arch = .aarch64 , .os_tag = .netbsd },
-        .{ .cpu_arch = .arm     , .os_tag = .netbsd },
-    };
-
-    const windows_targets = [_]std.Target.Query{
-        .{ .cpu_arch = .x86_64  , .os_tag = .windows, .abi = .gnu  },
-        .{ .cpu_arch = .x86_64  , .os_tag = .windows, .abi = .msvc },
-        .{ .cpu_arch = .x86     , .os_tag = .windows, .abi = .gnu  },
-        .{ .cpu_arch = .x86     , .os_tag = .windows, .abi = .msvc },
-        .{ .cpu_arch = .aarch64 , .os_tag = .windows, .abi = .gnu  },
-        .{ .cpu_arch = .aarch64 , .os_tag = .windows, .abi = .msvc },
-    };
-
-    deployNoABI(&freebsd_targets , b , freebsd_step , "freebsd-{s}"     );
-    deploy(&linux_targets        , b , linux_step   , "linux-{s}-{s}"   );
-    deployNoABI(&netbsd_targets  , b , netbsd_step  , "netbsd-{s}"      );
-    deploy(&windows_targets      , b , windows_step , "windows-{s}-{s}" );
+    deployAllTargets(&all_targets, b, build_all_step);
 }
 
-fn deploy(targets: []const std.Target.Query, b: *std.Build, step: *std.Build.Step, comptime target_folder: []const u8) void {
-    for (targets) |target| {
-        const resolved_target = b.resolveTargetQuery(target);
+/// Deploy using zigTriple as the output folder name, works for any query.
+fn deployAllTargets(targets: []const std.Target.Query, b: *std.Build, step: *std.Build.Step) void {
+    for (targets) |query| {
+        const resolved_target = b.resolveTargetQuery(query);
         const binary_build    = createExecutableForTarget(b, resolved_target, .ReleaseFast);
 
-        const target_name = std.fmt.allocPrint(b.allocator, target_folder, .{
-            @tagName(target.cpu_arch.?), @tagName(target.abi.?)
-        }) catch @panic("OOM");
+        const triple = query.zigTriple(b.allocator) catch @panic("OOM");
 
         const target_output = b.addInstallArtifact(binary_build, .{
-            .dest_dir = .{ .override = .{ .custom = target_name, }},
-        });
-
-        step.dependOn(&target_output.step);
-    }
-}
-
-fn deployNoABI(targets: []const std.Target.Query, b: *std.Build, step: *std.Build.Step, comptime target_folder: []const u8) void {
-    for (targets) |target| {
-        const resolved_target = b.resolveTargetQuery(target);
-        const binary_build    = createExecutableForTarget(b, resolved_target, .ReleaseFast);
-
-        const target_name = std.fmt.allocPrint(b.allocator, target_folder, .{
-            @tagName(target.cpu_arch.?)}) catch @panic("OOM");
-
-        const target_output = b.addInstallArtifact(binary_build, .{
-            .dest_dir = .{ .override = .{ .custom = target_name, }},
+            .dest_dir = .{ .override = .{ .custom = triple } },
         });
 
         step.dependOn(&target_output.step);

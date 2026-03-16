@@ -19,8 +19,11 @@ pub fn checkJSON(args: anytype) !bool {
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             core.debugPrintError(err);
 
-            if (err == error.StreamTooLong) return core.messageSum(print.err, args[1], 1,
-                i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
+            if (err == error.StreamTooLong) {
+                try print.err(i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
+                args[1].* += 1;
+                return true;
+            }
 
             return err;
         };
@@ -29,7 +32,10 @@ pub fn checkJSON(args: anytype) !bool {
     var parsed: std.json.Parsed(std.json.Value) = std.json.parseFromSlice(std.json.Value, globals.alloc.*,
     file_contents, .{}) catch |err| {
         core.debugPrintError(err);
-        return core.messageSum(print.err, args[1], 1, i18n.PARSE_JSON_FILES_ERROR, .{args[0]});
+
+        try print.err(i18n.PARSE_JSON_FILES_ERROR, .{args[0]});
+        args[1].* += 1;
+        return true;
     };
     defer parsed.deinit();
 

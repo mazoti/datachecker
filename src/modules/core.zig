@@ -244,11 +244,13 @@ fn fetchAdd(absolute_path: []const u8) !std.Io.File.Stat {
 pub fn fetchStatWithErrorHandling(absolute_path: []const u8, total_items: *u64) !?std.Io.File.Stat {
     return fetchAdd(absolute_path) catch |err| switch (err) {
         error.AccessDenied => {
-            _ = try messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+            try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+            total_items.* += 1;
             return null;
         },
         error.FileBusy => {
-            _ = try messageSum(print.err, total_items, 1, i18n.ERROR_FILE_BUSY, .{absolute_path});
+            try print.err(i18n.ERROR_FILE_BUSY, .{absolute_path});
+            total_items.* += 1;
             return null;
         },
         else => return err,
@@ -273,7 +275,7 @@ fn decorate(
     runtime_flag: bool,
     comptime early_exit: bool,
     comptime filter: Filter,
-    process_fn: *const fn (anytype) anyerror!bool,
+    comptime process_fn: anytype,
     comptime header: []const u8,
     comptime total: []const u8,
     comptime totals: []const u8,
@@ -374,25 +376,14 @@ fn decorateWalker(
     }
 }
 
-/// Helper to print message and accumulate totals
-pub fn messageSum(print_function: *const fn (comptime []const u8, anytype) anyerror!void, total_items: *u64, sum_value: u64, comptime fmt: []const u8, args: anytype) !bool {
-    try print_function(fmt, args);
-    total_items.* += sum_value;
-    return true;
-}
-
 /// Compute cryptographic hash of file by processesing file in chunks
 pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.digest_length]u8) !void {
     const file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, filepath, .{ .mode = .read_only, .lock = .shared }) catch |err| switch (err) {
         error.AccessDenied => {
-            var total_items: u64 = 0;
-            _ = try messageSum(print.err, &total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{filepath});
-            return;
+            return print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{filepath});
         },
         error.FileNotFound => {
-            var total_items: u64 = 0;
-            _ = try messageSum(print.err, &total_items, 1, i18n.ERROR_READING_FILE, .{filepath});
-            return;
+            return print.err(i18n.ERROR_READING_FILE, .{filepath});
         },
         else => return err,
     };
@@ -423,8 +414,8 @@ pub fn nextEntry(walker: *std.Io.Dir.Walker, total_items: *u64, entry: *?std.Io.
     entry.* = walker.next(globals.io) catch |err| switch (err) {
         error.AccessDenied => {
             const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}", .{ globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items });
-
-            _ = try messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+            try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+            total_items.* += 1;
             return true; // Signal to continue
         },
         else => return err,
@@ -453,14 +444,16 @@ pub inline fn debugPrintError(err: anyerror) void {
 pub fn readExactChunk(reader: *std.Io.File.Reader, size: usize, filepath: []const u8, total_items: *u64) !?[]const u8 {
     const chunk = reader.interface.take(size) catch |err| switch (err) {
         error.EndOfStream => {
-            _ = try messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{filepath});
+            try print.err(i18n.ERROR_READING_FILE, .{filepath});
+            total_items.* += 1;
             return null;
         },
         else => return err,
     };
 
     if (chunk.len != size) {
-        _ = try messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{filepath});
+        try print.err(i18n.ERROR_READING_FILE, .{filepath});
+        total_items.* += 1;
         return null;
     }
 

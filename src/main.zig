@@ -292,9 +292,7 @@ fn commonMain(init: std.process.Init) !void {
     var check_directory: []u8 = undefined;
 
     const arena: std.mem.Allocator = init.arena.allocator();
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    globals.alloc = &gpa.allocator();
+    globals.alloc = &arena;
 
     const total_memory = try std.process.totalSystemMemory();
     const half_memory = total_memory / 2;

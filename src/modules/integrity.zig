@@ -161,8 +161,11 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     // removes the .cipher_extension
     const input_file: []const u8 = hash_file_path[0..(hash_file_path.len - extension.len - 1)];
     core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
-        if (err == error.FileNotFound) return core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE,
-            .{input_file});
+        if (err == error.FileNotFound) {
+            try print.err(i18n.ERROR_READING_FILE, .{input_file});
+            total_items.* += 1;
+            return true;
+        }
         return err;
     };
 
@@ -171,19 +174,28 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
         try file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower));
         try file_writer.interface.flush();
 
-        return core.messageSum(print.check, total_items, 1, i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
+        try print.check(i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
+        total_items.* += 1;
+        return true;
     }
 
-    if (chunk.len != hex_size) return core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE,
-        .{hash_file_path});
+    if (chunk.len != hex_size) {
+        try print.err(i18n.ERROR_READING_FILE, .{hash_file_path});
+        total_items.* += 1;
+        return true;
+    }
 
     const hash_code_bytes: []u8 = try std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code);
 
     if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) {
-        return core.messageSum(print.ok, total_items, 1, i18n.INTEGRITY_FILES_OK, .{input_file, extension});
+        try print.ok(i18n.INTEGRITY_FILES_OK, .{input_file, extension});
+        total_items.* += 1;
+        return true;
     }
 
-    return core.messageSum(print.err, total_items, 1, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
+    try print.err(i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
+    total_items.* += 1;
+    return true;
 }
 
 fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []const u8, algorithm: type) void {
@@ -240,8 +252,8 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
 }
 
 /// Helper to print message and accumulate totals with mutex
-pub fn messageSumMutex(
-    print_function: *const fn (comptime []const u8, anytype) anyerror!void,
+fn messageSumMutex(
+    comptime print_function: fn (comptime []const u8, anytype) anyerror!void,
     total_items:    *u64,
     sum_value:      u64,
     comptime fmt:   []const u8,

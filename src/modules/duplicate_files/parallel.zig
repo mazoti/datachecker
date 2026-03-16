@@ -68,7 +68,7 @@ pub fn check(total_items: *u64) !void {
             j -= 1;
             var removed_list_map: std.array_list.Aligned([]const u8, null) = sizeAndHash.get(sizeAndHash.keys()[j]).?;
 
-            var results: std.ArrayList(std.ArrayList([]u8)) = std.ArrayList(std.ArrayList([]u8)){};
+            var results: std.ArrayList(std.ArrayList([]u8)) = std.ArrayList(std.ArrayList([]u8)){ .items = &.{}, .capacity = 0 };
             defer core.cleanArrayList(&results);
 
             try core.groupSameFiles(&removed_list_map, &results, total_items);
@@ -120,7 +120,7 @@ void {
         }
 
         // Case 2: New hash - create entry. This is the first file with this hash value
-        var path_list: std.array_list.Aligned([]const u8, null) = std.ArrayList([]const u8){};
+        var path_list: std.array_list.Aligned([]const u8, null) = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
         path_list.append(globals.alloc.*, append_data) catch |err| {
             _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);

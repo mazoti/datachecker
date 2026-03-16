@@ -33,7 +33,7 @@ pub fn check(total_items: *u64) !void {
         defer core.cleanArrayMap(u64, &removed_list, &same_size_files_map, &key);
 
         var results: std.array_list.Aligned(std.array_list.Aligned([]u8, null), null)
-            = std.ArrayList(std.ArrayList([]u8)){};
+            = std.ArrayList(std.ArrayList([]u8)){ .items = &.{}, .capacity = 0 };
         defer core.cleanArrayList(&results);
 
         // Second pass: perform byte-by-byte comparison among same-sized files

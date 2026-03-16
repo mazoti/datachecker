@@ -218,8 +218,11 @@ pub fn check(args: anytype) !bool {
                 (lowercase.len + magic_number.len)]);
 
             if (try core.readExactChunk(&file_reader, magic_number.len, args[0], &total_items)) |chunk| {
-                if (!std.mem.eql(u8, chunk, magic_number)) return core.messageSum(print.err, args[1],
-                    1, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+                if (!std.mem.eql(u8, chunk, magic_number)) {
+                    try print.err(i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+                    args[1].* += 1;
+                    return true;
+                }
             }
 
             return false;
@@ -234,12 +237,18 @@ pub fn check(args: anytype) !bool {
             if (size_start_func.offset > 0) try file_reader.seekTo(size_start_func.offset);
 
             if (try core.readExactChunk(&file_reader, size_start_func.size, args[0], &total_items)) |_| {
-                if (!size_start_func.validator(globals.buffer[lowercase.len..(lowercase.len + size_start_func.size)]))
-                   return core.messageSum(print.err, args[1], 1, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
-               return false;
+                if (!size_start_func.validator(globals.buffer[lowercase.len..(lowercase.len + size_start_func.size)])) {
+                    try print.err(i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+                    args[1].* += 1;
+                    return true;
+                }
+
+                return false;
             }
 
-            return core.messageSum(print.err, args[1], 1, i18n.ERROR_READING_FILE, .{args[0]});
+            try print.err(i18n.ERROR_READING_FILE, .{args[0]});
+            args[1].* += 1;
+            return true;
         }
     }
 

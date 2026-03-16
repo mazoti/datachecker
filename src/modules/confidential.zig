@@ -43,11 +43,13 @@ pub fn checkConfidential(total_items: *u64) !void {
     while (try file_iterator.next(total_items)) |entry| {
         checkConfidentialFiles(.{entry.path, total_items, &entry.stat, &ac}) catch |err| switch (err) {
             error.AccessDenied => {
-                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
+                try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
+                total_items.* += 1;
                 return;
             },
             error.FileNotFound => {
-                _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{entry.path});
+                try print.err(i18n.ERROR_READING_FILE, .{entry.path});
+                total_items.* += 1;
                 return;
             },
             else => return err,
@@ -69,16 +71,18 @@ fn checkConfidentialFiles(args: anytype) !void {
         const chunk: []u8 = file_reader.interface.take(globals.config_parsed.value.BUFFER_SIZE)
             catch |err| switch (err) {
                 error.EndOfStream => {
-                    if (args[3].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end]))
-                        _ = try core.messageSum(print.warning, args[1], 1,
-                            i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+                    if (args[3].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end])) {
+                        try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+                        args[1].* += 1;
+                    }
                     return;
                 },
                 else => return err,
             };
 
         if (args[3].containsBuffer(chunk[0..chunk.len])) {
-            _ = try core.messageSum(print.warning, args[1], 1, i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+            try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+            args[1].* += 1;
             return;
         }
     }

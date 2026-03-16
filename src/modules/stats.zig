@@ -29,17 +29,20 @@ pub fn duplicateCharacters(args: anytype) !bool {
     if (extension.len > 0) {
         const path_no_ext: []const u8 = args[0][0..(args[0].len - extension.len)];
 
-        if (path_no_ext.len > 1 and path_no_ext[path_no_ext.len - 1] == path_no_ext[path_no_ext.len - 2])
-            return core.messageSum(print.check, args[1], 1, i18n.DUPLICATE_CHARS_FILES_CHECK,
-                .{args[0], path_no_ext[path_no_ext.len - 2]});
+        if (path_no_ext.len > 1 and path_no_ext[path_no_ext.len - 1] == path_no_ext[path_no_ext.len - 2]) {
+            try print.check(i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], path_no_ext[path_no_ext.len - 2]});
+            args[1].* += 1;
+            return true;
+        }
 
         // Checks for duplicated extensions
         const index: usize = extension.len + extension.len;
         if (args[0].len >= index) {
             const tmp_extension: []const u8 = args[0][(args[0].len - index)..(args[0].len - extension.len)];
             if (std.mem.eql(u8, extension, tmp_extension)) {
-                return core.messageSum(print.check, args[1], 1, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT,
-                .{args[0], extension});
+                try print.check(i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0], extension});
+                args[1].* += 1;
+                return true;
             }
         }
     }
@@ -48,9 +51,12 @@ pub fn duplicateCharacters(args: anytype) !bool {
     if (args[0].len < 2) return false;
 
     for (0..args[0].len - 1) |i| {
-        if ((args[0][i] == args[0][i + 1]) and (args[0][i] == ' ' or args[0][i] == '-' or args[0][i] == '_'
-            or args[0][i] == '.')) return core.messageSum(print.check, args[1], 1,
-                i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], args[0][i]});
+        if ((args[0][i] == args[0][i + 1]) and (args[0][i] == ' ' or args[0][i] == '-' or
+            args[0][i] == '_' or args[0][i] == '.')) {
+                try print.check(i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], args[0][i]});
+                args[1].* += 1;
+                return true;
+        }
     }
 
     return false;
@@ -76,10 +82,16 @@ pub fn linkShortcuts(total_items: *u64) !void {
                         .{.mode = .read_only, .lock = .shared})
                     catch |err| {
                         _ = switch (err) {
-                            error.FileNotFound => try core.messageSum(print.err, total_items, 1,
-                                i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path}),
-                            else => try core.messageSum(print.err, total_items, 1,
-                                i18n.ERROR_READING_FILE, .{absolute_path}),
+                            error.FileNotFound => {
+                                try print.err(i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path});
+                                total_items.* += 1;
+                                return;
+                            },
+                            else => {
+                                try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                                total_items.* += 1;
+                                return;
+                            },
                         };
 
                         continue;
@@ -90,8 +102,8 @@ pub fn linkShortcuts(total_items: *u64) !void {
 
             // Skips entries like pipes and sockets
             if (entry.kind != .file and entry.kind != .directory) {
-                _ = try core.messageSum(print.warning, total_items, 1,
-                    i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
+                try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
+                total_items.* += 1;
                 continue;
             }
 
@@ -107,17 +119,19 @@ pub fn linkShortcuts(total_items: *u64) !void {
                 const chunk = try file_reader.interface.take(4);
 
                 if (chunk.len != 4) {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{absolute_path});
+                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                    total_items.* += 1;
                     continue;
                 }
 
                 if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
-                    _ = try core.messageSum(print.err, total_items, 1, i18n.ERROR_READING_FILE, .{absolute_path});
+                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                    total_items.* += 1;
                     continue;
                 }
 
-                _ = try core.messageSum(print.warning, total_items, 1,
-                    i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
+                try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
+                total_items.* += 1;
             }
             continue;
         }
@@ -127,69 +141,99 @@ pub fn linkShortcuts(total_items: *u64) !void {
 
 /// Detects files with zero bytes
 pub fn emptyFiles(args: anytype) !bool {
-    return if (args[2].size == 0) core.messageSum(print.warning, args[1], 1,
-        i18n.EMPTY_FILES_WARNING, .{args[0]}) else false;
+    if (args[2].size == 0) {
+        try print.warning(i18n.EMPTY_FILES_WARNING, .{args[0]});
+        args[1].* += 1;
+        return true;
+    }
+
+    return false;
 }
 
 /// Identifies files that exceed the configured large file size threshold
 pub fn largeFiles(args: anytype) !bool {
-    return if (args[2].size > globals.config_parsed.value.LARGE_FILE_SIZE) core.messageSum(print.warning, args[1],
-        1, i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE}) else false;
+    if (args[2].size > globals.config_parsed.value.LARGE_FILE_SIZE) {
+        try print.warning(i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
+        args[1].* += 1;
+        return true;
+    }
+
+    return false;
 }
 
 /// Identifies files that haven't been accessed within the configured time threshold
 pub fn lastAccess(args: anytype) !bool {
     const last_access: i96 = globals.now_stat.atime.?.nanoseconds - args[2].atime.?.nanoseconds;
-    return if (last_access > globals.config_parsed.value.LAST_ACCESS_TIME) core.messageSum(print.warning,
-        args[1], args[2].size, i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME})
-        else false;
+    if (last_access > globals.config_parsed.value.LAST_ACCESS_TIME) {
+        try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
+        args[1].* += args[2].size;
+        return true;
+    }
+
+    return false;
 }
 
 /// Detects files with timestamps in the future
 pub fn checkWrongDates(args: anytype) !bool {
     if ((args[2].*.atime.?.nanoseconds > globals.now_stat.atime.?.nanoseconds) or
         (args[2].*.ctime.nanoseconds   > globals.now_stat.ctime.nanoseconds)   or
-        (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds))
-            return core.messageSum(print.warning, args[1], 1, i18n.WRONG_DATES_WARNING, .{args[0]});
+        (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds)) {
+            try print.warning(i18n.WRONG_DATES_WARNING, .{args[0]});
+            args[1].* += 1;
+            return true;
+    }
 
     return false;
 }
 
 /// Identifies empty directories
 pub fn emptyDirectories(args: anytype) !bool {
-    return if (try countItems(args[0]) == 0) core.messageSum(print.warning, args[1], 1,
-        i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]}) else false;
+    if (try countItems(args[0]) == 0) {
+        try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
+        args[1].* += 1;
+        return true;
+    }
+
+    return false;
 }
 
 /// Detects directories exceeding configured maximum
 pub fn manyItemsDirectory(args: anytype) !bool {
-    return if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORY)
-        !(try core.messageSum(print.warning, args[1], 1, i18n.MANY_ITEMS_DIRECTORIES_WARNING,
-        .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY})) else false;
+    if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORY) {
+        try print.warning(i18n.MANY_ITEMS_DIRECTORIES_WARNING,.{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
+        args[1].* += 1;
+    }
+    return false;
 }
 
 /// Detects directories with one item only
 pub fn oneItemDirectory(args: anytype) !bool {
-    return if (try countItems(args[0]) == 1) !(try core.messageSum(print.warning, args[1], 1,
-        i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]})) else false;
+    if (try countItems(args[0]) == 1) {
+        try print.warning(i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
+        args[1].* += 1;
+    }
+    return false;
 }
 
 /// Checks if directory or file names exceed the maximum allowed size
 pub fn dirFileNameSize(args: anytype) !bool {
     const dir_file_name: []const u8 = std.fs.path.basename(args[0]);
 
-    if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE)
-        return !(try core.messageSum(print.warning, args[1], 1, i18n.DIR_FILE_NAME_SIZE_WARNING,
-       .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE}));
+    if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
+        try print.warning(i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
+        args[1].* += 1;
+    }
 
     return false;
 }
 
 /// Checks if full path length exceeds maximum allowed size
 pub fn fullPathSize(args: anytype) !bool {
-    if (args[0].len > globals.config_parsed.value.MAX_FULL_PATH_SIZE)
-        return core.messageSum(print.warning, args[1], 1, i18n.FULL_PATH_SIZE_WARNING,
-        .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
+    if (args[0].len > globals.config_parsed.value.MAX_FULL_PATH_SIZE) {
+        try print.warning(i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
+        args[1].* += 1;
+        return true;
+    }
 
     return false;
 }
@@ -201,27 +245,42 @@ pub fn unportableCharacters(args: anytype) !bool {
     const filename:  []const u8 = basename[0..(basename.len - extension.len)];
 
     // Windows filename restrictions
-    if (WINDOWS_RESTRICTIONS.has(filename)) return !(try core.messageSum(print.warning,
-        args[1], 1, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]}));
+    if (WINDOWS_RESTRICTIONS.has(filename)) {
+        try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+        args[1].* += 1;
+        return false;
+    }
 
     // Windows silently strips trailing dots and spaces
-    if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ')
-        return !(try core.messageSum(print.warning, args[1], 1, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]}));
+    if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ') {
+        try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+        args[1].* += 1;
+        return false;
+    }
 
     // < > : " | ? * and chars below ASCII 32
     for (0..args[0].len) |i| {
-        if (args[0][i] < 32) return !(try core.messageSum(print.warning, args[1], 1,
-            i18n.UNPORTABLE_CHARS_WARNING, .{args[0]}));
+        if (args[0][i] < 32) {
+            try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+            args[1].* += 1;
+            return false;
+        }
 
         if (args[0][i] == '<' or args[0][i] == '>' or args[0][i] == '"' or args[0][i] == '|' or args[0][i] == '?'
-            or args[0][i] == '*') return !(try core.messageSum(print.warning, args[1], 1,
-            i18n.UNPORTABLE_CHARS_WARNING, .{args[0]}));
+            or args[0][i] == '*') {
+
+            try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+            args[1].* += 1;
+            return false;
+        }
 
         // Special handling for colon (allowed only in Windows drive letters)
         if (args[0][i] == ':') {
             if (i < (args[0].len - 1) and (args[0][i + 1] == '\\' or args[0][i + 1] == '/')) continue;
-            return !(try core.messageSum(print.warning, args[1], 1, i18n.UNPORTABLE_CHARS_WARNING,
-                .{args[0]}));
+
+            try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+            args[1].* += 1;
+            return false;
         }
     }
     return false;

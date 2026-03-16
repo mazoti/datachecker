@@ -309,9 +309,9 @@ const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initCompti
 pub fn legacyFiles(args: anytype) !bool {
     if (core.getExtensionLowercase(args[0])) |lowercase| {
         const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
-
-        // Checks if the extension matches any known legacy format
-        return core.messageSum(print.warning, args[1], 1, i18n.LEGACY_FILES_WARNING, .{ args[0], description });
+        try print.warning(i18n.LEGACY_FILES_WARNING, .{ args[0], description });
+        args[1].* += 1;
+        return true;
     }
 
     return false;
@@ -337,26 +337,36 @@ fn checkTempFiles(args: anytype) !bool {
 
     if (core.getExtensionLowercase(args[0])) |lowercase| {
         // Checks if the file extension is in the temporary extensions map
-        if (TEMPORARY_EXTENSIONS.has(lowercase)) return core.messageSum(print.warning, args[1], args[2].size,
-            i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+        if (TEMPORARY_EXTENSIONS.has(lowercase)) {
+            try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+            args[1].* += args[2].size;
+            return true;
+        }
     }
 
     // Checks if the full filename matches exactly
-    if (FULL_NAME.has(filename)) return core.messageSum(print.warning, args[1], args[2].size,
-        i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+    if (FULL_NAME.has(filename)) {
+        try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+        args[1].* += args[2].size;
+        return true;
+    }
 
     // Checks if filename matches start/end patterns
     for (START_END) |pattern| {
         if ((pattern.start.len > 0 and !std.mem.startsWith(u8, filename, pattern.start)) or
             (pattern.end.len   > 0 and !std.mem.endsWith(  u8, filename, pattern.end))) continue;
 
-        return core.messageSum(print.warning, args[1], args[2].size,
-            i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+        try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+        args[1].* += args[2].size;
+        return true;
     }
 
     // Checks if the path contains any of the known temporary patterns
-    if (args[3].contains(args[0])) return core.messageSum(print.warning, args[1], args[2].size,
-        i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+    if (args[3].contains(args[0])) {
+        try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+        args[1].* += args[2].size;
+        return true;
+    }
 
     return false;
 }

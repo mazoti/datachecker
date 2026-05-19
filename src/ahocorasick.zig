@@ -14,7 +14,7 @@ pub const AhoCorasick = struct {
 
         fn init(allocator: std.mem.Allocator) !*Node {
             const node = try allocator.create(Node);
-            node.* = .{ .end = false, .next = [_]?*Node{null} ** 256, .failure_link = null };
+            node.* = .{ .end = false, .next = std.mem.zeroes([256]?*Node), .failure_link = null };
             return node;
         }
     };

@@ -280,7 +280,7 @@ extern "kernel32" fn SetConsoleOutputCP(wCodePageID: std.os.windows.UINT) callco
 
 pub fn main(init: std.process.Init) !void {
     if (@import("builtin").os.tag == .windows) {
-        if (SetConsoleOutputCP(65001) == 0) return error.SetConsoleOutputCPFailed;
+        if (!SetConsoleOutputCP(65001).toBool()) return error.SetConsoleOutputCPFailed;
     }
 
     return commonMain(init);

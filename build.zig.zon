@@ -2,7 +2,7 @@
     .name = .datachecker,
     .version = "0.2.4",
     .fingerprint = 0xc01ad948176ced7d, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.17.0-dev.304+9787df942",
+    .minimum_zig_version = "0.17.0-dev.956+2dca73595",
     .paths = .{
         "build.zig",
         "build.zig.zon",

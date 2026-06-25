@@ -10,21 +10,21 @@ fn createExecutableForTarget(
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
 
-    const ahocorasick_mod = b.addModule("ahocorasick" , .{ .root_source_file = b.path("src/ahocorasick.zig") , .target = resolved_target });
-    const config_mod      = b.addModule("config"      , .{ .root_source_file = b.path("src/config.zig")      , .target = resolved_target });
-    const globals_mod     = b.addModule("globals"     , .{ .root_source_file = b.path("src/globals.zig")     , .target = resolved_target, .imports = &.{.{ .name = "config", .module = config_mod }} });
-    const i18n_mod        = b.addModule("i18n"        , .{ .root_source_file = b.path("src/i18n.zig")        , .target = resolved_target });
+    const ahocorasick_mod = b.createModule(.{ .root_source_file = b.path("src/ahocorasick.zig") , .target = resolved_target });
+    const config_mod      = b.createModule(.{ .root_source_file = b.path("src/config.zig")      , .target = resolved_target });
+    const globals_mod     = b.createModule(.{ .root_source_file = b.path("src/globals.zig")     , .target = resolved_target, .imports = &.{.{ .name = "config", .module = config_mod }} });
+    const i18n_mod        = b.createModule(.{ .root_source_file = b.path("src/i18n.zig")        , .target = resolved_target });
 
     // Required to set an icon on Windows
-    const icon_mod = b.addModule("icon", .{ .root_source_file = b.path("src/empty.zig"), .target = resolved_target });
+    const icon_mod = b.createModule(.{ .root_source_file = b.path("src/empty.zig"), .target = resolved_target });
 
-    const print_mod = b.addModule("print", .{ .root_source_file = b.path("src/print.zig"), .target = resolved_target, .imports = &.{
+    const print_mod = b.createModule(.{ .root_source_file = b.path("src/print.zig"), .target = resolved_target, .imports = &.{
         .{ .name = "config"  , .module = config_mod  },
         .{ .name = "globals" , .module = globals_mod },
         .{ .name = "i18n"    , .module = i18n_mod    },
     } });
 
-    const core_mod = b.addModule("core", .{ .root_source_file = b.path("src/modules/core.zig"), .target = resolved_target, .imports = &.{
+    const core_mod = b.createModule(.{ .root_source_file = b.path("src/modules/core.zig"), .target = resolved_target, .imports = &.{
         .{ .name = "ahocorasick" , .module = ahocorasick_mod },
         .{ .name = "config"      , .module = config_mod      },
         .{ .name = "globals"     , .module = globals_mod     },
@@ -62,7 +62,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
     run_cmd.step.dependOn(b.getInstallStep());
 
-    if (b.args) |args| { run_cmd.addArgs(args); }
+    run_cmd.addPassthruArgs();
 
     const test_step = b.step("test", "Run tests");
 
@@ -246,7 +246,7 @@ pub fn build(b: *std.Build) void {
 fn deployAllTargets(targets: []const std.Target.Query, b: *std.Build, step: *std.Build.Step) void {
     for (targets) |query| {
         const resolved_target = b.resolveTargetQuery(query);
-        const binary_build    = createExecutableForTarget(b, resolved_target, .ReleaseFast);
+        const binary_build    = createExecutableForTarget(b, resolved_target, .ReleaseSmall);
 
         const triple = query.zigTriple(b.allocator) catch @panic("OOM");
 

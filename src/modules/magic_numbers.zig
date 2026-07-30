@@ -28,6 +28,8 @@ const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
     .{ ".ico"        , "\x00\x00\x01\x00"                                                  }, // Windows Icon
     .{ ".jpg"        , "\xFF\xD8\xFF"                                                      }, // JPEG image files
     .{ ".lnk"        , "\x4C\x00\x00\x00"                                                  }, // Windows shortcut
+    .{ ".m3u8"       , "#EXTM3U"                                                           }, // UTF-8 encoded playlist
+    .{ ".mds"        , "MEDIA DESCRIPTOR\x00\x03\x00\x01\x00"                              }, // Media Descriptor File
     .{ ".ogg"        , "\x4F\x67\x67\x53"                                                  }, // Ogg multimedia container
     .{ ".pdf"        , "\x25\x50\x44\x46"                                                  }, // Portable Document Format
     .{ ".png"        , "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"                                  }, // Portable Network Graphics
@@ -46,6 +48,8 @@ const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
 });
 
 const MAGIC_NUMBERS_KEY = std.StaticStringMap([]const u8).initComptime(.{
+    .{ "#EXTM3U"                                                          , ".m3u8"        }, // UTF-8 encoded playlist
+    .{ "MEDIA DESCRIPTOR\x00\x03\x00\x01\x00"                             , ".mds"         }, // Media Descriptor File
     .{ "\x00\x00\x01\x00"                                                 , ".ico"         }, // Windows Icon
     .{ "\x00\x01\x00\x00"                                                 , ".ttf"         }, // TrueType Font
     .{ "\x1F\x8B"                                                         , ".gz"          }, // GZIP compressed file
@@ -170,8 +174,18 @@ const checkHTML = makeCheckerOR(&.{
     .{ .offset = 0, .bytes = "\x3C\x68\x74\x6D\x6C\x3E" },
     .{ .offset = 0, .bytes = "\x3C\x48\x54\x4D\x4C\x3E" },
     .{ .offset = 0, .bytes = "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x68\x74\x6D\x6C\x3E" },
-
 });
+
+const checkCUE = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "CATALOG"   },
+    .{ .offset = 0, .bytes = "FILE"      },
+    .{ .offset = 0, .bytes = "INDEX"     },
+    .{ .offset = 0, .bytes = "PERFORMER" },
+    .{ .offset = 0, .bytes = "REM"       },
+    .{ .offset = 0, .bytes = "TITLE"     },
+    .{ .offset = 0, .bytes = "TRACK"     },
+});
+
 
 const FormatConfig = struct {
     size:      usize,
@@ -182,6 +196,7 @@ const FormatConfig = struct {
 const format_config_map = std.StaticStringMap(FormatConfig).initComptime(.{
     .{ ".avi"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkAVI  }},
     .{ ".avif" , FormatConfig{ .size = 8  , .offset = 4     , .validator = &checkAVIF }},
+    .{ ".cue"  , FormatConfig{ .size = 9  , .offset = 0     , .validator = &checkCUE  }},
     .{ ".docx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
     .{ ".eot"  , FormatConfig{ .size = 2  , .offset = 34    , .validator = &checkEOT  }},
     .{ ".gif"  , FormatConfig{ .size = 6  , .offset = 0     , .validator = &checkGIF  }},

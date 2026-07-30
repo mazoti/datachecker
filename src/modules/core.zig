@@ -37,6 +37,22 @@ pub fn duplicateFilesParallel() !void {
     try decorateWalker(config.COMPTIME_DUPLICATE_FILES, globals.config_parsed.value.DUPLICATE_FILES, duplicates.check, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_FILES_TOTAL, i18n.DUPLICATE_FILES_TOTALS);
 }
 
+/// Removes duplicate files
+pub fn duplicateRemoveFiles() !void {
+    globals.config_parsed.value.DUPLICATE_FILES = true;
+    globals.config_parsed.value.DUPLICATE_FILES_PARALLEL = false;
+
+    try decorateWalker(config.COMPTIME_DUPLICATE_REMOVE_FILES, globals.config_parsed.value.DUPLICATE_REMOVE_FILES, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+}
+
+/// Removes duplicate files in parallel
+pub fn duplicateRemoveFilesParallel() !void {
+    globals.config_parsed.value.DUPLICATE_FILES = true;
+    globals.config_parsed.value.DUPLICATE_FILES_PARALLEL = true;
+
+    try decorateWalker(config.COMPTIME_DUPLICATE_REMOVE_FILES_PARALLEL, globals.config_parsed.value.DUPLICATE_REMOVE_FILES_PARALLEL, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+}
+
 /// Enables links and shortcuts check
 pub fn linksShortcuts() !void {
     globals.config_parsed.value.LINKS_SHORTCUTS = true;

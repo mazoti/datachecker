@@ -10,6 +10,8 @@ const i18n = @import("i18n");
 pub const IO_BUFFER_SIZE: usize = 16384;
 
 pub const COMPTIME_DUPLICATE_FILES: bool = true;
+pub const COMPTIME_DUPLICATE_REMOVE_FILES: bool = true;
+pub const COMPTIME_DUPLICATE_REMOVE_FILES_PARALLEL: bool = true;
 pub const COMPTIME_LINKS_SHORTCUTS: bool = true;
 pub const COMPTIME_INTEGRITY_FILES: bool = true;
 pub const COMPTIME_TEMPORARY_FILES: bool = true;
@@ -46,6 +48,8 @@ pub const Config = struct {
     // Runtime toggles for each check type (can be overridden by config.json)
     DUPLICATE_FILES: bool = true,
     DUPLICATE_FILES_PARALLEL: bool = true,
+    DUPLICATE_REMOVE_FILES: bool = true,
+    DUPLICATE_REMOVE_FILES_PARALLEL: bool = true,
     LINKS_SHORTCUTS: bool = true,
     INTEGRITY_FILES: bool = true,
     INTEGRITY_FILES_PARALLEL: bool = true,
@@ -81,20 +85,22 @@ pub const Config = struct {
 
 pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\{
-    \\    "INPUT_FOLDER":                 ".",
-    \\    "BUFFER_SIZE":                  65536,
-    \\    "COLOR":                        true,
-    \\    "ENABLE_CACHE":                 true,
-    \\    "ENTER_TO_QUIT":                false,
-    \\    "MAX_JOBS":                     0,
+    \\    "INPUT_FOLDER":                        ".",
+    \\    "BUFFER_SIZE":                         65536,
+    \\    "COLOR":                               true,
+    \\    "ENABLE_CACHE":                        true,
+    \\    "ENTER_TO_QUIT":                       false,
+    \\    "MAX_JOBS":                            0,
     \\
-    \\    "DUPLICATE_FILES":              true,
-    \\        "DUPLICATE_FILES_PARALLEL": true,
-    \\    "LINKS_SHORTCUTS":              true,
-    \\    "INTEGRITY_FILES":              true,
-    \\        "INTEGRITY_FILES_PARALLEL": true,
-    \\    "TEMPORARY_FILES":              true,
-    \\    "CONFIDENTIAL_FILES":           true,
+    \\    "DUPLICATE_FILES":                     true,
+    \\        "DUPLICATE_FILES_PARALLEL":        true,
+    \\    "DUPLICATE_REMOVE_FILES":              true,
+    \\        "DUPLICATE_REMOVE_FILES_PARALLEL": true,
+    \\    "LINKS_SHORTCUTS":                     true,
+    \\    "INTEGRITY_FILES":                     true,
+    \\        "INTEGRITY_FILES_PARALLEL":        true,
+    \\    "TEMPORARY_FILES":                     true,
+    \\    "CONFIDENTIAL_FILES":                  true,
     \\        "PATTERNS":                 [
     \\            "access code",                         "Access code",                         "Access Code",                       "ACCESS CODE",
     \\            "account number",                      "Account number",                      "Account Number",                    "ACCOUNT NUMBER",
@@ -171,29 +177,29 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\            "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ=="
     \\                                    ],
     \\
-    \\    "COMPRESSED_FILES":             true,
-    \\    "DUPLICATE_CHARS_FILES":        true,
-    \\    "EMPTY_FILES":                  true,
-    \\    "LARGE_FILES":                  true,
-    \\        "LARGE_FILE_SIZE":          107374182400,
-    \\    "LAST_ACCESS_FILES":            true,
-    \\        "LAST_ACCESS_TIME":         31536000000000000,
-    \\    "LEGACY_FILES":                 true,
-    \\    "MAGIC_NUMBERS":                true,
-    \\    "NO_EXTENSION":                 true,
-    \\    "PARSE_JSON_FILES":             true,
-    \\    "WRONG_DATES":                  true,
+    \\    "COMPRESSED_FILES":                    true,
+    \\    "DUPLICATE_CHARS_FILES":               true,
+    \\    "EMPTY_FILES":                         true,
+    \\    "LARGE_FILES":                         true,
+    \\        "LARGE_FILE_SIZE":                 107374182400,
+    \\    "LAST_ACCESS_FILES":                   true,
+    \\        "LAST_ACCESS_TIME":                31536000000000000,
+    \\    "LEGACY_FILES":                        true,
+    \\    "MAGIC_NUMBERS":                       true,
+    \\    "NO_EXTENSION":                        true,
+    \\    "PARSE_JSON_FILES":                    true,
+    \\    "WRONG_DATES":                         true,
     \\
-    \\    "EMPTY_DIRECTORIES":            true,
-    \\    "MANY_ITEMS_DIRECTORY":         true,
-    \\        "MAX_ITEMS_DIRECTORY":      10000,
-    \\    "ONE_ITEM_DIRECTORY":           true,
+    \\    "EMPTY_DIRECTORIES":                   true,
+    \\    "MANY_ITEMS_DIRECTORY":                true,
+    \\        "MAX_ITEMS_DIRECTORY":             10000,
+    \\    "ONE_ITEM_DIRECTORY":                  true,
     \\
-    \\    "DIRECTORY_FILE_NAME_SIZE":     true,
-    \\        "MAX_DIR_FILE_NAME_SIZE":   200,
-    \\    "FULL_PATH_SIZE":               true,
-    \\    "MAX_FULL_PATH_SIZE":           1024,
-    \\    "UNPORTABLE_CHARS":             true
+    \\    "DIRECTORY_FILE_NAME_SIZE":            true,
+    \\        "MAX_DIR_FILE_NAME_SIZE":          200,
+    \\    "FULL_PATH_SIZE":                      true,
+    \\    "MAX_FULL_PATH_SIZE":                  1024,
+    \\    "UNPORTABLE_CHARS":                    true
     \\}
     \\
 ;

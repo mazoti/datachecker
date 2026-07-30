@@ -15,7 +15,11 @@ const dup_single = @import("single.zig");
 const modules = @import("../core.zig");
 
 pub fn check(total_items: *u64) !void {
-    return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items) else dup_single.check(total_items);
+    return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items, false) else dup_single.check(total_items, false);
+}
+
+pub fn remove(total_items: *u64) !void {
+    return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items, true) else dup_single.check(total_items, true);
 }
 
 /// Groups files by their size into a hash map
@@ -64,7 +68,7 @@ pub fn removeUniques(map: *std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]co
 /// in each existing group. This is O(n*g) where g = number of groups.
 /// LIMITATION: Only compares against first file in each group, assuming transitivity
 /// (if A==B and B==C then A==C, which holds for file equality)
-pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.ArrayList(std.ArrayList([]u8)), total_bytes: *u64) !void {
+pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.ArrayList(std.ArrayList([]u8)), total_bytes: *u64, remove_duplicate: bool) !void {
     outer: for (paths.items) |path| {
         for (results.items) |*result| {
             if (try sameFile(path, result.items[0])) {
@@ -75,6 +79,8 @@ pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.Arr
 
                 const stat = try std.Io.Dir.cwd().statFile(globals.io, path, .{});
                 total_bytes.* += stat.size;
+
+                if (remove_duplicate) try std.Io.Dir.deleteFileAbsolute(globals.io, path);
 
                 continue :outer;
             }

@@ -33,18 +33,33 @@ pub fn check(comptime fmt: []const u8, args: anytype) !void {
 }
 
 /// Prints duplicate files grouped by size
-pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8))) !void {
+pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8)), remove_duplicate: bool) !void {
     for (duplicates.items) |results_list| {
         const stat: std.Io.File.Stat = globals.file_stats.get(results_list.items[0]) orelse try std.Io.Dir.cwd().statFile(globals.io, results_list.items[0], .{});
 
-        const plural: []const u8 = if (stat.size > 1) "bytes:" else "byte:";
+        const plural: []const u8 = if (stat.size == 1) "byte:" else "bytes:";
 
         const data: []const u8 = if (globals.config_parsed.value.COLOR) try std.fmt.bufPrint(globals.buffer, "\n\t\t\x1b[33m{} {s}\x1b[0m\n", .{ stat.size, plural }) else try std.fmt.bufPrint(globals.buffer, "\n\t\t{} {s}\n", .{ stat.size, plural });
 
         try stderr(data);
 
-        for (results_list.items) |result| {
-            try stderr(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t{s}", .{result}));
+        if (remove_duplicate) {
+            // Does not remove first item
+            try stderr(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t{s}\n", .{results_list.items[0]}));
+
+            if (globals.config_parsed.value.COLOR) {
+                for (results_list.items[1..]) |result| {
+                    try stderr(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t\x1b[31m{s}\x1b[0m {s}", .{i18n.DUPLICATE_REMOVE_FILES, result}));
+                }
+            } else {
+                for (results_list.items[1..]) |result| {
+                    try stderr(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t{s} {s}", .{i18n.DUPLICATE_REMOVE_FILES, result}));
+                }
+            }
+        } else {
+            for (results_list.items) |result| {
+                try stderr(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t{s}", .{result}));
+            }
         }
 
         try stderr("\n");

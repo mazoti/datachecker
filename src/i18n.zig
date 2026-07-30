@@ -5,7 +5,7 @@
 /// Spacing constant for alignment - matches the largest string size in output
 pub const ALIGNED_OK_SPACES: u32 = 49;
 
-pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.4 by Marcos Mazoti" ++
+pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.5 by Marcos Mazoti" ++
     " - https://mazoti.github.io/datachecker\x1b[0m\n\n\n";
 
 pub const HELP =
@@ -25,6 +25,12 @@ pub const HELP =
     \\
     \\    --duplicate_mt, -dmt, -DMT, duplicate_mt, /DMT, DUPLICATE_MT
     \\        Search for duplicate files using multithreading
+    \\
+    \\    --duplicate_rm, -drm, -DRM, duplicate_rm, /DRM, DUPLICATE_RM
+    \\        Removes duplicate files
+    \\
+    \\    --duplicate_rmp, -drmp, -DRMP, duplicate_rmp, /DRMP, DUPLICATE_RMP
+    \\        Removes duplicate files using multithreading
     \\
     \\    --links, -ls, -LS, links, /LS, LINKS
     \\        Search for links and shortcuts
@@ -130,6 +136,10 @@ pub const DUPLICATE_CHARS_FILES_TOTALS = "{d} items with duplicate characters\n"
 pub const DUPLICATE_FILES_HEADER = "\n\tLooking for duplicate files...\n";
 pub const DUPLICATE_FILES_TOTAL = "{d} byte wasted\n";
 pub const DUPLICATE_FILES_TOTALS = "{d} bytes wasted\n";
+
+pub const DUPLICATE_REMOVE_FILES_TOTAL = "{d} byte removed\n";
+pub const DUPLICATE_REMOVE_FILES_TOTALS = "{d} bytes removed\n";
+pub const DUPLICATE_REMOVE_FILES = "Removing";
 
 pub const FILES_TOTAL = "{d} file\n";
 pub const FILES_TOTALS = "{d} files\n";

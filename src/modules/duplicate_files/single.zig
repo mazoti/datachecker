@@ -11,7 +11,7 @@ const print  = @import("print");
 const core   = @import("core.zig");
 
 // Finds all duplicated files using a single thread
-pub fn check(total_items: *u64) !void {
+pub fn check(total_items: *u64, remove_duplicate: bool) !void {
     // Creates a map to group files by their size (key: file size, value: list of file paths)
     var same_size_files_map: std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))
         = std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)){};
@@ -38,9 +38,9 @@ pub fn check(total_items: *u64) !void {
 
         // Second pass: perform byte-by-byte comparison among same-sized files
         // This populates results with groups of truly identical files (not just same size)
-        try core.groupSameFiles(&removed_list, &results, total_items);
+        try core.groupSameFiles(&removed_list, &results, total_items, remove_duplicate);
         core.removeUniquesArrayList(&results);
 
-        try print.duplicateFiles(&results);
+        try print.duplicateFiles(&results, remove_duplicate);
     }
 }

@@ -57,6 +57,20 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "/DMT", &core.duplicateFilesParallel },
     .{ "DUPLICATE_MT", &core.duplicateFilesParallel },
 
+    .{ "--duplicate_rm", &core.duplicateRemoveFiles },
+    .{ "-drm", &core.duplicateRemoveFiles },
+    .{ "-DRM", &core.duplicateRemoveFiles },
+    .{ "duplicate_rm", &core.duplicateRemoveFiles },
+    .{ "/DRM", &core.duplicateRemoveFiles },
+    .{ "DUPLICATE_RM", &core.duplicateRemoveFiles },
+
+    .{ "--duplicate_rmp", &core.duplicateRemoveFilesParallel },
+    .{ "-drmp", &core.duplicateRemoveFilesParallel },
+    .{ "-DRMP", &core.duplicateRemoveFilesParallel },
+    .{ "duplicate_rmp", &core.duplicateRemoveFilesParallel },
+    .{ "/DRMP", &core.duplicateRemoveFilesParallel },
+    .{ "DUPLICATE_RMP", &core.duplicateRemoveFilesParallel },
+
     .{ "--links", &core.linksShortcuts },
     .{ "-ls", &core.linksShortcuts },
     .{ "-LS", &core.linksShortcuts },

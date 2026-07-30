@@ -16,7 +16,7 @@ const core    = @import("core.zig");
 
 const modules = @import("../core.zig");
 
-pub fn check(total_items: *u64) !void {
+pub fn check(total_items: *u64, remove_duplicate: bool) !void {
     var same_size_files_map: std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))
         = std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)){};
     defer core.cleanHashMap(u64, &same_size_files_map);
@@ -71,9 +71,9 @@ pub fn check(total_items: *u64) !void {
             var results: std.ArrayList(std.ArrayList([]u8)) = std.ArrayList(std.ArrayList([]u8)){ .items = &.{}, .capacity = 0 };
             defer core.cleanArrayList(&results);
 
-            try core.groupSameFiles(&removed_list_map, &results, total_items);
+            try core.groupSameFiles(&removed_list_map, &results, total_items, remove_duplicate);
             core.removeUniquesArrayList(&results);
-            try print.duplicateFiles(&results);
+            try print.duplicateFiles(&results, remove_duplicate);
         }
     }
 }

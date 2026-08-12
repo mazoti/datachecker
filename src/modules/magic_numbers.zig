@@ -3,12 +3,10 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-
 const core    = @import("core.zig");
 
 const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
@@ -23,6 +21,7 @@ const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
     .{ ".doc"        , "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"                                  }, // Microsoft Word Document
     .{ ".elf"        , "\x7F\x45\x4C\x46"                                                  }, // Linux Executable and Linkable Format (.elf DOES NOT EXISTS)
     .{ ".exe"        , "\x4D\x5A"                                                          }, // Windows Portable Executable
+    .{ ".ez"         , "\\begindata{"                                                      }, // Andrew Toolkit Document
     .{ ".flac"       , "\x66\x4C\x61\x43\x00\x00\x00\x22"                                  }, // Free Lossless Audio Codec
     .{ ".gz"         , "\x1F\x8B"                                                          }, // GZIP compressed file
     .{ ".ico"        , "\x00\x00\x01\x00"                                                  }, // Windows Icon
@@ -48,6 +47,7 @@ const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
 });
 
 const MAGIC_NUMBERS_KEY = std.StaticStringMap([]const u8).initComptime(.{
+    .{ "\\begindata{"                                                     , ".ez"          }, // Andrew Toolkit Document
     .{ "#EXTM3U"                                                          , ".m3u8"        }, // UTF-8 encoded playlist
     .{ "MEDIA DESCRIPTOR\x00\x03\x00\x01\x00"                             , ".mds"         }, // Media Descriptor File
     .{ "\x00\x00\x01\x00"                                                 , ".ico"         }, // Windows Icon

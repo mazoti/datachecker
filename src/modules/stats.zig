@@ -4,12 +4,10 @@
 
 const std     = @import("std");
 const builtin = @import("builtin");
-
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-
 const core    = @import("core.zig");
 
 /// Forbidden filenames of windows system
@@ -60,6 +58,64 @@ pub fn duplicateCharacters(args: anytype) !bool {
     }
 
     return false;
+}
+
+/// Removes shortcuts and symlinks
+pub fn linkRemoveShortcuts(total_items: *u64) !void {
+    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
+    defer walker.deinit();
+
+    while (true) {
+        var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
+        if (try core.nextEntry(&walker, total_items, &entry_tmp)) continue;
+
+        if (entry_tmp) |entry| {
+            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+
+            // Checks if the target of the symlink exists
+            if (comptime builtin.os.tag != .windows) {
+                if (entry.kind == .sym_link) {
+                    try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
+                    total_items.* += 1;
+                    try print.removing("\"{s}\"", .{absolute_path});
+                    continue;
+                }
+            }
+
+            // Skips entries like pipes and sockets
+            if (entry.kind != .file and entry.kind != .directory) {
+                continue;
+            }
+
+            if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
+                const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
+                    .{.mode = .read_only, .lock = .shared});
+                defer input_file.close(globals.io);
+
+                var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
+                const chunk = try file_reader.interface.take(4);
+
+                if (chunk.len != 4) {
+                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                    total_items.* += 1;
+                    continue;
+                }
+
+                if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
+                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                    total_items.* += 1;
+                    continue;
+                }
+
+                try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
+                total_items.* += 1;
+                try print.removing("\"{s}\"", .{absolute_path});
+            }
+            continue;
+        }
+        return;
+    }
 }
 
 /// Detects shortcuts and symlinks and checks if symlinks are pointing to nowhere
@@ -150,6 +206,19 @@ pub fn emptyFiles(args: anytype) !bool {
     return false;
 }
 
+/// Removes files with zero bytes
+pub fn emptyRemoveFiles(args: anytype) !bool {
+    if (args[2].size == 0) {
+        _ = globals.file_stats.fetchRemove(args[0]);
+        try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
+        args[1].* += 1;
+
+        try print.removing("\"{s}\"", .{args[0]});
+        return true;
+    }
+    return false;
+}
+
 /// Identifies files that exceed the configured large file size threshold
 pub fn largeFiles(args: anytype) !bool {
     if (args[2].size > globals.config_parsed.value.LARGE_FILE_SIZE) {
@@ -191,6 +260,20 @@ pub fn emptyDirectories(args: anytype) !bool {
     if (try countItems(args[0]) == 0) {
         try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
         args[1].* += 1;
+        return true;
+    }
+
+    return false;
+}
+
+/// Removes empty directories
+pub fn emptyRemoveDirectories(args: anytype) !bool {
+    if (try countItems(args[0]) == 0) {
+        _ = globals.file_stats.fetchRemove(args[0]);
+        try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
+        args[1].* += 1;
+
+        try print.removing("\"{s}\"", .{args[0]});
         return true;
     }
 

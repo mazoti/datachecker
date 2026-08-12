@@ -4,9 +4,9 @@
 
 const std = @import("std");
 
-const config = @import("config");
+const config  = @import("config");
 const globals = @import("globals");
-const i18n = @import("i18n");
+const i18n    = @import("i18n");
 
 /// Prints message with aligned "OK" status (moves cursor up and clears line)
 pub fn alignedOk(message: []const u8) !void {
@@ -113,6 +113,11 @@ pub fn warning(comptime fmt: []const u8, args: anytype) !void {
     return core(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args);
 }
 
+/// Prints message with a red "REMOVING" on the left
+pub fn removing(comptime fmt: []const u8, args: anytype) !void {
+    return core(fmt, "\x1b[31m", i18n.REMOVING_MESSAGE, args);
+}
+
 /// Core printing function with optional ANSI color codes
 fn core(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
     const fmt_str: []const u8 = try std.fmt.bufPrint(globals.buffer, fmt, args);
@@ -145,8 +150,8 @@ pub fn check_mt(comptime fmt: []const u8, args: anytype) !void {
 
 /// Core printing function with optional ANSI color codes (multi-thread)
 fn core_mt(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
-    var buf: [config.IO_BUFFER_SIZE / 4]u8 = undefined;
-    var buf2: [config.IO_BUFFER_SIZE / 4]u8 = undefined;
+    var buf: [config.COMPTIME_IO_BUFFER_SIZE / 4]u8 = undefined;
+    var buf2: [config.COMPTIME_IO_BUFFER_SIZE / 4]u8 = undefined;
 
     const fmt_str: []const u8 = try std.fmt.bufPrint(&buf, fmt, args);
 

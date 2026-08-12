@@ -3,12 +3,10 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-
 const core    = @import("core.zig");
 
 /// Parses a JSON file and returns false if no errors were found

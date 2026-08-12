@@ -3,7 +3,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");

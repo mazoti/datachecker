@@ -3,14 +3,12 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std = @import("std");
-
+const std         = @import("std");
 const ahocorasick = @import("ahocorasick");
 const config      = @import("config");
 const globals     = @import("globals");
 const i18n        = @import("i18n");
 const print       = @import("print");
-
 const core        = @import("core.zig");
 
 const StartEndPattern = struct { start: []const u8, end: []const u8 };
@@ -219,6 +217,7 @@ const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initCompti
     .{ ".doc"                 , "Microsoft Word 97-2003"               },
     .{ ".dsk"                 , "Disk image"                           },
     .{ ".dxf"                 , "AutoCAD exchange"                     },
+    .{ ".ez"                  , "Andrew Toolkit Document"              },
     .{ ".far"                 , "Farandole Composer"                   },
     .{ ".fdi"                 , "Formatted Disk Image"                 },
     .{ ".fla"                 , "Adobe Flash source"                   },
@@ -327,28 +326,40 @@ pub fn temporaryFiles(total_items: *u64) !void {
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
-        _ = try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac});
+        try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, false);
     }
 }
 
-fn checkTempFiles(args: anytype) !bool {
+/// Scans a directory tree and removes temporary files
+pub fn temporaryRemoveFiles(total_items: *u64) !void {
+    // Initializes Aho-Corasick trie
+    var ac = try ahocorasick.AhoCorasick.init(globals.alloc.*, &CONTAINS);
+    defer ac.deinit();
+
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    defer file_iterator.deinit();
+
+    while (try file_iterator.next(total_items)) |entry| {
+        try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, true);
+    }
+}
+
+fn checkTempFiles(args: anytype, remove_file: bool) !void {
     // Extract and normalize extension for case-insensitive matching
     const filename: []const u8 = std.fs.path.basename(args[0]);
 
     if (core.getExtensionLowercase(args[0])) |lowercase| {
         // Checks if the file extension is in the temporary extensions map
         if (TEMPORARY_EXTENSIONS.has(lowercase)) {
-            try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
             args[1].* += args[2].size;
-            return true;
+            return warnRemoveFile(args[0], remove_file);
         }
     }
 
     // Checks if the full filename matches exactly
     if (FULL_NAME.has(filename)) {
-        try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
         args[1].* += args[2].size;
-        return true;
+        return warnRemoveFile(args[0], remove_file);
     }
 
     // Checks if filename matches start/end patterns
@@ -356,17 +367,22 @@ fn checkTempFiles(args: anytype) !bool {
         if ((pattern.start.len > 0 and !std.mem.startsWith(u8, filename, pattern.start)) or
             (pattern.end.len   > 0 and !std.mem.endsWith(  u8, filename, pattern.end))) continue;
 
-        try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
         args[1].* += args[2].size;
-        return true;
+        return warnRemoveFile(args[0], remove_file);
     }
 
     // Checks if the path contains any of the known temporary patterns
     if (args[3].contains(args[0])) {
-        try print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
         args[1].* += args[2].size;
-        return true;
+        return warnRemoveFile(args[0], remove_file);
+    }
+}
+
+fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
+    if (remove_file) {
+        try std.Io.Dir.deleteFileAbsolute(globals.io, filepath);
+        return print.removing("\"{s}\"", .{filepath});
     }
 
-    return false;
+    try print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
 }

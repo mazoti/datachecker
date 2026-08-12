@@ -11,9 +11,9 @@ fn createExecutableForTarget(
 ) *std.Build.Step.Compile {
 
     const ahocorasick_mod = b.createModule(.{ .root_source_file = b.path("src/ahocorasick.zig") , .target = resolved_target });
-    const config_mod      = b.createModule(.{ .root_source_file = b.path("src/config.zig")      , .target = resolved_target });
-    const globals_mod     = b.createModule(.{ .root_source_file = b.path("src/globals.zig")     , .target = resolved_target, .imports = &.{.{ .name = "config", .module = config_mod }} });
     const i18n_mod        = b.createModule(.{ .root_source_file = b.path("src/i18n.zig")        , .target = resolved_target });
+    const config_mod      = b.createModule(.{ .root_source_file = b.path("src/config.zig")      , .target = resolved_target, .imports = &.{.{ .name = "i18n",   .module = i18n_mod   }}});
+    const globals_mod     = b.createModule(.{ .root_source_file = b.path("src/globals.zig")     , .target = resolved_target, .imports = &.{.{ .name = "config", .module = config_mod }}});
 
     // Required to set an icon on Windows
     const icon_mod = b.createModule(.{ .root_source_file = b.path("src/empty.zig"), .target = resolved_target });

@@ -6,14 +6,11 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std     = @import("std");
-
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-
 const core    = @import("core.zig");
-
 const modules = @import("../core.zig");
 
 pub fn check(total_items: *u64, remove_duplicate: bool) !void {

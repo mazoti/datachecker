@@ -2,22 +2,20 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std = @import("std");
-const builtin = @import("builtin");
-
-const config = @import("config");
-const globals = @import("globals");
-const i18n = @import("i18n");
-const print = @import("print");
-
-const compressed = @import("compressed.zig");
-const confidential = @import("confidential.zig");
-const duplicates = @import("duplicate_files/core.zig");
-const integrity = @import("integrity.zig");
+const std           = @import("std");
+const builtin       = @import("builtin");
+const config        = @import("config");
+const globals       = @import("globals");
+const i18n          = @import("i18n");
+const print         = @import("print");
+const compressed    = @import("compressed.zig");
+const confidential  = @import("confidential.zig");
+const duplicates    = @import("duplicate_files/core.zig");
+const integrity     = @import("integrity.zig");
 const magic_numbers = @import("magic_numbers.zig");
-const parser = @import("parser.zig");
-const stats = @import("stats.zig");
-const useless = @import("useless.zig");
+const parser        = @import("parser.zig");
+const stats         = @import("stats.zig");
+const useless       = @import("useless.zig");
 
 const Filter = enum { Files, Directories, Both };
 
@@ -42,7 +40,7 @@ pub fn duplicateRemoveFiles() !void {
     globals.config_parsed.value.DUPLICATE_FILES = true;
     globals.config_parsed.value.DUPLICATE_FILES_PARALLEL = false;
 
-    try decorateWalker(config.COMPTIME_DUPLICATE_REMOVE_FILES, globals.config_parsed.value.DUPLICATE_REMOVE_FILES, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_REMOVE, globals.config_parsed.value.DUPLICATE_REMOVE_FILES, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
 }
 
 /// Removes duplicate files in parallel
@@ -50,7 +48,12 @@ pub fn duplicateRemoveFilesParallel() !void {
     globals.config_parsed.value.DUPLICATE_FILES = true;
     globals.config_parsed.value.DUPLICATE_FILES_PARALLEL = true;
 
-    try decorateWalker(config.COMPTIME_DUPLICATE_REMOVE_FILES_PARALLEL, globals.config_parsed.value.DUPLICATE_REMOVE_FILES_PARALLEL, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE, globals.config_parsed.value.DUPLICATE_REMOVE_FILES_PARALLEL, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+}
+
+/// Removes links and shortcuts
+pub fn linksRemoveShortcuts() !void {
+    try decorateWalker(config.COMPTIME_LINKS_SHORTCUTS, globals.config_parsed.value.LINKS_SHORTCUTS, stats.linkRemoveShortcuts, i18n.LINKS_SHORTCUTS_HEADER, i18n.LINKS_SHORTCUTS_TOTAL, i18n.LINKS_SHORTCUTS_TOTALS);
 }
 
 /// Enables links and shortcuts check
@@ -83,6 +86,11 @@ pub fn temporaryFiles() !void {
     try decorateWalker(config.COMPTIME_TEMPORARY_FILES, globals.config_parsed.value.TEMPORARY_FILES, useless.temporaryFiles, i18n.TEMPORARY_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
+/// Removes temporary files
+pub fn temporaryRemoveFiles() !void {
+    try decorateWalker(config.COMPTIME_TEMPORARY_FILES, globals.config_parsed.value.TEMPORARY_FILES, useless.temporaryRemoveFiles, i18n.TEMPORARY_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
+}
+
 /// Enables confidential files check
 pub fn confidentialFiles() !void {
     globals.config_parsed.value.CONFIDENTIAL_FILES = true;
@@ -109,6 +117,13 @@ pub fn emptyFiles() !void {
     globals.config_parsed.value.EMPTY_FILES = true;
 
     try decorate(config.COMPTIME_EMPTY_FILES, globals.config_parsed.value.EMPTY_FILES, false, Filter.Files, stats.emptyFiles, i18n.EMPTY_FILES_HEADER, i18n.EMPTY_FILES_TOTAL, i18n.EMPTY_FILES_TOTALS);
+}
+
+/// Enables remove empty files
+pub fn emptyRemoveFiles() !void {
+    globals.config_parsed.value.EMPTY_FILES = true;
+
+    try decorate(config.COMPTIME_EMPTY_FILES_REMOVE, globals.config_parsed.value.EMPTY_FILES, false, Filter.Files, stats.emptyRemoveFiles, i18n.EMPTY_FILES_HEADER, i18n.EMPTY_FILES_TOTAL, i18n.EMPTY_FILES_TOTALS);
 }
 
 /// Enables large files check
@@ -165,6 +180,13 @@ pub fn emptyDirectories() !void {
     globals.config_parsed.value.EMPTY_DIRECTORIES = true;
 
     try decorate(config.COMPTIME_EMPTY_DIRECTORIES, globals.config_parsed.value.EMPTY_DIRECTORIES, true, Filter.Directories, stats.emptyDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.EMPTY_DIRECTORIES_TOTAL, i18n.EMPTY_DIRECTORIES_TOTALS);
+}
+
+/// Removes empty directories
+pub fn emptyRemoveDirectories() !void {
+    globals.config_parsed.value.EMPTY_DIRECTORIES = true;
+
+    try decorate(config.COMPTIME_EMPTY_DIRECTORIES_REMOVE, globals.config_parsed.value.EMPTY_DIRECTORIES, true, Filter.Directories, stats.emptyRemoveDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.EMPTY_DIRECTORIES_TOTAL, i18n.EMPTY_DIRECTORIES_TOTALS);
 }
 
 /// Enables many items directory check
@@ -304,8 +326,10 @@ fn decorate(
 
             // Handle functions that can exit early
             if (early_exit) {
-                if (try process_fn(.{ globals.absolute_input_path, &total_items, null }))
+                if (try process_fn(.{ globals.absolute_input_path, &total_items, null })) {
+                    if (total_items > 0) globals.exit_code = 2;
                     return print.results(total_items, header, total, totals);
+                }
             }
 
             // First check if there are cached file statistics
@@ -331,6 +355,7 @@ fn decorate(
                     _ = try process_fn(.{ entry.key_ptr.*, &total_items, &cached_stat });
                 }
 
+                if (total_items > 0) globals.exit_code = 2;
                 return print.results(total_items, header, total, totals);
             }
 
@@ -366,6 +391,7 @@ fn decorate(
                 break;
             }
 
+            if (total_items > 0) globals.exit_code = 2;
             return print.results(total_items, header, total, totals);
         }
     }
@@ -387,6 +413,7 @@ fn decorateWalker(
             _ = try print.stdout(header);
             try process_fn(&total_items);
 
+            if (total_items > 0) globals.exit_code = 2;
             _ = try print.results(total_items, header, total, totals);
         }
     }
@@ -452,7 +479,7 @@ pub fn getExtensionLowercase(filepath: []const u8) ?[]const u8 {
 
 // Prints error, file and line in debug mode
 pub inline fn debugPrintError(err: anyerror) void {
-    if (builtin.mode == .Debug) {
+    if (builtin.mode == .debug) {
         std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
     }
 }

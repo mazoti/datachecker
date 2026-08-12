@@ -3,16 +3,14 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std = @import("std");
-
-const config = @import("config");
-const globals = @import("globals");
-const i18n = @import("i18n");
-const print = @import("print");
-
+const std          = @import("std");
+const config       = @import("config");
+const globals      = @import("globals");
+const i18n         = @import("i18n");
+const print        = @import("print");
 const dup_parallel = @import("parallel.zig");
-const dup_single = @import("single.zig");
-const modules = @import("../core.zig");
+const dup_single   = @import("single.zig");
+const modules      = @import("../core.zig");
 
 pub fn check(total_items: *u64) !void {
     return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items, false) else dup_single.check(total_items, false);

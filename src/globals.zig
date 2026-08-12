@@ -3,7 +3,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std    = @import("std");
-
 const config = @import("config");
 
 /// Defines the hash map type
@@ -29,7 +28,7 @@ pub var buffer_size:  usize = undefined;
 pub var buffer_total: usize = undefined;
 
 /// The buffer with size specified by config.zig
-pub var io_buffer: [config.IO_BUFFER_SIZE]u8 = undefined;
+pub var io_buffer: [config.COMPTIME_IO_BUFFER_SIZE]u8 = undefined;
 
 /// The buffer with size specified by user
 pub var buffer: []u8 = undefined;
@@ -60,3 +59,6 @@ pub var group:     std.Io.Group     = undefined;
 
 /// Memory max usage
 pub var memory_limit: usize = undefined;
+
+/// System exit code: 0 (no problems), 1 (errors) or 2 (warnings)
+pub var exit_code: u8 = 0;

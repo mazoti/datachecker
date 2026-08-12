@@ -6,7 +6,7 @@
 const std = @import("std");
 
 pub fn main(init: std.process.Init) !void {
-    var current_directory: []u8 = undefined;
+    var current_directory: []u8    = undefined;
     const arena: std.mem.Allocator = init.arena.allocator();
 
     current_directory = try std.process.currentPathAlloc(init.io, arena);
@@ -21,10 +21,10 @@ pub fn main(init: std.process.Init) !void {
 
     var dir_name: []const u8 = undefined;
 
-    var buffer: [2048]u8 = undefined;
-    var buffer_output: [2048]u8 = undefined;
+    var buffer:             [2048]u8 = undefined;
+    var buffer_output:      [2048]u8 = undefined;
     var buffer_output_last: [2048]u8 = undefined;
-    var buffer_hash_file: [2048]u8 = undefined;
+    var buffer_hash_file:   [2048]u8 = undefined;
 
     while (try walker.next(init.io)) |entry| {
         if (entry.kind == .directory) {

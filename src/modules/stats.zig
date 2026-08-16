@@ -60,8 +60,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
     return false;
 }
 
-/// Removes shortcuts and symlinks
-pub fn linkRemoveShortcuts(total_items: *u64) !void {
+fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
     defer walker.deinit();
 
@@ -69,130 +68,88 @@ pub fn linkRemoveShortcuts(total_items: *u64) !void {
         var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
         if (try core.nextEntry(&walker, total_items, &entry_tmp)) continue;
 
-        if (entry_tmp) |entry| {
-            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+        const entry = entry_tmp orelse return;
 
-            // Checks if the target of the symlink exists
-            if (comptime builtin.os.tag != .windows) {
-                if (entry.kind == .sym_link) {
+        const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
+            .{globals.absolute_input_path, std.fs.path.sep, entry.path});
+
+        // Checks if the target of the symlink exists
+        if (comptime builtin.os.tag != .windows) {
+            if (entry.kind == .sym_link) {
+                if (remove_entry) {
                     try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
                     total_items.* += 1;
                     try print.removing("\"{s}\"", .{absolute_path});
                     continue;
                 }
-            }
 
-            // Skips entries like pipes and sockets
-            if (entry.kind != .file and entry.kind != .directory) {
+                const input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, absolute_path,
+                    .{.mode = .read_only, .lock = .shared})
+                catch |err| {
+                    _ = switch (err) {
+                        error.FileNotFound => try print.err(i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path}),
+                        else => try print.err(i18n.ERROR_READING_FILE, .{absolute_path}),
+                    };
+                    total_items.* += 1;
+                    continue;
+                };
+                defer input_file.close(globals.io);
+            }
+        }
+
+        // Skips entries like pipes and sockets
+        if (entry.kind != .file and entry.kind != .directory) {
+            try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
+            total_items.* += 1;
+            continue;
+        }
+
+        // Adds the file or folder to cache
+        if (remove_entry == false) {
+            if (try core.fetchStatWithErrorHandling(absolute_path, total_items) == null) continue;
+        }
+
+        if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
+            const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
+                .{.mode = .read_only, .lock = .shared});
+            defer input_file.close(globals.io);
+
+            var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
+            const chunk = try file_reader.interface.take(4);
+
+            if (chunk.len != 4) {
+                try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                total_items.* += 1;
                 continue;
             }
 
-            if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
-                const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
-                    .{.mode = .read_only, .lock = .shared});
-                defer input_file.close(globals.io);
-
-                var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
-                const chunk = try file_reader.interface.take(4);
-
-                if (chunk.len != 4) {
-                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                    total_items.* += 1;
-                    continue;
-                }
-
-                if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
-                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                    total_items.* += 1;
-                    continue;
-                }
-
-                try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
+            if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
+                try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
                 total_items.* += 1;
-                try print.removing("\"{s}\"", .{absolute_path});
+                continue;
             }
-            continue;
+
+            total_items.* += 1;
+
+            if (remove_entry) {
+                try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
+                try print.removing("\"{s}\"", .{absolute_path});
+                continue;
+            }
+
+            try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
         }
-        return;
     }
+}
+
+/// Removes shortcuts and symlinks
+pub fn linkRemoveShortcuts(total_items: *u64) !void {
+    return linkShortcutsOrRemove(total_items, true);
 }
 
 /// Detects shortcuts and symlinks and checks if symlinks are pointing to nowhere
 pub fn linkShortcuts(total_items: *u64) !void {
-    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
-    defer walker.deinit();
-
-    while (true) {
-        var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
-        if (try core.nextEntry(&walker, total_items, &entry_tmp)) continue;
-
-        if (entry_tmp) |entry| {
-            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
-                .{globals.absolute_input_path, std.fs.path.sep, entry.path});
-
-            // Checks if the target of the symlink exists
-            if (comptime builtin.os.tag != .windows) {
-                if (entry.kind == .sym_link) {
-                    const input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, absolute_path,
-                        .{.mode = .read_only, .lock = .shared})
-                    catch |err| {
-                        _ = switch (err) {
-                            error.FileNotFound => {
-                                try print.err(i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path});
-                                total_items.* += 1;
-                                return;
-                            },
-                            else => {
-                                try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                                total_items.* += 1;
-                                return;
-                            },
-                        };
-
-                        continue;
-                    };
-                    defer input_file.close(globals.io);
-                }
-            }
-
-            // Skips entries like pipes and sockets
-            if (entry.kind != .file and entry.kind != .directory) {
-                try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
-                total_items.* += 1;
-                continue;
-            }
-
-            // Adds the file or folder to cache
-            if (try core.fetchStatWithErrorHandling(absolute_path, total_items) == null) continue;
-
-            if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
-                const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
-                    .{.mode = .read_only, .lock = .shared});
-                defer input_file.close(globals.io);
-
-                var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
-                const chunk = try file_reader.interface.take(4);
-
-                if (chunk.len != 4) {
-                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                    total_items.* += 1;
-                    continue;
-                }
-
-                if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
-                    try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                    total_items.* += 1;
-                    continue;
-                }
-
-                try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
-                total_items.* += 1;
-            }
-            continue;
-        }
-        return;
-    }
+    return linkShortcutsOrRemove(total_items, false);
 }
 
 /// Detects files with zero bytes
@@ -208,8 +165,8 @@ pub fn emptyFiles(args: anytype) !bool {
 
 /// Removes files with zero bytes
 pub fn emptyRemoveFiles(args: anytype) !bool {
-    if (args[2].size == 0) {
-        _ = globals.file_stats.fetchRemove(args[0]);
+    const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.io, args[0], .{});
+    if (file_stat.size == 0) {
         try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
         args[1].* += 1;
 
@@ -269,10 +226,8 @@ pub fn emptyDirectories(args: anytype) !bool {
 /// Removes empty directories
 pub fn emptyRemoveDirectories(args: anytype) !bool {
     if (try countItems(args[0]) == 0) {
-        _ = globals.file_stats.fetchRemove(args[0]);
         try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
         args[1].* += 1;
-
         try print.removing("\"{s}\"", .{args[0]});
         return true;
     }

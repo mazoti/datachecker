@@ -4,7 +4,6 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const std          = @import("std");
-const config       = @import("config");
 const globals      = @import("globals");
 const i18n         = @import("i18n");
 const print        = @import("print");
@@ -13,11 +12,19 @@ const dup_single   = @import("single.zig");
 const modules      = @import("../core.zig");
 
 pub fn check(total_items: *u64) !void {
-    return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items, false) else dup_single.check(total_items, false);
+    return dup_single.check(total_items, false);
+}
+
+pub fn check_parallel(total_items: *u64) !void {
+    return dup_parallel.check(total_items, false);
 }
 
 pub fn remove(total_items: *u64) !void {
-    return if (globals.config_parsed.value.DUPLICATE_FILES_PARALLEL) dup_parallel.check(total_items, true) else dup_single.check(total_items, true);
+    return dup_single.check(total_items, true);
+}
+
+pub fn remove_parallel(total_items: *u64) !void {
+    return dup_parallel.check(total_items, true);
 }
 
 /// Groups files by their size into a hash map
@@ -111,9 +118,7 @@ pub fn removeUniquesArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) v
 
 /// Cleans up an array list and free all its memory
 pub fn cleanArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) void {
-    for (array_list.items) |*value| {
-        cleanList(std.ArrayList([]u8), value);
-    }
+    for (array_list.items) |*value| { cleanList(std.ArrayList([]u8), value); }
     array_list.deinit(globals.alloc.*);
 }
 
@@ -123,9 +128,7 @@ pub fn cleanHashMap(
     map: *std.AutoArrayHashMapUnmanaged(T, std.ArrayList([]const u8)),
 ) void {
     var iter = map.iterator();
-    while (iter.next()) |entry| {
-        cleanList(std.ArrayList([]const u8), entry.value_ptr);
-    }
+    while (iter.next()) |entry| { cleanList(std.ArrayList([]const u8), entry.value_ptr); }
     map.deinit(globals.alloc.*);
 }
 
@@ -138,9 +141,7 @@ pub fn cleanArrayMap(comptime T: type, removed_list: *std.ArrayList([]const u8),
 
 /// Free all strings in a list and deinitialize the list
 fn cleanList(comptime T: type, list: *T) void {
-    for (list.items) |value| {
-        globals.alloc.*.free(value);
-    }
+    for (list.items) |value| { globals.alloc.*.free(value); }
     list.deinit(globals.alloc.*);
 }
 

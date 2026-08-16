@@ -5,7 +5,7 @@
 /// Spacing constant for alignment - matches the largest string size in output
 pub const ALIGNED_OK_SPACES: u32 = 49;
 
-pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.6 by Marcos Mazoti" ++
+pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.7 by Marcos Mazoti" ++
     " - https://mazoti.github.io/datachecker\x1b[0m\n\n\n";
 
 pub const USAGE =

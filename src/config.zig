@@ -74,49 +74,47 @@ pub const HELP = i18n.USAGE
 
 /// Configuration structure that holds runtime-configurable parameters
 pub const Config = struct {
-    INPUT_FOLDER: []const u8 = "",
-    BUFFER_SIZE: usize = 65536,
-    COLOR: bool = true,
-    ENABLE_CACHE: bool = true,
-    ENTER_TO_QUIT: bool = false,
-    MAX_JOBS: usize = 0, // Uses maximum number of threads
+    INPUT_FOLDER:  []const u8 = "",
+    BUFFER_SIZE:   usize      = 65536,
+    COLOR:         bool       = true,
+    ENABLE_CACHE:  bool       = true,
+    ENTER_TO_QUIT: bool       = false,
+    MAX_JOBS:      usize      = 0, // Uses maximum number of threads
 
     // Runtime toggles for each check type (can be overridden by config.json)
-    DUPLICATE_FILES: bool                 = true,
-    DUPLICATE_FILES_PARALLEL: bool        = true,
-    DUPLICATE_REMOVE_FILES: bool          = true,
-    DUPLICATE_REMOVE_FILES_PARALLEL: bool = true,
-    LINKS_SHORTCUTS: bool                 = true,
-    INTEGRITY_FILES: bool                 = true,
-    INTEGRITY_FILES_PARALLEL: bool        = true,
-    TEMPORARY_FILES: bool                 = true, // Looks for for .tmp, .temp, ~ and .swp
-    CONFIDENTIAL_FILES: bool              = true,
-    PATTERNS: [][]const u8                = &[_][]const u8{},
-    PATTERN_BASE64_BYTES: [][]const u8    = &[_][]const u8{},
+    DUPLICATE_FILES:          bool = false,
+    DUPLICATE_FILES_PARALLEL: bool = true,
+    LINKS_SHORTCUTS:          bool = true,
+    INTEGRITY_FILES:          bool = false,
+    INTEGRITY_FILES_PARALLEL: bool = true,
+    TEMPORARY_FILES:          bool = true, // Looks for for .tmp, .temp, ~ and .swp
+    CONFIDENTIAL_FILES:       bool = true,
+    PATTERNS:                 [][]const u8 = &[_][]const u8{},
+    PATTERN_BASE64_BYTES:     [][]const u8 = &[_][]const u8{},
 
-    COMPRESSED_FILES: bool      = true,
-    DUPLICATE_CHARS_FILES: bool = true,
-    EMPTY_FILES: bool           = true,
-    LARGE_FILES: bool           = true,
-    LARGE_FILE_SIZE: u64        = 107374182400, // 100 GB
-    LAST_ACCESS_FILES: bool     = true,
-    LAST_ACCESS_TIME: u64       = 31536000000000000, // ~1 year in nanoseconds
-    LEGACY_FILES: bool          = true,
-    MAGIC_NUMBERS: bool         = true, // Validates file signatures
-    NO_EXTENSION: bool          = true,
-    PARSE_JSON_FILES: bool      = true,
-    WRONG_DATES: bool           = true,
+    COMPRESSED_FILES:         bool = true,
+    DUPLICATE_CHARS_FILES:    bool = true,
+    EMPTY_FILES:              bool = true,
+    LARGE_FILES:              bool = true,
+    LARGE_FILE_SIZE:          u64  = 107374182400, // 100 GB
+    LAST_ACCESS_FILES:        bool = true,
+    LAST_ACCESS_TIME:         u64  = 31536000000000000, // ~1 year in nanoseconds
+    LEGACY_FILES:             bool = true,
+    MAGIC_NUMBERS:            bool = true, // Validates file signatures
+    NO_EXTENSION:             bool = true,
+    PARSE_JSON_FILES:         bool = true,
+    WRONG_DATES:              bool = true,
 
-    EMPTY_DIRECTORIES: bool    = true,
-    FULL_PATH_SIZE: bool       = true, // Checks for deeply nested paths
-    MAX_FULL_PATH_SIZE: u32    = 1024,
-    MANY_ITEMS_DIRECTORY: bool = true,
-    MAX_ITEMS_DIRECTORY: u32   = 10000,
-    ONE_ITEM_DIRECTORY: bool   = true, // Detects unnecessary directory nesting
+    EMPTY_DIRECTORIES:        bool = true,
+    FULL_PATH_SIZE:           bool = true, // Checks for deeply nested paths
+    MAX_FULL_PATH_SIZE:       u32  = 1024,
+    MANY_ITEMS_DIRECTORY:     bool = true,
+    MAX_ITEMS_DIRECTORY:      u32  = 10000,
+    ONE_ITEM_DIRECTORY:       bool = true, // Detects unnecessary directory nesting
 
     DIRECTORY_FILE_NAME_SIZE: bool = true,
-    MAX_DIR_FILE_NAME_SIZE: u32    = 200,
-    UNPORTABLE_CHARS: bool         = true,
+    MAX_DIR_FILE_NAME_SIZE:   u32  = 200,
+    UNPORTABLE_CHARS:         bool = true,
 };
 
 pub const DEFAULT_JSON_CONFIG: []const u8 =
@@ -128,13 +126,11 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "ENTER_TO_QUIT":                       false,
     \\    "MAX_JOBS":                            0,
     \\
-    \\    "DUPLICATE_FILES":                     true,
-    \\        "DUPLICATE_FILES_PARALLEL":        true,
-    \\    "DUPLICATE_REMOVE_FILES":              true,
-    \\        "DUPLICATE_REMOVE_FILES_PARALLEL": true,
+    \\    "DUPLICATE_FILES":                     false,
+    \\    "DUPLICATE_FILES_PARALLEL":            true,
     \\    "LINKS_SHORTCUTS":                     true,
-    \\    "INTEGRITY_FILES":                     true,
-    \\        "INTEGRITY_FILES_PARALLEL":        true,
+    \\    "INTEGRITY_FILES":                     false,
+    \\    "INTEGRITY_FILES_PARALLEL":            true,
     \\    "TEMPORARY_FILES":                     true,
     \\    "CONFIDENTIAL_FILES":                  true,
     \\        "PATTERNS":                 [

@@ -14,6 +14,7 @@ const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
     .{ ".bmp"        , "\x42\x4D"                                                          }, // Windows Bitmap
     .{ ".bz2"        , "\x42\x5A\x68"                                                      }, // BZIP2 compressed file
     .{ ".cab"        , "\x4D\x53\x43\x46"                                                  }, // Microsoft Cabinet file
+    .{ ".cbor"       , "\xD9\xD9\xF7"                                                      }, // Concise Binary Object Representation
     .{ ".class"      , "\xCA\xFE\xBA\xBE"                                                  }, // Java compiled class file
     .{ ".chm"        , "\x49\x54\x53\x46\x03\x00\x00\x00"                                  }, // Compiled HTML Help
     .{ ".db"         , "\x53\x51\x4C\x69\x74\x65\x20\x66\x6F\x72\x6D\x61\x74\x20\x33\x00"  }, // SQLite database
@@ -75,6 +76,7 @@ const MAGIC_NUMBERS_KEY = std.StaticStringMap([]const u8).initComptime(.{
     .{ "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"                                 , ".png"         }, // Portable Network Graphics
     .{ "\xCA\xFE\xBA\xBE"                                                 , ".class"       }, // Java compiled class file
     .{ "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"                                 , ".doc/ppt/xls" }, // Microsoft Word/PowerPoint/XML Document
+    .{ "\xD9\xD9\xF7"                                                     , ".cbor"        }, // Concise Binary Object Representation
     .{ "\xEF\xBB\xBF"                                                     , ".utf8bom"     }, // UTF-8 Byte Order Mark (Does not exists .utf8bom)
     .{ "\xFE\xFF"                                                         , ".utf16bebom"  }, // UTF-16 Big Endian BOM (Does not exists .utf16bebom)
     .{ "\xFF\xD8\xFF"                                                     , ".jpg"         }, // JPEG image files
@@ -186,6 +188,14 @@ const checkCUE = makeCheckerOR(&.{
     .{ .offset = 0, .bytes = "TRACK"     },
 });
 
+const checkDICOM = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "DICM" },
+});
+
+const checkPFR = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x50\x46\x52\x30" },
+    .{ .offset = 0, .bytes = "\x50\x46\x52\x31" },
+});
 
 const FormatConfig = struct {
     size:      usize,
@@ -194,26 +204,28 @@ const FormatConfig = struct {
 };
 
 const format_config_map = std.StaticStringMap(FormatConfig).initComptime(.{
-    .{ ".avi"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkAVI  }},
-    .{ ".avif" , FormatConfig{ .size = 8  , .offset = 4     , .validator = &checkAVIF }},
-    .{ ".cue"  , FormatConfig{ .size = 9  , .offset = 0     , .validator = &checkCUE  }},
-    .{ ".docx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
-    .{ ".eot"  , FormatConfig{ .size = 2  , .offset = 34    , .validator = &checkEOT  }},
-    .{ ".gif"  , FormatConfig{ .size = 6  , .offset = 0     , .validator = &checkGIF  }},
-    .{ ".htm"  , FormatConfig{ .size = 15 , .offset = 0     , .validator = &checkHTML }},
-    .{ ".html" , FormatConfig{ .size = 15 , .offset = 0     , .validator = &checkHTML }},
-    .{ ".iso"  , FormatConfig{ .size = 5  , .offset = 32769 , .validator = &checkISO  }},
-    .{ ".jar"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
-    .{ ".mov"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkMOV  }},
-    .{ ".mp3"  , FormatConfig{ .size = 3  , .offset = 0     , .validator = &checkMP3  }},
-    .{ ".mp4"  , FormatConfig{ .size = 8  , .offset = 0     , .validator = &checkMP4  }},
-    .{ ".pptx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
-    .{ ".tar"  , FormatConfig{ .size = 5  , .offset = 257   , .validator = &checkTar  }},
-    .{ ".tiff" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkTIFF }},
-    .{ ".wav"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkWAV  }},
-    .{ ".webp" , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkWebp }},
-    .{ ".xlsx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
-    .{ ".zip"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP  }},
+    .{ ".avi"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkAVI   }},
+    .{ ".avif" , FormatConfig{ .size = 8  , .offset = 4     , .validator = &checkAVIF  }},
+    .{ ".cue"  , FormatConfig{ .size = 9  , .offset = 0     , .validator = &checkCUE   }},
+    .{ ".dcm"  , FormatConfig{ .size = 4  , .offset = 128   , .validator = &checkDICOM }},
+    .{ ".docx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP   }},
+    .{ ".eot"  , FormatConfig{ .size = 2  , .offset = 34    , .validator = &checkEOT   }},
+    .{ ".gif"  , FormatConfig{ .size = 6  , .offset = 0     , .validator = &checkGIF   }},
+    .{ ".htm"  , FormatConfig{ .size = 15 , .offset = 0     , .validator = &checkHTML  }},
+    .{ ".html" , FormatConfig{ .size = 15 , .offset = 0     , .validator = &checkHTML  }},
+    .{ ".iso"  , FormatConfig{ .size = 5  , .offset = 32769 , .validator = &checkISO   }},
+    .{ ".jar"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP   }},
+    .{ ".mov"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkMOV   }},
+    .{ ".mp3"  , FormatConfig{ .size = 3  , .offset = 0     , .validator = &checkMP3   }},
+    .{ ".mp4"  , FormatConfig{ .size = 8  , .offset = 0     , .validator = &checkMP4   }},
+    .{ ".pfr"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkPFR   }},
+    .{ ".pptx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP   }},
+    .{ ".tar"  , FormatConfig{ .size = 5  , .offset = 257   , .validator = &checkTar   }},
+    .{ ".tiff" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkTIFF  }},
+    .{ ".wav"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkWAV   }},
+    .{ ".webp" , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkWebp  }},
+    .{ ".xlsx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP   }},
+    .{ ".zip"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP   }},
 });
 
 /// Validates file format by checking magic numbers against file extension

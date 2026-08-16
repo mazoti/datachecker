@@ -70,12 +70,7 @@ const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
     H(".sha3_512",    "SHA3_512",    std.crypto.hash.sha3.Sha3_512),
 });
 
-pub fn checkIntegrity(total_items: *u64) !void {
-    return if (globals.config_parsed.value.INTEGRITY_FILES_PARALLEL) checkParallel(total_items)
-        else checkSingle(total_items);
-}
-
-fn checkParallel(total_items: *u64) !void {
+pub fn checkParallel(total_items: *u64) !void {
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
 
     var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.alloc.*, .{.async_limit = max_jobs_limit,
@@ -113,7 +108,7 @@ fn checkParallel(total_items: *u64) !void {
     try globals.group.await(io);
 }
 
-fn checkSingle(total_items: *u64) !void {
+pub fn checkSingle(total_items: *u64) !void {
     var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
     defer file_iterator.deinit();
 

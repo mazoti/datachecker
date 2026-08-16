@@ -254,6 +254,7 @@ const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initCompti
     .{ ".pas"                 , "Pascal source code"                   },
     .{ ".pct"                 , "PICT image"                           },
     .{ ".pcx"                 , "PC Paintbrush image"                  },
+    .{ ".pfr"                 , "Portable Font Resource"               },
     .{ ".pic"                 , "PC Paint/Pictor"                      },
     .{ ".pif"                 , "Program Information File"             },
     .{ ".pit"                 , "PackIt archive - Mac"                 },

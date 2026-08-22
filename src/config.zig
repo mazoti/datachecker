@@ -7,37 +7,41 @@ const i18n = @import("i18n");
 
 /// Compile-time flags to determine which features are compiled into the binary
 pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 16384;
+pub const COMPTIME_EMOJI_COLOR:                       bool = true;
+pub const COMPTIME_STDOUT_STDERR:                     bool = true;
 
 pub const COMPTIME_COMPRESSED_FILES:                  bool = true;
 pub const COMPTIME_CONFIDENTIAL_FILES:                bool = true;
 pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE:          bool = true;
 pub const COMPTIME_DUPLICATE_CHARS_FILES:             bool = true;
 pub const COMPTIME_DUPLICATE_FILES_PARALLEL:          bool = true;
-pub const COMPTIME_DUPLICATE_FILES_REMOVE:            bool = true;
-pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE:   bool = true;
 pub const COMPTIME_DUPLICATE_FILES:                   bool = true;
-pub const COMPTIME_EMPTY_FILES_REMOVE:                bool = true;
 pub const COMPTIME_EMPTY_FILES:                       bool = true;
-pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE:          bool = true;
 pub const COMPTIME_EMPTY_DIRECTORIES:                 bool = true;
 pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
+pub const COMPTIME_IGNORE_PATH_PATTERNS:              bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_INTEGRITY_FILES:                   bool = true;
 pub const COMPTIME_PARSE_JSON_FILES:                  bool = true;
 pub const COMPTIME_LARGE_FILES:                       bool = true;
 pub const COMPTIME_LAST_ACCESS_FILES:                 bool = true;
 pub const COMPTIME_LEGACY_FILES:                      bool = true;
-pub const COMPTIME_LINKS_SHORTCUTS_REMOVE:            bool = true;
 pub const COMPTIME_LINKS_SHORTCUTS:                   bool = true;
 pub const COMPTIME_MAGIC_NUMBERS:                     bool = true;
 pub const COMPTIME_MANY_ITEMS_DIRECTORY:              bool = true;
-pub const COMPTIME_COLORED_OUTPUT:                    bool = true;
 pub const COMPTIME_NO_EXTENSION:                      bool = true;
 pub const COMPTIME_ONE_ITEM_DIRECTORY:                bool = true;
-pub const COMPTIME_TEMPORARY_FILES_REMOVE:            bool = true;
 pub const COMPTIME_TEMPORARY_FILES:                   bool = true;
 pub const COMPTIME_UNPORTABLE_CHARS:                  bool = true;
 pub const COMPTIME_WRONG_DATES:                       bool = true;
+
+pub const COMPTIME_DUPLICATE_FILES_REMOVE:            bool = true;
+pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE:   bool = true;
+pub const COMPTIME_EMPTY_FILES_REMOVE:                bool = true;
+pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE:          bool = true;
+pub const COMPTIME_LINKS_SHORTCUTS_REMOVE:            bool = true;
+pub const COMPTIME_TEMPORARY_FILES_REMOVE:            bool = true;
+
 
 pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_COMPRESSED_FILES)                i18n.COMPTIME_COMPRESSED_FILES                else "")
@@ -63,7 +67,6 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_LINKS_SHORTCUTS)                 i18n.COMPTIME_LINKS_SHORTCUTS                 else "")
     ++ (if (COMPTIME_MAGIC_NUMBERS)                   i18n.COMPTIME_MAGIC_NUMBERS                   else "")
     ++ (if (COMPTIME_MANY_ITEMS_DIRECTORY)            i18n.COMPTIME_MANY_ITEMS_DIRECTORY            else "")
-    ++ (if (COMPTIME_COLORED_OUTPUT)                  i18n.COMPTIME_COLORED_OUTPUT                  else "")
     ++ (if (COMPTIME_NO_EXTENSION)                    i18n.COMPTIME_NO_EXTENSION                    else "")
     ++ (if (COMPTIME_ONE_ITEM_DIRECTORY)              i18n.COMPTIME_ONE_ITEM_DIRECTORY              else "")
     ++ (if (COMPTIME_TEMPORARY_FILES_REMOVE)          i18n.COMPTIME_TEMPORARY_FILES_REMOVE          else "")
@@ -74,66 +77,58 @@ pub const HELP = i18n.USAGE
 
 /// Configuration structure that holds runtime-configurable parameters
 pub const Config = struct {
-    INPUT_FOLDER:  []const u8 = "",
-    BUFFER_SIZE:   usize      = 65536,
-    COLOR:         bool       = true,
-    ENABLE_CACHE:  bool       = true,
-    ENTER_TO_QUIT: bool       = false,
-    MAX_JOBS:      usize      = 0, // Uses maximum number of threads
+    INPUT_FOLDER:               []const u8   = "",
+    BUFFER_SIZE:                usize        = 65536,
+    ENABLE_CACHE:               bool         = true,
+    ENTER_TO_QUIT:              bool         = false,
+    MAX_JOBS:                   usize        = 0, // Uses maximum number of threads
 
     // Runtime toggles for each check type (can be overridden by config.json)
-    DUPLICATE_FILES:          bool = false,
-    DUPLICATE_FILES_PARALLEL: bool = true,
-    LINKS_SHORTCUTS:          bool = true,
-    INTEGRITY_FILES:          bool = false,
-    INTEGRITY_FILES_PARALLEL: bool = true,
-    TEMPORARY_FILES:          bool = true, // Looks for for .tmp, .temp, ~ and .swp
-    CONFIDENTIAL_FILES:       bool = true,
-    PATTERNS:                 [][]const u8 = &[_][]const u8{},
-    PATTERN_BASE64_BYTES:     [][]const u8 = &[_][]const u8{},
-
-    COMPRESSED_FILES:         bool = true,
-    DUPLICATE_CHARS_FILES:    bool = true,
-    EMPTY_FILES:              bool = true,
-    LARGE_FILES:              bool = true,
-    LARGE_FILE_SIZE:          u64  = 107374182400, // 100 GB
-    LAST_ACCESS_FILES:        bool = true,
-    LAST_ACCESS_TIME:         u64  = 31536000000000000, // ~1 year in nanoseconds
-    LEGACY_FILES:             bool = true,
-    MAGIC_NUMBERS:            bool = true, // Validates file signatures
-    NO_EXTENSION:             bool = true,
-    PARSE_JSON_FILES:         bool = true,
-    WRONG_DATES:              bool = true,
-
-    EMPTY_DIRECTORIES:        bool = true,
-    FULL_PATH_SIZE:           bool = true, // Checks for deeply nested paths
-    MAX_FULL_PATH_SIZE:       u32  = 1024,
-    MANY_ITEMS_DIRECTORY:     bool = true,
-    MAX_ITEMS_DIRECTORY:      u32  = 10000,
-    ONE_ITEM_DIRECTORY:       bool = true, // Detects unnecessary directory nesting
-
-    DIRECTORY_FILE_NAME_SIZE: bool = true,
-    MAX_DIR_FILE_NAME_SIZE:   u32  = 200,
-    UNPORTABLE_CHARS:         bool = true,
+    COMPRESSED_FILES:           bool         = true,
+    CONFIDENTIAL_FILES:         bool         = true,
+        PATTERNS:               [][]const u8 = &[_][]const u8{},
+        PATTERN_BASE64_BYTES:   [][]const u8 = &[_][]const u8{},
+    DIRECTORY_FILE_NAME_SIZE:   bool         = true,
+        MAX_DIR_FILE_NAME_SIZE: u32          = 200,
+    DUPLICATE_CHARS_FILES:      bool         = true,
+    DUPLICATE_FILES_PARALLEL:   bool         = true,
+    DUPLICATE_FILES:            bool         = false,
+    EMPTY_FILES:                bool         = true,
+    EMPTY_DIRECTORIES:          bool         = true,
+    FULL_PATH_SIZE:             bool         = true, // Checks for deeply nested paths
+        MAX_FULL_PATH_SIZE:     u32          = 1024,
+    IGNORE_PATH_PATTERNS:       bool         = true,
+        IGNORE_PATTERNS:        [][]const u8 = &[_][]const u8{},
+    INTEGRITY_FILES_PARALLEL:   bool         = true,
+    INTEGRITY_FILES:            bool         = false,
+    PARSE_JSON_FILES:           bool         = true,
+    LARGE_FILES:                bool         = true,
+        LARGE_FILE_SIZE:        u64          = 107374182400, // 100 GB
+    LAST_ACCESS_FILES:          bool         = true,
+        LAST_ACCESS_TIME:       u64          = 31536000000000000, // ~1 year in nanoseconds
+    LEGACY_FILES:               bool         = true,
+    LINKS_SHORTCUTS:            bool         = true,
+    MAGIC_NUMBERS:              bool         = true, // Validates file signatures
+    MANY_ITEMS_DIRECTORY:       bool         = true,
+        MAX_ITEMS_DIRECTORY:    u32          = 10000,
+    NO_EXTENSION:               bool         = true,
+    ONE_ITEM_DIRECTORY:         bool         = true, // Detects unnecessary directory nesting
+    TEMPORARY_FILES:            bool         = true, // Looks for for .tmp, .temp, ~ and .swp
+    UNPORTABLE_CHARS:           bool         = true,
+    WRONG_DATES:                bool         = true,
 };
 
 pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\{
-    \\    "INPUT_FOLDER":                        ".",
-    \\    "BUFFER_SIZE":                         65536,
-    \\    "COLOR":                               true,
-    \\    "ENABLE_CACHE":                        true,
-    \\    "ENTER_TO_QUIT":                       false,
-    \\    "MAX_JOBS":                            0,
+    \\    "INPUT_FOLDER":                    ".",
+    \\    "BUFFER_SIZE":                     65536,
+    \\    "ENABLE_CACHE":                    true,
+    \\    "ENTER_TO_QUIT":                   false,
+    \\    "MAX_JOBS":                        0,
     \\
-    \\    "DUPLICATE_FILES":                     false,
-    \\    "DUPLICATE_FILES_PARALLEL":            true,
-    \\    "LINKS_SHORTCUTS":                     true,
-    \\    "INTEGRITY_FILES":                     false,
-    \\    "INTEGRITY_FILES_PARALLEL":            true,
-    \\    "TEMPORARY_FILES":                     true,
-    \\    "CONFIDENTIAL_FILES":                  true,
-    \\        "PATTERNS":                 [
+    \\    "COMPRESSED_FILES":                true,
+    \\    "CONFIDENTIAL_FILES":              true,
+    \\        "PATTERNS":                    [
     \\            "access code",                         "Access code",                         "Access Code",                       "ACCESS CODE",
     \\            "account number",                      "Account number",                      "Account Number",                    "ACCOUNT NUMBER",
     \\            "api key",                             "API Key",                             "API key",                           "API KEY",
@@ -199,39 +194,44 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\            "top secret",                          "Top secret",                          "Top Secret",                        "TOP SECRET",
     \\            "trade secret",                        "Trade secret",                        "Trade Secret",                      "TRADE SECRET",
     \\            "under seal",                          "Under seal",                          "Under Seal",                        "UNDER SEAL"
-    \\                                    ],
-    \\        "PATTERN_BASE64_BYTES":     [
+    \\                                       ],
+    \\        "PATTERN_BASE64_BYTES":        [
     \\            "LS0tLS1CRUdJTiBEU0EgUFJJVkFURSBLRVktLS0tLQ==",
     \\            "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t",
     \\            "LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQ==",
     \\            "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=",
     \\            "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t",
     \\            "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ=="
-    \\                                    ],
+    \\                                       ],
     \\
-    \\    "COMPRESSED_FILES":                    true,
-    \\    "DUPLICATE_CHARS_FILES":               true,
-    \\    "EMPTY_FILES":                         true,
-    \\    "LARGE_FILES":                         true,
-    \\        "LARGE_FILE_SIZE":                 107374182400,
-    \\    "LAST_ACCESS_FILES":                   true,
-    \\        "LAST_ACCESS_TIME":                31536000000000000,
-    \\    "LEGACY_FILES":                        true,
-    \\    "MAGIC_NUMBERS":                       true,
-    \\    "NO_EXTENSION":                        true,
-    \\    "PARSE_JSON_FILES":                    true,
-    \\    "WRONG_DATES":                         true,
-    \\
-    \\    "EMPTY_DIRECTORIES":                   true,
-    \\    "MANY_ITEMS_DIRECTORY":                true,
-    \\        "MAX_ITEMS_DIRECTORY":             10000,
-    \\    "ONE_ITEM_DIRECTORY":                  true,
-    \\
-    \\    "DIRECTORY_FILE_NAME_SIZE":            true,
-    \\        "MAX_DIR_FILE_NAME_SIZE":          200,
-    \\    "FULL_PATH_SIZE":                      true,
-    \\    "MAX_FULL_PATH_SIZE":                  1024,
-    \\    "UNPORTABLE_CHARS":                    true
+    \\    "DIRECTORY_FILE_NAME_SIZE":        true,
+    \\        "MAX_DIR_FILE_NAME_SIZE":      200,
+    \\    "DUPLICATE_CHARS_FILES":           true,
+    \\    "DUPLICATE_FILES_PARALLEL":        true,
+    \\    "DUPLICATE_FILES":                 false,
+    \\    "EMPTY_FILES":                     true,
+    \\    "EMPTY_DIRECTORIES":               true,
+    \\    "FULL_PATH_SIZE":                  true,
+    \\        "MAX_FULL_PATH_SIZE":          1024,
+    \\    "IGNORE_PATH_PATTERNS":            true,
+    \\        "IGNORE_PATTERNS":             [".git", ".zig-cache", ".gitignore", "zig-out", ".svn", ".hg", "__pycache__", "node_modules" ],
+    \\    "INTEGRITY_FILES_PARALLEL":        true,
+    \\    "INTEGRITY_FILES":                 false,
+    \\    "PARSE_JSON_FILES":                true,
+    \\    "LARGE_FILES":                     true,
+    \\        "LARGE_FILE_SIZE":             107374182400,
+    \\    "LAST_ACCESS_FILES":               true,
+    \\        "LAST_ACCESS_TIME":            31536000000000000,
+    \\    "LEGACY_FILES":                    true,
+    \\    "LINKS_SHORTCUTS":                 true,
+    \\    "MAGIC_NUMBERS":                   true,
+    \\    "MANY_ITEMS_DIRECTORY":            true,
+    \\        "MAX_ITEMS_DIRECTORY":         10000,
+    \\    "NO_EXTENSION":                    true,
+    \\    "ONE_ITEM_DIRECTORY":              true,
+    \\    "TEMPORARY_FILES":                 true,
+    \\    "UNPORTABLE_CHARS":                true,
+    \\    "WRONG_DATES":                     true
     \\}
     \\
 ;

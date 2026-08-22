@@ -2,18 +2,18 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std    = @import("std");
 const config = @import("config");
+const core   = @import("core.zig");
 const i18n   = @import("i18n");
 const print  = @import("print");
-const core   = @import("core.zig");
+const std    = @import("std");
 
 // Finds all duplicated files using a single thread
 pub fn check(total_items: *u64, remove_duplicate: bool) !void {
     // Creates a map to group files by their size (key: file size, value: list of file paths)
-    var same_size_files_map: std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))
-        = std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)){};
-    defer core.cleanHashMap(u64, &same_size_files_map);
+    var same_size_files_map: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))
+        = std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)){};
+    defer core.cleanHashMap(usize, &same_size_files_map);
 
     // Puts files with same sizes in the same array
     try core.groupFileBySize(&same_size_files_map);
@@ -26,9 +26,9 @@ pub fn check(total_items: *u64, remove_duplicate: bool) !void {
     while (i > 0) {
         i -= 1;
 
-        const key: u64 = same_size_files_map.keys()[i];
+        const key: usize = same_size_files_map.keys()[i];
         var removed_list: std.array_list.Aligned([]const u8, null) = same_size_files_map.get(key).?;
-        defer core.cleanArrayMap(u64, &removed_list, &same_size_files_map, &key);
+        defer core.cleanArrayMap(usize, &removed_list, &same_size_files_map, &key);
 
         var results: std.array_list.Aligned(std.array_list.Aligned([]u8, null), null)
             = std.ArrayList(std.ArrayList([]u8)){ .items = &.{}, .capacity = 0 };

@@ -3,89 +3,90 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
-const config  = @import("config");
-const core    = @import("core");
-const globals = @import("globals");
-const i18n    = @import("i18n");
-const print   = @import("print");
+const std             = @import("std");
+const ahocorasick     = @import("ahocorasick");
+const config          = @import("config");
+const core            = @import("core");
+const globals         = @import("globals");
+const i18n            = @import("i18n");
+const print           = @import("print");
 
 const NoParameterFunc = *const fn () anyerror!void;
 
 /// Map of command-line flags to their corresponding handler functions
 /// Supports various help and version flag formats (Unix, Windows, case variations)
 const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
-    .{ "--config"    , &createConfig },
-    .{ "--configure" , &createConfig },
-    .{ "config"      , &createConfig },
-    .{ "configure"   , &createConfig },
+    .{ "--config"        , &createConfig                      },
+    .{ "--configure"     , &createConfig                      },
+    .{ "config"          , &createConfig                      },
+    .{ "configure"       , &createConfig                      },
 
-    .{ "--help"      , &printHelp    },
-    .{ "-?"          , &printHelp    },
-    .{ "-h"          , &printHelp    },
-    .{ "-H"          , &printHelp    },
-    .{ "/?"          , &printHelp    },
-    .{ "/h"          , &printHelp    },
-    .{ "help"        , &printHelp    },
-    .{ "HELP"        , &printHelp    },
+    .{ "--help"          , &printHelp                         },
+    .{ "-?"              , &printHelp                         },
+    .{ "-h"              , &printHelp                         },
+    .{ "-H"              , &printHelp                         },
+    .{ "/?"              , &printHelp                         },
+    .{ "/h"              , &printHelp                         },
+    .{ "help"            , &printHelp                         },
+    .{ "HELP"            , &printHelp                         },
 
-    .{ "--version"   , &printVersion },
-    .{ "-v"          , &printVersion },
-    .{ "-V"          , &printVersion },
-    .{ "/V"          , &printVersion },
-    .{ "version"     , &printVersion },
-    .{ "VERSION"     , &printVersion },
+    .{ "--version"       , &printVersion                      },
+    .{ "-v"              , &printVersion                      },
+    .{ "-V"              , &printVersion                      },
+    .{ "/V"              , &printVersion                      },
+    .{ "version"         , &printVersion                      },
+    .{ "VERSION"         , &printVersion                      },
 });
 
 const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
-    .{ "--compressed"    , &core.compressedFiles },
-    .{ "-c"              , &core.compressedFiles },
-    .{ "-C"              , &core.compressedFiles },
-    .{ "compressed"      , &core.compressedFiles },
-    .{ "/C"              , &core.compressedFiles },
-    .{ "COMPRESSED"      , &core.compressedFiles },
+    .{ "--compressed"    , &core.compressedFiles              },
+    .{ "-c"              , &core.compressedFiles              },
+    .{ "-C"              , &core.compressedFiles              },
+    .{ "compressed"      , &core.compressedFiles              },
+    .{ "/C"              , &core.compressedFiles              },
+    .{ "COMPRESSED"      , &core.compressedFiles              },
 
-    .{ "--conf"          , &core.confidentialFiles },
-    .{ "-cf"             , &core.confidentialFiles },
-    .{ "-CF"             , &core.confidentialFiles },
-    .{ "conf"            , &core.confidentialFiles },
-    .{ "/CF"             , &core.confidentialFiles },
-    .{ "CONF"            , &core.confidentialFiles },
+    .{ "--conf"          , &core.confidentialFiles            },
+    .{ "-cf"             , &core.confidentialFiles            },
+    .{ "-CF"             , &core.confidentialFiles            },
+    .{ "conf"            , &core.confidentialFiles            },
+    .{ "/CF"             , &core.confidentialFiles            },
+    .{ "CONF"            , &core.confidentialFiles            },
 
-    .{ "--dirsize"       , &core.dirFileNameSize },
-    .{ "-ds"             , &core.dirFileNameSize },
-    .{ "-DS"             , &core.dirFileNameSize },
-    .{ "dirsize"         , &core.dirFileNameSize },
-    .{ "/DS"             , &core.dirFileNameSize },
-    .{ "DIRSIZE"         , &core.dirFileNameSize },
+    .{ "--dirsize"       , &core.dirFileNameSize              },
+    .{ "-ds"             , &core.dirFileNameSize              },
+    .{ "-DS"             , &core.dirFileNameSize              },
+    .{ "dirsize"         , &core.dirFileNameSize              },
+    .{ "/DS"             , &core.dirFileNameSize              },
+    .{ "DIRSIZE"         , &core.dirFileNameSize              },
 
-    .{ "--dupchars"      , &core.duplicateChars },
-    .{ "-dc"             , &core.duplicateChars },
-    .{ "-DC"             , &core.duplicateChars },
-    .{ "dupchars"        , &core.duplicateChars },
-    .{ "/DC"             , &core.duplicateChars },
-    .{ "DUPCHARS"        , &core.duplicateChars },
+    .{ "--dupchars"      , &core.duplicateChars               },
+    .{ "-dc"             , &core.duplicateChars               },
+    .{ "-DC"             , &core.duplicateChars               },
+    .{ "dupchars"        , &core.duplicateChars               },
+    .{ "/DC"             , &core.duplicateChars               },
+    .{ "DUPCHARS"        , &core.duplicateChars               },
 
-    .{ "--duplicate"     , &core.duplicateFiles },
-    .{ "-d"              , &core.duplicateFiles },
-    .{ "-D"              , &core.duplicateFiles },
-    .{ "duplicate"       , &core.duplicateFiles },
-    .{ "/D"              , &core.duplicateFiles },
-    .{ "DUPLICATE"       , &core.duplicateFiles },
+    .{ "--duplicate"     , &core.duplicateFiles               },
+    .{ "-d"              , &core.duplicateFiles               },
+    .{ "-D"              , &core.duplicateFiles               },
+    .{ "duplicate"       , &core.duplicateFiles               },
+    .{ "/D"              , &core.duplicateFiles               },
+    .{ "DUPLICATE"       , &core.duplicateFiles               },
 
-    .{ "--duplicate_mt"  , &core.duplicateFilesParallel },
-    .{ "-dmt"            , &core.duplicateFilesParallel },
-    .{ "-DMT"            , &core.duplicateFilesParallel },
-    .{ "duplicate_mt"    , &core.duplicateFilesParallel },
-    .{ "/DMT"            , &core.duplicateFilesParallel },
-    .{ "DUPLICATE_MT"    , &core.duplicateFilesParallel },
+    .{ "--duplicate_mt"  , &core.duplicateFilesParallel       },
+    .{ "-dmt"            , &core.duplicateFilesParallel       },
+    .{ "-DMT"            , &core.duplicateFilesParallel       },
+    .{ "duplicate_mt"    , &core.duplicateFilesParallel       },
+    .{ "/DMT"            , &core.duplicateFilesParallel       },
+    .{ "DUPLICATE_MT"    , &core.duplicateFilesParallel       },
 
-    .{ "--duplicate_rm"  , &core.duplicateRemoveFiles },
-    .{ "-drm"            , &core.duplicateRemoveFiles },
-    .{ "-DRM"            , &core.duplicateRemoveFiles },
-    .{ "duplicate_rm"    , &core.duplicateRemoveFiles },
-    .{ "/DRM"            , &core.duplicateRemoveFiles },
-    .{ "DUPLICATE_RM"    , &core.duplicateRemoveFiles },
+    .{ "--duplicate_rm"  , &core.duplicateRemoveFiles         },
+    .{ "-drm"            , &core.duplicateRemoveFiles         },
+    .{ "-DRM"            , &core.duplicateRemoveFiles         },
+    .{ "duplicate_rm"    , &core.duplicateRemoveFiles         },
+    .{ "/DRM"            , &core.duplicateRemoveFiles         },
+    .{ "DUPLICATE_RM"    , &core.duplicateRemoveFiles         },
 
     .{ "--duplicate_rmp" , &core.duplicateRemoveFilesParallel },
     .{ "-drmp"           , &core.duplicateRemoveFilesParallel },
@@ -94,158 +95,151 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "/DRMP"           , &core.duplicateRemoveFilesParallel },
     .{ "DUPLICATE_RMP"   , &core.duplicateRemoveFilesParallel },
 
-    .{ "--empty"         , &core.emptyFiles },
-    .{ "-ef"             , &core.emptyFiles },
-    .{ "-EF"             , &core.emptyFiles },
-    .{ "empty"           , &core.emptyFiles },
-    .{ "/EF"             , &core.emptyFiles },
-    .{ "EMPTY"           , &core.emptyFiles },
+    .{ "--empty"         , &core.emptyFiles                   },
+    .{ "-ef"             , &core.emptyFiles                   },
+    .{ "-EF"             , &core.emptyFiles                   },
+    .{ "empty"           , &core.emptyFiles                   },
+    .{ "/EF"             , &core.emptyFiles                   },
+    .{ "EMPTY"           , &core.emptyFiles                   },
 
-    .{ "--empty_rm"      , &core.emptyRemoveFiles },
-    .{ "-efrm"           , &core.emptyRemoveFiles },
-    .{ "-EFRM"           , &core.emptyRemoveFiles },
-    .{ "empty_rm"        , &core.emptyRemoveFiles },
-    .{ "/EFRM"           , &core.emptyRemoveFiles },
-    .{ "EMPTY_RM"        , &core.emptyRemoveFiles },
+    .{ "--empty_rm"      , &core.emptyRemoveFiles             },
+    .{ "-efrm"           , &core.emptyRemoveFiles             },
+    .{ "-EFRM"           , &core.emptyRemoveFiles             },
+    .{ "empty_rm"        , &core.emptyRemoveFiles             },
+    .{ "/EFRM"           , &core.emptyRemoveFiles             },
+    .{ "EMPTY_RM"        , &core.emptyRemoveFiles             },
 
-    .{ "--emptydirs"     , &core.emptyDirectories },
-    .{ "-e"              , &core.emptyDirectories },
-    .{ "-E"              , &core.emptyDirectories },
-    .{ "emptydirs"       , &core.emptyDirectories },
-    .{ "/E"              , &core.emptyDirectories },
-    .{ "EMPTYDIRS"       , &core.emptyDirectories },
+    .{ "--emptydirs"     , &core.emptyDirectories             },
+    .{ "-e"              , &core.emptyDirectories             },
+    .{ "-E"              , &core.emptyDirectories             },
+    .{ "emptydirs"       , &core.emptyDirectories             },
+    .{ "/E"              , &core.emptyDirectories             },
+    .{ "EMPTYDIRS"       , &core.emptyDirectories             },
 
-    .{ "--emptydirs_rm"  , &core.emptyRemoveDirectories },
-    .{ "-erm"            , &core.emptyRemoveDirectories },
-    .{ "-ERM"            , &core.emptyRemoveDirectories },
-    .{ "emptydirs_rm"    , &core.emptyRemoveDirectories },
-    .{ "/ERM"            , &core.emptyRemoveDirectories },
-    .{ "EMPTYDIRS_RM"    , &core.emptyRemoveDirectories },
+    .{ "--emptydirs_rm"  , &core.emptyRemoveDirectories       },
+    .{ "-erm"            , &core.emptyRemoveDirectories       },
+    .{ "-ERM"            , &core.emptyRemoveDirectories       },
+    .{ "emptydirs_rm"    , &core.emptyRemoveDirectories       },
+    .{ "/ERM"            , &core.emptyRemoveDirectories       },
+    .{ "EMPTYDIRS_RM"    , &core.emptyRemoveDirectories       },
 
-    .{ "--fullpathsize"  , &core.fullPathSize },
-    .{ "-f"              , &core.fullPathSize },
-    .{ "-F"              , &core.fullPathSize },
-    .{ "fullpathsize"    , &core.fullPathSize },
-    .{ "/F"              , &core.fullPathSize },
-    .{ "FULLPATHSIZE"    , &core.fullPathSize },
+    .{ "--fullpathsize"  , &core.fullPathSize                 },
+    .{ "-f"              , &core.fullPathSize                 },
+    .{ "-F"              , &core.fullPathSize                 },
+    .{ "fullpathsize"    , &core.fullPathSize                 },
+    .{ "/F"              , &core.fullPathSize                 },
+    .{ "FULLPATHSIZE"    , &core.fullPathSize                 },
 
-    .{ "--integrity"     , &core.integrityFiles },
-    .{ "-i"              , &core.integrityFiles },
-    .{ "-I"              , &core.integrityFiles },
-    .{ "integrity"       , &core.integrityFiles },
-    .{ "/I"              , &core.integrityFiles },
-    .{ "INTEGRITY"       , &core.integrityFiles },
+    .{ "--integrity"     , &core.integrityFiles               },
+    .{ "-i"              , &core.integrityFiles               },
+    .{ "-I"              , &core.integrityFiles               },
+    .{ "integrity"       , &core.integrityFiles               },
+    .{ "/I"              , &core.integrityFiles               },
+    .{ "INTEGRITY"       , &core.integrityFiles               },
 
-    .{ "--integrity_mt"  , &core.integrityFilesParallel },
-    .{ "-imt"            , &core.integrityFilesParallel },
-    .{ "-IMT"            , &core.integrityFilesParallel },
-    .{ "integrity_mt"    , &core.integrityFilesParallel },
-    .{ "/IMT"            , &core.integrityFilesParallel },
-    .{ "INTEGRITY_MT"    , &core.integrityFilesParallel },
+    .{ "--integrity_mt"  , &core.integrityFilesParallel       },
+    .{ "-imt"            , &core.integrityFilesParallel       },
+    .{ "-IMT"            , &core.integrityFilesParallel       },
+    .{ "integrity_mt"    , &core.integrityFilesParallel       },
+    .{ "/IMT"            , &core.integrityFilesParallel       },
+    .{ "INTEGRITY_MT"    , &core.integrityFilesParallel       },
 
-    .{ "--json"          , &core.checkJSON },
-    .{ "-j"              , &core.checkJSON },
-    .{ "-J"              , &core.checkJSON },
-    .{ "json"            , &core.checkJSON },
-    .{ "/J"              , &core.checkJSON },
-    .{ "JSON"            , &core.checkJSON },
+    .{ "--json"          , &core.checkJSON                    },
+    .{ "-j"              , &core.checkJSON                    },
+    .{ "-J"              , &core.checkJSON                    },
+    .{ "json"            , &core.checkJSON                    },
+    .{ "/J"              , &core.checkJSON                    },
+    .{ "JSON"            , &core.checkJSON                    },
 
-    .{ "--large"         , &core.largeFiles },
-    .{ "-lf"             , &core.largeFiles },
-    .{ "-LF"             , &core.largeFiles },
-    .{ "large"           , &core.largeFiles },
-    .{ "/LF"             , &core.largeFiles },
-    .{ "LARGE"           , &core.largeFiles },
+    .{ "--large"         , &core.largeFiles                   },
+    .{ "-lf"             , &core.largeFiles                   },
+    .{ "-LF"             , &core.largeFiles                   },
+    .{ "large"           , &core.largeFiles                   },
+    .{ "/LF"             , &core.largeFiles                   },
+    .{ "LARGE"           , &core.largeFiles                   },
 
-    .{ "--last"          , &core.lastAccess },
-    .{ "-l"              , &core.lastAccess },
-    .{ "-L"              , &core.lastAccess },
-    .{ "last"            , &core.lastAccess },
-    .{ "/L"              , &core.lastAccess },
-    .{ "LAST"            , &core.lastAccess },
+    .{ "--last"          , &core.lastAccess                   },
+    .{ "-l"              , &core.lastAccess                   },
+    .{ "-L"              , &core.lastAccess                   },
+    .{ "last"            , &core.lastAccess                   },
+    .{ "/L"              , &core.lastAccess                   },
+    .{ "LAST"            , &core.lastAccess                   },
 
-    .{ "--legacy"        , &core.legacyFiles },
-    .{ "-legacy"         , &core.legacyFiles },
-    .{ "/LEGACY"         , &core.legacyFiles },
-    .{ "legacy"          , &core.legacyFiles },
-    .{ "LEGACY"          , &core.legacyFiles },
+    .{ "--legacy"        , &core.legacyFiles                  },
+    .{ "-legacy"         , &core.legacyFiles                  },
+    .{ "/LEGACY"         , &core.legacyFiles                  },
+    .{ "legacy"          , &core.legacyFiles                  },
+    .{ "LEGACY"          , &core.legacyFiles                  },
 
-    .{ "--links_rm"      , &core.linksRemoveShortcuts },
-    .{ "-lsrm"           , &core.linksRemoveShortcuts },
-    .{ "-LSRM"           , &core.linksRemoveShortcuts },
-    .{ "links_rm"        , &core.linksRemoveShortcuts },
-    .{ "/LSRM"           , &core.linksRemoveShortcuts },
-    .{ "LINKS_RM"        , &core.linksRemoveShortcuts },
+    .{ "--links_rm"      , &core.linksRemoveShortcuts         },
+    .{ "-lsrm"           , &core.linksRemoveShortcuts         },
+    .{ "-LSRM"           , &core.linksRemoveShortcuts         },
+    .{ "links_rm"        , &core.linksRemoveShortcuts         },
+    .{ "/LSRM"           , &core.linksRemoveShortcuts         },
+    .{ "LINKS_RM"        , &core.linksRemoveShortcuts         },
 
-    .{ "--links"         , &core.linksShortcuts },
-    .{ "-ls"             , &core.linksShortcuts },
-    .{ "-LS"             , &core.linksShortcuts },
-    .{ "links"           , &core.linksShortcuts },
-    .{ "/LS"             , &core.linksShortcuts },
-    .{ "LINKS"           , &core.linksShortcuts },
+    .{ "--links"         , &core.linksShortcuts               },
+    .{ "-ls"             , &core.linksShortcuts               },
+    .{ "-LS"             , &core.linksShortcuts               },
+    .{ "links"           , &core.linksShortcuts               },
+    .{ "/LS"             , &core.linksShortcuts               },
+    .{ "LINKS"           , &core.linksShortcuts               },
 
-    .{ "--magic"         , &core.magicNumbers },
-    .{ "-m"              , &core.magicNumbers },
-    .{ "-M"              , &core.magicNumbers },
-    .{ "magic"           , &core.magicNumbers },
-    .{ "/M"              , &core.magicNumbers },
-    .{ "MAGIC"           , &core.magicNumbers },
+    .{ "--magic"         , &core.magicNumbers                 },
+    .{ "-m"              , &core.magicNumbers                 },
+    .{ "-M"              , &core.magicNumbers                 },
+    .{ "magic"           , &core.magicNumbers                 },
+    .{ "/M"              , &core.magicNumbers                 },
+    .{ "MAGIC"           , &core.magicNumbers                 },
 
-    .{ "--manyitems"     , &core.manyItemsDirectories },
-    .{ "-mi"             , &core.manyItemsDirectories },
-    .{ "-MI"             , &core.manyItemsDirectories },
-    .{ "manyitems"       , &core.manyItemsDirectories },
-    .{ "/MI"             , &core.manyItemsDirectories },
-    .{ "MANYITEMS"       , &core.manyItemsDirectories },
+    .{ "--manyitems"     , &core.manyItemsDirectories         },
+    .{ "-mi"             , &core.manyItemsDirectories         },
+    .{ "-MI"             , &core.manyItemsDirectories         },
+    .{ "manyitems"       , &core.manyItemsDirectories         },
+    .{ "/MI"             , &core.manyItemsDirectories         },
+    .{ "MANYITEMS"       , &core.manyItemsDirectories         },
 
-    .{ "--nocolors"      , &core.noColors },
-    .{ "-nc"             , &core.noColors },
-    .{ "-NC"             , &core.noColors },
-    .{ "nocolors"        , &core.noColors },
-    .{ "/NC"             , &core.noColors },
-    .{ "NOCOLORS"        , &core.noColors },
+    .{ "--noext"         , &core.noExtension                  },
+    .{ "-n"              , &core.noExtension                  },
+    .{ "-N"              , &core.noExtension                  },
+    .{ "noext"           , &core.noExtension                  },
+    .{ "/N"              , &core.noExtension                  },
+    .{ "NOEXT"           , &core.noExtension                  },
 
-    .{ "--noext"         , &core.noExtension },
-    .{ "-n"              , &core.noExtension },
-    .{ "-N"              , &core.noExtension },
-    .{ "noext"           , &core.noExtension },
-    .{ "/N"              , &core.noExtension },
-    .{ "NOEXT"           , &core.noExtension },
+    .{ "--oneitem"       , &core.oneItemDirectories           },
+    .{ "-o"              , &core.oneItemDirectories           },
+    .{ "-O"              , &core.oneItemDirectories           },
+    .{ "oneitem"         , &core.oneItemDirectories           },
+    .{ "/O"              , &core.oneItemDirectories           },
+    .{ "ONEITEM"         , &core.oneItemDirectories           },
 
-    .{ "--oneitem"       , &core.oneItemDirectories },
-    .{ "-o"              , &core.oneItemDirectories },
-    .{ "-O"              , &core.oneItemDirectories },
-    .{ "oneitem"         , &core.oneItemDirectories },
-    .{ "/O"              , &core.oneItemDirectories },
-    .{ "ONEITEM"         , &core.oneItemDirectories },
+    .{ "--temp"          , &core.temporaryFiles               },
+    .{ "-tf"             , &core.temporaryFiles               },
+    .{ "-TF"             , &core.temporaryFiles               },
+    .{ "temp"            , &core.temporaryFiles               },
+    .{ "/TF"             , &core.temporaryFiles               },
+    .{ "TEMP"            , &core.temporaryFiles               },
 
-    .{ "--temp"          , &core.temporaryFiles },
-    .{ "-tf"             , &core.temporaryFiles },
-    .{ "-TF"             , &core.temporaryFiles },
-    .{ "temp"            , &core.temporaryFiles },
-    .{ "/TF"             , &core.temporaryFiles },
-    .{ "TEMP"            , &core.temporaryFiles },
+    .{ "--temp_rm"       , &core.temporaryRemoveFiles         },
+    .{ "-tfrm"           , &core.temporaryRemoveFiles         },
+    .{ "-TFRM"           , &core.temporaryRemoveFiles         },
+    .{ "temp_rm"         , &core.temporaryRemoveFiles         },
+    .{ "/TFRM"           , &core.temporaryRemoveFiles         },
+    .{ "TEMP_RM"         , &core.temporaryRemoveFiles         },
 
-    .{ "--temp_rm"       , &core.temporaryRemoveFiles },
-    .{ "-tfrm"           , &core.temporaryRemoveFiles },
-    .{ "-TFRM"           , &core.temporaryRemoveFiles },
-    .{ "temp_rm"         , &core.temporaryRemoveFiles },
-    .{ "/TFRM"           , &core.temporaryRemoveFiles },
-    .{ "TEMP_RM"         , &core.temporaryRemoveFiles },
+    .{ "--uchars"        , &core.unportableChars              },
+    .{ "-u"              , &core.unportableChars              },
+    .{ "-U"              , &core.unportableChars              },
+    .{ "uchars"          , &core.unportableChars              },
+    .{ "/U"              , &core.unportableChars              },
+    .{ "UCHARS"          , &core.unportableChars              },
 
-    .{ "--uchars"        , &core.unportableChars },
-    .{ "-u"              , &core.unportableChars },
-    .{ "-U"              , &core.unportableChars },
-    .{ "uchars"          , &core.unportableChars },
-    .{ "/U"              , &core.unportableChars },
-    .{ "UCHARS"          , &core.unportableChars },
-
-    .{ "--wrong"         , &core.wrongDates },
-    .{ "-w"              , &core.wrongDates },
-    .{ "-W"              , &core.wrongDates },
-    .{ "wrong"           , &core.wrongDates },
-    .{ "/W"              , &core.wrongDates },
-    .{ "WRONG"           , &core.wrongDates },
+    .{ "--wrong"         , &core.wrongDates                   },
+    .{ "-w"              , &core.wrongDates                   },
+    .{ "-W"              , &core.wrongDates                   },
+    .{ "wrong"           , &core.wrongDates                   },
+    .{ "/W"              , &core.wrongDates                   },
+    .{ "WRONG"           , &core.wrongDates                   },
 });
 
 /// Prints help and exits
@@ -259,6 +253,7 @@ fn createConfig() !void {
     try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
 
     _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
+        globals.exit_code = 1;
         if (err == error.FileNotFound) {
             const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.io, "config.json", .{});
             defer config_file.close(globals.io);
@@ -268,14 +263,14 @@ fn createConfig() !void {
             try file_writer.interface.flush();
 
             try print.alignedOk(i18n.CONFIG_MESSAGE_CREATE);
-
             return print.stdout("\n");
         }
+
         return err;
     };
 
     globals.exit_code = 1;
-    return print.err("{s}\n", .{i18n.ERROR_CONFIG_FILE});
+    return print.stderr(i18n.ERROR_CONFIG_FILE);
 }
 
 /// Attempts to load configuration from a local "config.json" file in the current working directory
@@ -305,6 +300,7 @@ fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]
 
         core.debugPrintError(err);
         try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
+        globals.exit_code = 1;
 
         return std.json.parseFromSlice(config.Config, alloc.*, config.DEFAULT_JSON_CONFIG, .{});
     };
@@ -331,7 +327,8 @@ fn commonMain(init: std.process.Init) !void {
     globals.alloc = &arena;
 
     const total_memory = try std.process.totalSystemMemory();
-    const half_memory = total_memory / 2;
+    const half_memory  = total_memory / 2;
+
     globals.memory_limit = @intCast(@min(half_memory, std.math.maxInt(usize)));
 
     globals.io = init.io;
@@ -343,37 +340,39 @@ fn commonMain(init: std.process.Init) !void {
     globals.file_writer_stderr_interface = globals.file_writer_stderr.interface;
 
     globals.file_stats = globals.FileStatMap.init(globals.alloc.*);
-    globals.dir_count = std.StringHashMap(usize).init(globals.alloc.*);
+    globals.dir_count  = std.StringHashMap(usize).init(globals.alloc.*);
+
+    globals.ignore_path_patterns = try ahocorasick.AhoCorasick.initEmpty(globals.alloc.*);
 
     defer {
+        globals.ignore_path_patterns.deinit();
+
         var iterator: std.hash_map.HashMapUnmanaged([]const u8, usize, std.hash_map.StringContext, 80).Iterator = globals.dir_count.iterator();
-        while (iterator.next()) |entry| {
-            globals.alloc.*.free(entry.key_ptr.*);
-        }
+        while (iterator.next()) |entry| { globals.alloc.*.free(entry.key_ptr.*); }
         globals.dir_count.deinit();
 
         var iterator2: std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext, 80).Iterator = globals.file_stats.iterator();
-        while (iterator2.next()) |entry| {
-            globals.alloc.*.free(entry.key_ptr.*);
-        }
+        while (iterator2.next()) |entry| { globals.alloc.*.free(entry.key_ptr.*); }
         globals.file_stats.deinit();
     }
 
     // Prints banner before any processing to provide immediate feedback in slow operations
-    try print.stdout(i18n.HEADER);
+    try print.stdout(if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&globals.max_path_buffer, "\n🔬\x1b[38;5;255m {s}\x1b[0m\n\n\n", .{i18n.HEADER})
+        else try std.fmt.bufPrint(&globals.max_path_buffer, "\n{s}\n\n\n", .{i18n.HEADER}));
 
     const args: []const [:0]const u8 = try init.minimal.args.toSlice(arena);
 
     if (args.len == 1) {
         _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
-            return if (err == error.FileNotFound) printHelp() else err;
+            if (err == error.FileNotFound) return printHelp();
+
+            globals.exit_code = 1;
+            return err;
         };
     }
 
     if (args.len == 2) {
-        if (help_version_map.get(args[1])) |func| {
-            return func();
-        }
+        if (help_version_map.get(args[1])) |func| { return func(); }
     }
 
     // Loads configurations from config.json or uses default values
@@ -397,7 +396,7 @@ fn commonMain(init: std.process.Init) !void {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 try print.stderr("\n");
                 try print.warning("{s}", .{i18n.CONFIG_MESSAGE_WARNING});
-                globals.exit_code = 2;
+                globals.exit_code = 1;
                 check_directory = try std.process.currentPathAlloc(globals.io, globals.alloc.*);
             } else {
                 check_directory = try globals.alloc.*.dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
@@ -442,6 +441,14 @@ fn commonMain(init: std.process.Init) !void {
     std.Io.Dir.cwd().deleteFile(globals.io, "datachecker_empty") catch {};
 
     globals.semaphore = std.Io.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
+
+    // Initialize and add patterns to trie to ignore paths
+    if(config.COMPTIME_IGNORE_PATH_PATTERNS) {
+        if(globals.config_parsed.value.IGNORE_PATH_PATTERNS) {
+            for (globals.config_parsed.value.IGNORE_PATTERNS) |pattern| { try globals.ignore_path_patterns.add(pattern); }
+            try globals.ignore_path_patterns.configure();
+        }
+    }
 
     if (args.len > 2) {
         if (command_map.get(args[1])) |func| {

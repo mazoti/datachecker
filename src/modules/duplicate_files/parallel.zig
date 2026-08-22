@@ -5,21 +5,21 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
 const config  = @import("config");
+const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
-const print   = @import("print");
-const core    = @import("core.zig");
 const modules = @import("../core.zig");
+const print   = @import("print");
+const std     = @import("std");
 
 pub fn check(total_items: *u64, remove_duplicate: bool) !void {
-    var same_size_files_map: std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))
-        = std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)){};
-    defer core.cleanHashMap(u64, &same_size_files_map);
+    var same_size_files_map: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))
+        = std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)){};
+    defer core.cleanHashMap(usize, &same_size_files_map);
 
     try core.groupFileBySize(&same_size_files_map);
-    try core.removeUniques(&same_size_files_map);
+    try core.removeUniques  (&same_size_files_map);
 
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
 
@@ -38,10 +38,10 @@ pub fn check(total_items: *u64, remove_duplicate: bool) !void {
         i -= 1;
 
         // Eager cleanup after processing each size group to reduce peak memory usage
-        const key: u64 = same_size_files_map.keys()[i];
+        const key: usize = same_size_files_map.keys()[i];
 
         var removed_list: std.array_list.Aligned([]const u8, null) = same_size_files_map.get(key).?;
-        defer core.cleanArrayMap(u64, &removed_list, &same_size_files_map, &key);
+        defer core.cleanArrayMap(usize, &removed_list, &same_size_files_map, &key);
 
         var sizeAndHash: std.AutoArrayHashMapUnmanaged([32]u8, std.ArrayList([]const u8))
             = std.AutoArrayHashMapUnmanaged([32]u8, std.ArrayList([]const u8)){};
@@ -85,6 +85,7 @@ void {
 
     // Blake3 chosen for: fast performance, strong collision resistance, streaming capability
     modules.hashFile(std.crypto.hash.Blake3, filepath, &file_hash) catch |err| {
+        globals.exit_code = 1;
         _ = print.err(i18n.ERROR_HASH_FILE, .{filepath, err}) catch |err_inside| {
             modules.debugPrintError(err_inside);
         };
@@ -92,6 +93,7 @@ void {
     };
 
     const append_data: []const u8 = globals.alloc.*.dupe(u8, filepath) catch |err| {
+        globals.exit_code = 1;
         _ = print.err(i18n.ERROR_ALLOC_MEM, .{filepath, err}) catch |err_inside| {
             modules.debugPrintError(err_inside);
         };
@@ -101,6 +103,7 @@ void {
     errdefer globals.alloc.free(append_data);
 
     globals.mutex.lock(globals.io) catch |err| {
+        globals.exit_code = 1;
         modules.debugPrintError(err);
         return;
     };
@@ -109,6 +112,7 @@ void {
         // Case 1: Hash already exists - append to existing list (duplicate detected)
         if (map_hash.getPtr(file_hash)) |paths| {
             paths.append(globals.alloc.*, append_data) catch |err| {
+                globals.exit_code = 1;
                 _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                     modules.debugPrintError(err_inside);
                 };
@@ -119,6 +123,7 @@ void {
         // Case 2: New hash - create entry. This is the first file with this hash value
         var path_list: std.array_list.Aligned([]const u8, null) = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
         path_list.append(globals.alloc.*, append_data) catch |err| {
+            globals.exit_code = 1;
             _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);
             };
@@ -127,6 +132,7 @@ void {
 
         // Insert new hash entry into map - subsequent files with same hash will hit Case 1
         map_hash.put(globals.alloc.*, file_hash, path_list) catch |err| {
+            globals.exit_code = 1;
             _ = print.err(i18n.ERROR_INSERT_HASHMAP, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);
             };

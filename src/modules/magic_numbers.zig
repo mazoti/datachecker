@@ -2,12 +2,12 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
 const config  = @import("config");
+const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-const core    = @import("core.zig");
+const std     = @import("std");
 
 const MAGIC_NUMBERS = std.StaticStringMap([]const u8).initComptime(.{
     .{ ".7z"         , "\x37\x7A\xBC\xAF\x27\x1C"                                          }, // 7-Zip archive
@@ -114,68 +114,8 @@ const checkAVI = makeCheckerAND(&.{
     .{ .offset = 8, .bytes = "\x41\x56\x49\x20" },
 });
 
-const checkWAV = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
-    .{ .offset = 8, .bytes = "\x57\x41\x56\x45" },
-});
-
-const checkWebp = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
-    .{ .offset = 8, .bytes = "\x57\x45\x42\x50" },
-});
-
-const checkMP4 = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x00\x00\x00" },
-    .{ .offset = 4, .bytes = "\x66\x74\x79\x70" },
-});
-
-const checkMOV = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x00\x00\x00" },
-    .{ .offset = 4, .bytes = "\x66\x74\x79\x70\x71\x74\x20\x20" },
-});
-
 const checkAVIF = makeCheckerAND(&.{
     .{ .offset = 0, .bytes = "\x66\x74\x79\x70\x61\x76\x69\x66" },
-});
-
-const checkISO = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x43\x44\x30\x30\x31" },
-});
-
-const checkTar = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x75\x73\x74\x61\x72" },
-});
-
-const checkEOT = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x4C\x50" },
-});
-
-const checkGIF = makeCheckerOR(&.{
-    .{ .offset = 0, .bytes = "\x47\x49\x46\x38\x37\x61" },
-    .{ .offset = 0, .bytes = "\x47\x49\x46\x38\x39\x61" },
-});
-
-const checkTIFF = makeCheckerOR(&.{
-    .{ .offset = 0, .bytes = "\x49\x49\x2A\x00" },
-    .{ .offset = 0, .bytes = "\x4D\x4D\x00\x2A" },
-});
-
-const checkZIP = makeCheckerOR(&.{
-    .{ .offset = 0, .bytes = "\x50\x4B\x03\x04" },
-    .{ .offset = 0, .bytes = "\x50\x4B\x05\x06" },
-});
-
-const checkMP3 = makeCheckerOR(&.{
-    .{ .offset = 0, .bytes = "\xFF\xF3"     },
-    .{ .offset = 0, .bytes = "\xFF\xFB"     },
-    .{ .offset = 0, .bytes = "\xFF\xF2"     },
-    .{ .offset = 0, .bytes = "\x49\x44\x33" },
-});
-
-const checkHTML = makeCheckerOR(&.{
-    .{ .offset = 0, .bytes = "\x3C\x68\x74\x6D\x6C\x3E" },
-    .{ .offset = 0, .bytes = "\x3C\x48\x54\x4D\x4C\x3E" },
-    .{ .offset = 0, .bytes = "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x68\x74\x6D\x6C\x3E" },
 });
 
 const checkCUE = makeCheckerOR(&.{
@@ -192,10 +132,71 @@ const checkDICOM = makeCheckerAND(&.{
     .{ .offset = 0, .bytes = "DICM" },
 });
 
+const checkEOT = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x4C\x50" },
+});
+
+const checkGIF = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x47\x49\x46\x38\x37\x61" },
+    .{ .offset = 0, .bytes = "\x47\x49\x46\x38\x39\x61" },
+});
+
+const checkHTML = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x3C\x68\x74\x6D\x6C\x3E" },
+    .{ .offset = 0, .bytes = "\x3C\x48\x54\x4D\x4C\x3E" },
+    .{ .offset = 0, .bytes = "\x3C\x21\x44\x4F\x43\x54\x59\x50\x45\x20\x68\x74\x6D\x6C\x3E" },
+});
+
+const checkISO = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x43\x44\x30\x30\x31" },
+});
+
+const checkMOV = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x00\x00\x00" },
+    .{ .offset = 4, .bytes = "\x66\x74\x79\x70\x71\x74\x20\x20" },
+});
+
+const checkMP3 = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\xFF\xF3"     },
+    .{ .offset = 0, .bytes = "\xFF\xFB"     },
+    .{ .offset = 0, .bytes = "\xFF\xF2"     },
+    .{ .offset = 0, .bytes = "\x49\x44\x33" },
+});
+
+const checkMP4 = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x00\x00\x00" },
+    .{ .offset = 4, .bytes = "\x66\x74\x79\x70" },
+});
+
 const checkPFR = makeCheckerOR(&.{
     .{ .offset = 0, .bytes = "\x50\x46\x52\x30" },
     .{ .offset = 0, .bytes = "\x50\x46\x52\x31" },
 });
+
+const checkTar = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x75\x73\x74\x61\x72" },
+});
+
+const checkTIFF = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x49\x49\x2A\x00" },
+    .{ .offset = 0, .bytes = "\x4D\x4D\x00\x2A" },
+});
+
+const checkWAV = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
+    .{ .offset = 8, .bytes = "\x57\x41\x56\x45" },
+});
+
+const checkWebp = makeCheckerAND(&.{
+    .{ .offset = 0, .bytes = "\x52\x49\x46\x46" },
+    .{ .offset = 8, .bytes = "\x57\x45\x42\x50" },
+});
+
+const checkZIP = makeCheckerOR(&.{
+    .{ .offset = 0, .bytes = "\x50\x4B\x03\x04" },
+    .{ .offset = 0, .bytes = "\x50\x4B\x05\x06" },
+});
+
 
 const FormatConfig = struct {
     size:      usize,
@@ -236,7 +237,6 @@ pub fn check(args: anytype) !bool {
 
     if (core.getExtensionLowercase(args[0])) |lowercase| {
         // Checks for simple magic numbers (single signature at start of file)
-
         var total_items: u64 = 0;
 
         if (MAGIC_NUMBERS.get(lowercase)) |magic_number| {
@@ -247,6 +247,7 @@ pub fn check(args: anytype) !bool {
             if (try core.readExactChunk(&file_reader, magic_number.len, args[0], &total_items)) |chunk| {
                 if (!std.mem.eql(u8, chunk, magic_number)) {
                     try print.err(i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+                    globals.exit_code = 1;
                     args[1].* += 1;
                     return true;
                 }
@@ -266,6 +267,7 @@ pub fn check(args: anytype) !bool {
             if (try core.readExactChunk(&file_reader, size_start_func.size, args[0], &total_items)) |_| {
                 if (!size_start_func.validator(globals.buffer[lowercase.len..(lowercase.len + size_start_func.size)])) {
                     try print.err(i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
+                    globals.exit_code = 1;
                     args[1].* += 1;
                     return true;
                 }
@@ -274,6 +276,7 @@ pub fn check(args: anytype) !bool {
             }
 
             try print.err(i18n.ERROR_READING_FILE, .{args[0]});
+            globals.exit_code = 1;
             args[1].* += 1;
             return true;
         }
@@ -333,12 +336,14 @@ fn findType(filepath: []const u8, buffer: []u8) ?[]const u8 {
 
             if (value.offset > 0) file_reader.seekTo(value.offset) catch |err| {
                 core.debugPrintError(err);
+                globals.exit_code = 1;
                 return null;
             };
 
             const chunk_tmp2: ?[]const u8 = core.readExactChunk(&file_reader, value.size, filepath, &total_items)
                 catch |err| {
                     core.debugPrintError(err);
+                    globals.exit_code = 1;
                     return null;
                 };
 

@@ -3,33 +3,23 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std          = @import("std");
-const globals      = @import("globals");
-const i18n         = @import("i18n");
-const print        = @import("print");
 const dup_parallel = @import("parallel.zig");
 const dup_single   = @import("single.zig");
+const globals      = @import("globals");
+const i18n         = @import("i18n");
 const modules      = @import("../core.zig");
+const print        = @import("print");
+const std          = @import("std");
 
-pub fn check(total_items: *u64) !void {
-    return dup_single.check(total_items, false);
-}
+pub fn check          (total_items: *u64) !void { return dup_single.check(total_items,   false); }
+pub fn check_parallel (total_items: *u64) !void { return dup_parallel.check(total_items, false); }
 
-pub fn check_parallel(total_items: *u64) !void {
-    return dup_parallel.check(total_items, false);
-}
-
-pub fn remove(total_items: *u64) !void {
-    return dup_single.check(total_items, true);
-}
-
-pub fn remove_parallel(total_items: *u64) !void {
-    return dup_parallel.check(total_items, true);
-}
+pub fn remove         (total_items: *u64) !void { return dup_single.check(total_items,   true);  }
+pub fn remove_parallel(total_items: *u64) !void { return dup_parallel.check(total_items, true);  }
 
 /// Groups files by their size into a hash map
 /// Uses cache-first strategy to avoid redundant filesystem stat calls
-pub fn groupFileBySize(map: *std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))) !void {
+pub fn groupFileBySize(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
     var total_items: u64 = 0;
     var file_iterator: modules.FileIterator = try modules.FileIterator.init(globals.alloc.*);
     defer file_iterator.deinit();
@@ -39,11 +29,11 @@ pub fn groupFileBySize(map: *std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]
     }
 }
 
-fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)), absolute_path: []const u8) !void {
+fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)), absolute_path: []const u8) !void {
     // Ignore empty files
     if (stat.size == 0) return;
 
-    const gop: std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8)).GetOrPutResult = try map.getOrPut(globals.alloc.*, stat.size);
+    const gop: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)).GetOrPutResult = try map.getOrPut(globals.alloc.*, @intCast(stat.size));
 
     if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
 
@@ -54,14 +44,14 @@ fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMap
 }
 
 /// Removes files with unique sizes to reduce memory and processing
-pub fn removeUniques(map: *std.AutoArrayHashMapUnmanaged(u64, std.ArrayList([]const u8))) !void {
+pub fn removeUniques(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
     var i: usize = map.count();
     while (i > 0) {
         i -= 1;
         if (map.values()[i].items.len == 1) {
-            const key: u64 = map.keys()[i];
+            const key: usize = map.keys()[i];
             var removed_list: std.array_list.Aligned([]const u8, null) = map.get(key).?;
-            cleanArrayMap(u64, &removed_list, map, &key);
+            cleanArrayMap(usize, &removed_list, map, &key);
         }
     }
 }
@@ -164,12 +154,18 @@ fn sameFile(filepath1: []const u8, filepath2: []const u8) !bool {
     while (true) {
         const chunk1: []u8 = file_reader1.interface.take(globals.buffer_size) catch |err| blk: switch (err) {
             error.EndOfStream => break :blk file_reader1.interface.buffer[0..file_reader1.interface.end],
-            else => return err,
+            else => {
+                globals.exit_code = 1;
+                return err;
+            },
         };
 
         const chunk2: []u8 = file_reader2.interface.take(globals.buffer_size) catch |err| blk: switch (err) {
             error.EndOfStream => break :blk file_reader2.interface.buffer[0..file_reader2.interface.end],
-            else => return err,
+            else => {
+                globals.exit_code = 1;
+                return err;
+            },
         };
 
         // Check if it reads the expected amount

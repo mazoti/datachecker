@@ -2,8 +2,9 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std    = @import("std");
-const config = @import("config");
+const std         = @import("std");
+const ahocorasick = @import("ahocorasick");
+const config      = @import("config");
 
 /// Defines the hash map type
 pub const FileStatMap: type = std.StringHashMap(std.Io.File.Stat);
@@ -60,5 +61,8 @@ pub var group:     std.Io.Group     = undefined;
 /// Memory max usage
 pub var memory_limit: usize = undefined;
 
-/// System exit code: 0 (no problems), 1 (errors) or 2 (warnings)
+/// System exit code: 0 (no problems), 1 (errors)
 pub var exit_code: u8 = 0;
+
+/// AC trie with patterns used to ignore paths
+pub var ignore_path_patterns: ahocorasick.AhoCorasick = undefined;

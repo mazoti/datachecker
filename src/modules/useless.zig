@@ -3,13 +3,13 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std         = @import("std");
-const ahocorasick = @import("ahocorasick");
-const config      = @import("config");
-const globals     = @import("globals");
-const i18n        = @import("i18n");
-const print       = @import("print");
-const core        = @import("core.zig");
+const ahocorasick     = @import("ahocorasick");
+const config          = @import("config");
+const core            = @import("core.zig");
+const globals         = @import("globals");
+const i18n            = @import("i18n");
+const print           = @import("print");
+const std             = @import("std");
 
 const StartEndPattern = struct { start: []const u8, end: []const u8 };
 
@@ -40,32 +40,32 @@ const CONTAINS = [_][]const u8{
 
 /// Map of exact filenames to their descriptions for system-generated temporary files
 const FULL_NAME = std.StaticStringMap([]const u8).initComptime(.{
-    .{ ".DS_Store"             , ""                                   },
-    .{ "desktop.ini"           , ""                                   },
-    .{ "ehthumbs.db"           , "Windows thumbnail cache (enhanced)" },
-    .{ "hiberfil.sys"          , ""                                   },
-    .{ "Thumbs.db"             , "Windows thumbnail cache"            },
-    .{ "THUMBS.DB"             , "Windows thumbnail cache"            },
+    .{ ".DS_Store"             , ""                                    },
+    .{ "desktop.ini"           , ""                                    },
+    .{ "ehthumbs.db"           , "Windows thumbnail cache (enhanced)"  },
+    .{ "hiberfil.sys"          , ""                                    },
+    .{ "Thumbs.db"             , "Windows thumbnail cache"             },
+    .{ "THUMBS.DB"             , "Windows thumbnail cache"             },
 });
 
 /// Dual-condition pattern matcher for filename prefix/suffix combinations
 /// Allows matching files like "~*.docx" (temp Word files) or "*~" (backup files)
 /// Empty string means "no constraint" - enabling prefix-only or suffix-only matching
 const START_END = [_]StartEndPattern{
-    .{ .start = "."            , .end = ""      }, // Unix hidden files
-    .{ .start = ".#"           , .end = ""      }, // Emacs lock files (#.#filename)
-    .{ .start = ".$"           , .end = ""      }, // Temp file marker
-    .{ .start = ".fuse_hidden" , .end = ""      }, // FUSE kernel filesystem hidden files
-    .{ .start = ".nfs"         , .end = ""      }, // Network File System temp files (prevent deletion while open)
-    .{ .start = ".z"           , .end = ""      }, // Compressed temp files
-    .{ .start = ""             , .end = "~"     }, // *~ backup files (emacs, vim, gedit)
-    .{ .start = "#"            , .end = "#"     }, // #file# Emacs auto-save pattern
-    .{ .start = "~"            , .end = ""      }, // ~file backup files
-    .{ .start = "~"            , .end = ".docx" }, // ~file.docx Word temporary
-    .{ .start = "~$."          , .end = ""      }, // ~$.file Office owner files
-    .{ .start = "~$"           , .end = ".pptx" }, // ~$presentation.pptx PowerPoint temp
-    .{ .start = "temp"         , .end = ""      }, // temp* naming convention
-    .{ .start = "tmp"          , .end = ""      }, // tmp* naming convention
+    .{ .start = "."            , .end = ""                             }, // Unix hidden files
+    .{ .start = ".#"           , .end = ""                             }, // Emacs lock files (#.#filename)
+    .{ .start = ".$"           , .end = ""                             }, // Temp file marker
+    .{ .start = ".fuse_hidden" , .end = ""                             }, // FUSE kernel filesystem hidden files
+    .{ .start = ".nfs"         , .end = ""                             }, // Network File System temp files (prevent deletion while open)
+    .{ .start = ".z"           , .end = ""                             }, // Compressed temp files
+    .{ .start = ""             , .end = "~"                            }, // *~ backup files (emacs, vim, gedit)
+    .{ .start = "#"            , .end = "#"                            }, // #file# Emacs auto-save pattern
+    .{ .start = "~"            , .end = ""                             }, // ~file backup files
+    .{ .start = "~"            , .end = ".docx"                        }, // ~file.docx Word temporary
+    .{ .start = "~$."          , .end = ""                             }, // ~$.file Office owner files
+    .{ .start = "~$"           , .end = ".pptx"                        }, // ~$presentation.pptx PowerPoint temp
+    .{ .start = "temp"         , .end = ""                             }, // temp* naming convention
+    .{ .start = "tmp"          , .end = ""                             }, // tmp* naming convention
 };
 
 
@@ -307,14 +307,12 @@ const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initCompti
 
 /// Scans a directory tree for legacy file formats
 pub fn legacyFiles(args: anytype) !bool {
-    if (core.getExtensionLowercase(args[0])) |lowercase| {
-        const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
-        try print.warning(i18n.LEGACY_FILES_WARNING, .{ args[0], description });
-        args[1].* += 1;
-        return true;
-    }
+    const lowercase   = core.getExtensionLowercase(args[0])          orelse return false;
+    const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
 
-    return false;
+    try print.warning(i18n.LEGACY_FILES_WARNING, .{ args[0], description });
+    args[1].* += 1;
+    return true;
 }
 
 /// Scans a directory tree for temporary files
@@ -380,10 +378,8 @@ fn checkTempFiles(args: anytype, remove_file: bool) !void {
 }
 
 fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
-    if (remove_file) {
-        try std.Io.Dir.deleteFileAbsolute(globals.io, filepath);
-        return print.removing("\"{s}\"", .{filepath});
-    }
+    if (!remove_file) return print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
 
-    try print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
+    try std.Io.Dir.deleteFileAbsolute(globals.io, filepath);
+    return print.removing("\"{s}\"", .{filepath});
 }

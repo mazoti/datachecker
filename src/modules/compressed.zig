@@ -2,12 +2,12 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
-const config  = @import("config");
-const globals = @import("globals");
-const i18n    = @import("i18n");
-const print   = @import("print");
-const core    = @import("core.zig");
+const config           = @import("config");
+const core             = @import("core.zig");
+const globals          = @import("globals");
+const i18n             = @import("i18n");
+const print            = @import("print");
+const std              = @import("std");
 
 const CompressFunction = *const fn ([]const u8, *u64, *std.Io.File.Reader) anyerror!bool;
 
@@ -24,19 +24,14 @@ const command_map = std.StaticStringMap(CompressFunction).initComptime(.{
 
 /// Core checking logic for a single file
 pub fn check(args: anytype) !bool {
-    if (core.getExtensionLowercase(args[0])) |lowercase| {
-        const checker: CompressFunction = command_map.get(lowercase) orelse return true;
+    const lowercase = core.getExtensionLowercase(args[0]) orelse return true;
+    const checker: CompressFunction = command_map.get(lowercase) orelse return true;
+    const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, args[0],
+        .{.mode = .read_only, .lock = .shared});
+    defer input_file.close(globals.io);
+    var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
 
-        const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, args[0],
-            .{.mode = .read_only, .lock = .shared});
-        defer input_file.close(globals.io);
-
-        var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
-
-        return checker(args[0], args[1], &file_reader);
-    }
-
-    return true;
+    return checker(args[0], args[1], &file_reader);
 }
 
 fn checkBZIP2(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Reader) !bool {
@@ -51,6 +46,7 @@ fn checkBZIP2(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File
     }
 
     try print.err(i18n.ERROR_READING_FILE, .{fullpath});
+    globals.exit_code = 1;
     total_items.* += 1;
     return true;
 }
@@ -66,6 +62,7 @@ fn checkGZ(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Re
     }
 
     try print.err(i18n.ERROR_READING_FILE, .{fullpath});
+    globals.exit_code = 1;
     total_items.* += 1;
     return true;
 }
@@ -75,6 +72,7 @@ fn checkPNG(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
         // Wrong magic number
         if (!std.mem.eql(u8, chunk[0..8], "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A")) {
             try print.err(i18n.ERROR_READING_FILE, .{fullpath});
+            globals.exit_code = 1;
             total_items.* += 1;
             return true;
         }
@@ -83,6 +81,7 @@ fn checkPNG(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
             if (std.mem.indexOf(u8, chunk2[0..128], "IDAT")) |pos| {
                 if (pos > 122) {
                     try print.err(i18n.ERROR_READING_FILE, .{fullpath});
+                    globals.exit_code = 1;
                     total_items.* += 1;
                     return true;
                 }
@@ -99,6 +98,7 @@ fn checkPNG(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
     }
 
     try print.err(i18n.ERROR_READING_FILE, .{fullpath});
+    globals.exit_code = 1;
     total_items.* += 1;
     return true;
 }
@@ -122,6 +122,7 @@ fn checkZIP(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
     }
 
     try print.err(i18n.ERROR_READING_FILE, .{fullpath});
+    globals.exit_code = 1;
     total_items.* += 1;
     return true;
 }

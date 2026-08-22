@@ -2,11 +2,10 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-/// Spacing constant for alignment - matches the largest string size in output
+/// Spacing constant for alignment - matches the largest header string size in output
 pub const ALIGNED_OK_SPACES: u32 = 49;
 
-pub const HEADER = "\n🔬\x1b[38;5;255m DataChecker v2.7 by Marcos Mazoti" ++
-    " - https://mazoti.github.io/datachecker\x1b[0m\n\n\n";
+pub const HEADER = "DataChecker v2.8 by Marcos Mazoti - https://mazoti.github.io/datachecker";
 
 pub const USAGE =
     \\Usage:
@@ -190,13 +189,6 @@ pub const COMPTIME_MANY_ITEMS_DIRECTORY =
     \\
 ;
 
-pub const COMPTIME_COLORED_OUTPUT =
-    \\    --nocolors, -nc, -NC, nocolors, /NC, NOCOLORS
-    \\        Disable colored output
-    \\
-    \\
-;
-
 pub const COMPTIME_NO_EXTENSION =
     \\    --noext, -n, -N, noext, /N, NOEXT
     \\        Search for files without extensions and attempt to identify them
@@ -301,6 +293,7 @@ pub const INTEGRITY_FILES_HEADER          = "\n\tChecking files integrity...\n";
 pub const INTEGRITY_FILES_TOTAL           = "{d} hash processed\n";
 pub const INTEGRITY_FILES_TOTALS          = "{d} hashes processed\n";
 pub const INTEGRITY_FILES_ERROR           = "\"{s}\" has a different {s} hash";
+pub const INTEGRITY_FILES_ERROR_CHAR      = "\"{s}\" has a invalid character in hash";
 pub const INTEGRITY_FILES_OK              = "\"{s}\" {s} verified";
 pub const INTEGRITY_FILES_CHECK           = "\"{s}\" {s} hash created";
 
@@ -356,15 +349,16 @@ pub const ERROR_MESSAGE                   = "\n\t\t ERROR  ";
 pub const OK_MESSAGE                      = "OK";
 pub const OK_MESSAGE_FILE                 = "\n\t\t   OK   ";
 pub const QUIT_MESSAGE                    = "\n\nPress enter to quit";
+pub const REMOVING_MESSAGE                = "\n\t\tREMOVING ";
 pub const TOTAL_MESSAGE                   = "\n\n\t\t Total:\n\t\t\t";
 pub const WARNING_MESSAGE                 = "\n\t\tWARNING ";
-pub const REMOVING_MESSAGE                = "\n\t\tREMOVING ";
+
 
 pub const ERROR_ACCESS_DENIED_PATH        = "\"{s}\": access denied";
 pub const ERROR_ALLOC_MEM                 = "Failed to allocate memory for path \"{s}\": {}\n";
 pub const ERROR_APPEND_PATH               = "Failed to append path to list: \"{}\"\n";
 pub const ERROR_COMMAND_NOT_FOUND         = "Command \"{s}\" not found\n";
-pub const ERROR_CONFIG_FILE               = "config.json already exists";
+pub const ERROR_CONFIG_FILE               = "\n\tERROR: config.json already exists\n\n";
 pub const ERROR_CONFIG_FILE_PARSE         = "\t\tFailed to parse config.json\n\n\n";
 pub const ERROR_FILE_BUSY                 = "\"{s}\" is busy";
 pub const ERROR_HASH_FILE                 = "Failed to hash file \"{s}\": {}\n";

@@ -2,13 +2,13 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std         = @import("std");
 const ahocorasick = @import("ahocorasick");
 const config      = @import("config");
+const core        = @import("core.zig");
 const globals     = @import("globals");
 const i18n        = @import("i18n");
 const print       = @import("print");
-const core        = @import("core.zig");
+const std         = @import("std");
 
 /// Scans a directory tree for confidential files
 pub fn checkConfidential(total_items: *u64) !void {
@@ -42,15 +42,20 @@ pub fn checkConfidential(total_items: *u64) !void {
         checkConfidentialFiles(.{entry.path, total_items, &entry.stat, &ac}) catch |err| switch (err) {
             error.AccessDenied => {
                 try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
+                globals.exit_code = 1;
                 total_items.* += 1;
                 return;
             },
             error.FileNotFound => {
                 try print.err(i18n.ERROR_READING_FILE, .{entry.path});
+                globals.exit_code = 1;
                 total_items.* += 1;
                 return;
             },
-            else => return err,
+            else => {
+                globals.exit_code = 1;
+                return err;
+            },
         };
     }
 }

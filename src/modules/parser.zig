@@ -2,12 +2,12 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
 const config  = @import("config");
+const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-const core    = @import("core.zig");
+const std     = @import("std");
 
 /// Parses a JSON file and returns false if no errors were found
 pub fn checkJSON(args: anytype) !bool {
@@ -19,6 +19,7 @@ pub fn checkJSON(args: anytype) !bool {
 
             if (err == error.StreamTooLong) {
                 try print.err(i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
+                globals.exit_code = 1;
                 args[1].* += 1;
                 return true;
             }
@@ -32,6 +33,7 @@ pub fn checkJSON(args: anytype) !bool {
         core.debugPrintError(err);
 
         try print.err(i18n.PARSE_JSON_FILES_ERROR, .{args[0]});
+        globals.exit_code = 1;
         args[1].* += 1;
         return true;
     };

@@ -2,13 +2,13 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
 const builtin = @import("builtin");
 const config  = @import("config");
+const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
-const core    = @import("core.zig");
+const std     = @import("std");
 
 /// Forbidden filenames of windows system
 const WINDOWS_RESTRICTIONS = std.StaticStringMap([]const u8).initComptime(.{
@@ -73,6 +73,12 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
         const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}",
             .{globals.absolute_input_path, std.fs.path.sep, entry.path});
 
+        if(config.COMPTIME_IGNORE_PATH_PATTERNS) {
+            if(globals.config_parsed.value.IGNORE_PATH_PATTERNS) {
+                if(globals.ignore_path_patterns.contains(absolute_path)) continue;
+            }
+        }
+
         // Checks if the target of the symlink exists
         if (comptime builtin.os.tag != .windows) {
             if (entry.kind == .sym_link) {
@@ -87,7 +93,10 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
                     .{.mode = .read_only, .lock = .shared})
                 catch |err| {
                     _ = switch (err) {
-                        error.FileNotFound => try print.err(i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path}),
+                        error.FileNotFound => {
+                            globals.exit_code = 1;
+                            try print.err(i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path});
+                        },
                         else => try print.err(i18n.ERROR_READING_FILE, .{absolute_path}),
                     };
                     total_items.* += 1;
@@ -119,12 +128,14 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
 
             if (chunk.len != 4) {
                 try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                globals.exit_code = 1;
                 total_items.* += 1;
                 continue;
             }
 
             if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
                 try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
+                globals.exit_code = 1;
                 total_items.* += 1;
                 continue;
             }
@@ -154,49 +165,43 @@ pub fn linkShortcuts(total_items: *u64) !void {
 
 /// Detects files with zero bytes
 pub fn emptyFiles(args: anytype) !bool {
-    if (args[2].size == 0) {
-        try print.warning(i18n.EMPTY_FILES_WARNING, .{args[0]});
-        args[1].* += 1;
-        return true;
-    }
+    if (args[2].size != 0) return false;
 
-    return false;
+    try print.warning(i18n.EMPTY_FILES_WARNING, .{args[0]});
+    args[1].* += 1;
+    return true;
 }
 
 /// Removes files with zero bytes
 pub fn emptyRemoveFiles(args: anytype) !bool {
     const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.io, args[0], .{});
-    if (file_stat.size == 0) {
-        try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
-        args[1].* += 1;
 
-        try print.removing("\"{s}\"", .{args[0]});
-        return true;
-    }
-    return false;
+    if (file_stat.size != 0) return false;
+
+    try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
+    args[1].* += 1;
+    try print.removing("\"{s}\"", .{args[0]});
+    return true;
 }
 
 /// Identifies files that exceed the configured large file size threshold
 pub fn largeFiles(args: anytype) !bool {
-    if (args[2].size > globals.config_parsed.value.LARGE_FILE_SIZE) {
-        try print.warning(i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
-        args[1].* += 1;
-        return true;
-    }
+    if (args[2].size <= globals.config_parsed.value.LARGE_FILE_SIZE) return false;
 
-    return false;
+    try print.warning(i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
+    args[1].* += 1;
+    return true;
 }
 
 /// Identifies files that haven't been accessed within the configured time threshold
 pub fn lastAccess(args: anytype) !bool {
     const last_access: i96 = globals.now_stat.atime.?.nanoseconds - args[2].atime.?.nanoseconds;
-    if (last_access > globals.config_parsed.value.LAST_ACCESS_TIME) {
-        try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
-        args[1].* += args[2].size;
-        return true;
-    }
 
-    return false;
+    if (last_access <= globals.config_parsed.value.LAST_ACCESS_TIME) return false;
+
+    try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
+    args[1].* += args[2].size;
+    return true;
 }
 
 /// Detects files with timestamps in the future
@@ -214,25 +219,21 @@ pub fn checkWrongDates(args: anytype) !bool {
 
 /// Identifies empty directories
 pub fn emptyDirectories(args: anytype) !bool {
-    if (try countItems(args[0]) == 0) {
-        try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
-        args[1].* += 1;
-        return true;
-    }
+    if (try countItems(args[0]) != 0) return false;
 
-    return false;
+    try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
+    args[1].* += 1;
+    return true;
 }
 
 /// Removes empty directories
 pub fn emptyRemoveDirectories(args: anytype) !bool {
-    if (try countItems(args[0]) == 0) {
-        try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
-        args[1].* += 1;
-        try print.removing("\"{s}\"", .{args[0]});
-        return true;
-    }
+    if (try countItems(args[0]) != 0) return false;
 
-    return false;
+    try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
+    args[1].* += 1;
+    try print.removing("\"{s}\"", .{args[0]});
+    return true;
 }
 
 /// Detects directories exceeding configured maximum
@@ -267,13 +268,11 @@ pub fn dirFileNameSize(args: anytype) !bool {
 
 /// Checks if full path length exceeds maximum allowed size
 pub fn fullPathSize(args: anytype) !bool {
-    if (args[0].len > globals.config_parsed.value.MAX_FULL_PATH_SIZE) {
-        try print.warning(i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
-        args[1].* += 1;
-        return true;
-    }
+    if (args[0].len <= globals.config_parsed.value.MAX_FULL_PATH_SIZE) return false;
 
-    return false;
+    try print.warning(i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
+    args[1].* += 1;
+    return true;
 }
 
 /// Checks for unportable characters and names
@@ -325,7 +324,7 @@ pub fn unportableCharacters(args: anytype) !bool {
 }
 
 /// Helper function to count the number of items in a directory
-fn countItems(base_path: []const u8) !usize {
+fn countItems(base_path: []const u8) !u64 {
     if (globals.dir_count.get(base_path)) |result_count| { return result_count; }
 
     var result: usize = 0;

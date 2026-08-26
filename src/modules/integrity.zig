@@ -9,38 +9,6 @@ const i18n    = @import("i18n");
 const print   = @import("print");
 const std     = @import("std");
 
-const HashFunctions = struct {
-    single:   *const fn ([]const u8, *u64) anyerror!bool,
-    parallel: *const fn ([]const u8, *u64) void,
-
-    fn init(comptime name: []const u8, comptime HashType: type) HashFunctions {
-        return .{
-            .single   = makeHashFunction  (name, HashType),
-            .parallel = makeHashFunctionMt(name, HashType),
-        };
-    }
-};
-
-fn makeHashFunction(comptime name: []const u8, comptime HashType: type) *const fn ([]const u8, *u64) anyerror!bool {
-    return &struct {
-        fn hash(f: []const u8, t: *u64) anyerror!bool {
-            return hashSingleCore(f, t, name, HashType);
-        }
-    }.hash;
-}
-
-fn makeHashFunctionMt(comptime name: []const u8, comptime HashType: type) *const fn ([]const u8, *u64) void {
-    return &struct {
-        fn hash(f: []const u8, t: *u64) void {
-            return hashParallelCore(f, t, name, HashType);
-        }
-    }.hash;
-}
-
-fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) struct { []const u8, HashFunctions } {
-    return .{ ext, HashFunctions.init(name, T) };
-}
-
 const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
     H(".ascon256"  ,  "ASCON256"  ,  std.crypto.hash.ascon.AsconHash256),
     H(".blake2b128",  "BLAKE2B128",  std.crypto.hash.blake2.Blake2b128 ),
@@ -69,6 +37,18 @@ const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
     H(".sha3_384"  ,  "SHA3_384"  ,  std.crypto.hash.sha3.Sha3_384     ),
     H(".sha3_512"  ,  "SHA3_512"  ,  std.crypto.hash.sha3.Sha3_512     ),
 });
+
+const HashFunctions = struct {
+    single:   *const fn ([]const u8, *u64) anyerror!bool,
+    parallel: *const fn ([]const u8, *u64) void,
+
+    fn init(comptime name: []const u8, comptime HashType: type) HashFunctions {
+        return .{
+            .single   = makeHashFunction  (name, HashType),
+            .parallel = makeHashFunctionMt(name, HashType),
+        };
+    }
+};
 
 pub fn checkParallel(total_items: *u64) !void {
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
@@ -117,12 +97,8 @@ pub fn checkSingle(total_items: *u64) !void {
     }
 }
 
-fn hashSingle(absolute_path: []const u8, total_items: *u64) !bool {
-    if (core.getExtensionLowercase(absolute_path)) |lowercase| {
-        if (hash_functions_map.get(lowercase)) |func| { _ = try func.single(absolute_path, total_items); }
-    }
-
-    return false;
+fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) struct { []const u8, HashFunctions } {
+    return .{ ext, HashFunctions.init(name, T) };
 }
 
 fn hashParallel(absolute_path: []const u8, total_items: *u64, defer_clean: bool, func: *const fn ([]const u8, *u64)
@@ -133,79 +109,6 @@ void) void {
     }
 
     _ = func(absolute_path, total_items);
-}
-
-fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []const u8, algorithm: type) anyerror!bool {
-    const hex_size: usize = algorithm.digest_length * 2;
-
-    var hash_code:                             [hex_size]u8 = undefined;
-    var calc_hash:              [algorithm.digest_length]u8 = undefined;
-    var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
-
-    const hash_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write});
-    defer hash_file.close(globals.io);
-
-    var file_reader: std.Io.File.Reader = hash_file.reader(globals.io, hash_code[0..hex_size]);
-    const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
-        error.EndOfStream => break :blk "",
-        else => {
-            globals.exit_code = 1;
-            return err;
-        },
-    };
-
-    // removes the .cipher_extension
-    const input_file: []const u8 = hash_file_path[0..(hash_file_path.len - extension.len - 1)];
-    core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
-        globals.exit_code = 1;
-        if (err == error.FileNotFound) {
-            try print.err(i18n.ERROR_READING_FILE, .{input_file});
-            total_items.* += 1;
-            return true;
-        }
-        return err;
-    };
-
-    if (chunk.len == 0) {
-        var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
-        try file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower));
-        try file_writer.interface.flush();
-
-        try print.check(i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
-        total_items.* += 1;
-        return true;
-    }
-
-    if (chunk.len != hex_size) {
-        try print.err(i18n.ERROR_READING_FILE, .{hash_file_path});
-        globals.exit_code = 1;
-        total_items.* += 1;
-        return true;
-    }
-
-    const hash_code_bytes: []u8 = std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code) catch |err| switch (err) {
-            error.InvalidCharacter => {
-                try print.err(i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path});
-                globals.exit_code = 1;
-                total_items.* += 1;
-                return true;
-            },
-            else => {
-                globals.exit_code = 1;
-                return err;
-            }
-    };
-
-    if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) {
-        try print.ok(i18n.INTEGRITY_FILES_OK, .{input_file, extension});
-        total_items.* += 1;
-        return true;
-    }
-
-    try print.err(i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
-    globals.exit_code = 1;
-    total_items.* += 1;
-    return true;
 }
 
 fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []const u8, algorithm: type) void {
@@ -275,6 +178,97 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
 
     globals.exit_code = 1;
     messageSumMutex(print.err_mt, total_items, 1, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
+}
+
+fn hashSingle(absolute_path: []const u8, total_items: *u64) !bool {
+    if (core.getExtensionLowercase(absolute_path)) |lowercase| {
+        if (hash_functions_map.get(lowercase)) |func| { _ = try func.single(absolute_path, total_items); }
+    }
+
+    return false;
+}
+
+fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []const u8, algorithm: type) anyerror!bool {
+    const hex_size: usize = algorithm.digest_length * 2;
+
+    var hash_code:                             [hex_size]u8 = undefined;
+    var calc_hash:              [algorithm.digest_length]u8 = undefined;
+    var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
+
+    const hash_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write});
+    defer hash_file.close(globals.io);
+
+    var file_reader: std.Io.File.Reader = hash_file.reader(globals.io, hash_code[0..hex_size]);
+    const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
+        error.EndOfStream => break :blk "",
+        else => {
+            globals.exit_code = 1;
+            return err;
+        },
+    };
+
+    // removes the .cipher_extension
+    const input_file: []const u8 = hash_file_path[0..(hash_file_path.len - extension.len - 1)];
+    core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
+        if (err == error.FileNotFound) {
+            try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{input_file});
+            return true;
+        }
+
+        globals.exit_code = 1;
+        return err;
+    };
+
+    if (chunk.len == 0) {
+        var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
+        try file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower));
+        try file_writer.interface.flush();
+
+        try print.check(i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
+        total_items.* += 1;
+        return true;
+    }
+
+    if (chunk.len != hex_size) {
+        try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{hash_file_path});
+        return true;
+    }
+
+    const hash_code_bytes: []u8 = std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code) catch |err| switch (err) {
+            error.InvalidCharacter => {
+                try core.exitCodeFn(total_items, print.err, i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path});
+                return true;
+            },
+            else => {
+                globals.exit_code = 1;
+                return err;
+            }
+    };
+
+    if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) {
+        try print.ok(i18n.INTEGRITY_FILES_OK, .{input_file, extension});
+        total_items.* += 1;
+        return true;
+    }
+
+    try core.exitCodeFn(total_items, print.err, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
+    return true;
+}
+
+fn makeHashFunction(comptime name: []const u8, comptime HashType: type) *const fn ([]const u8, *u64) anyerror!bool {
+    return &struct {
+        fn hash(f: []const u8, t: *u64) anyerror!bool {
+            return hashSingleCore(f, t, name, HashType);
+        }
+    }.hash;
+}
+
+fn makeHashFunctionMt(comptime name: []const u8, comptime HashType: type) *const fn ([]const u8, *u64) void {
+    return &struct {
+        fn hash(f: []const u8, t: *u64) void {
+            return hashParallelCore(f, t, name, HashType);
+        }
+    }.hash;
 }
 
 /// Helper to print message and accumulate totals with mutex

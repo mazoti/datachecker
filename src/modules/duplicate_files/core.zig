@@ -12,10 +12,37 @@ const print        = @import("print");
 const std          = @import("std");
 
 pub fn check          (total_items: *u64) !void { return dup_single.check(total_items,   false); }
+
 pub fn check_parallel (total_items: *u64) !void { return dup_parallel.check(total_items, false); }
 
-pub fn remove         (total_items: *u64) !void { return dup_single.check(total_items,   true);  }
-pub fn remove_parallel(total_items: *u64) !void { return dup_parallel.check(total_items, true);  }
+/// Cleans up an array list and free all its memory
+pub fn cleanArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) void {
+    for (array_list.items) |*value| { cleanList(std.ArrayList([]u8), value); }
+    array_list.deinit(globals.alloc.*);
+}
+
+/// Cleans up and removes a specific entry from the map
+/// Used during removeUniques to clean up single-file entries
+pub fn cleanArrayMap(comptime T: type, removed_list: *std.ArrayList([]const u8), same_size_files_map: *std.AutoArrayHashMapUnmanaged(T, std.ArrayList([]const u8)), key: *const T) void {
+    cleanList(std.ArrayList([]const u8), removed_list);
+    _ = same_size_files_map.swapRemove(key.*);
+}
+
+/// Cleans up a hash map and free all its memory
+pub fn cleanHashMap(
+    comptime T: type,
+    map: *std.AutoArrayHashMapUnmanaged(T, std.ArrayList([]const u8)),
+) void {
+    var iter = map.iterator();
+    while (iter.next()) |entry| { cleanList(std.ArrayList([]const u8), entry.value_ptr); }
+    map.deinit(globals.alloc.*);
+}
+
+/// Free all strings in a list and deinitialize the list
+fn cleanList(comptime T: type, list: *T) void {
+    for (list.items) |value| { globals.alloc.*.free(value); }
+    list.deinit(globals.alloc.*);
+}
 
 /// Groups files by their size into a hash map
 /// Uses cache-first strategy to avoid redundant filesystem stat calls
@@ -41,19 +68,6 @@ fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMap
 
     errdefer globals.alloc.free(data);
     try gop.value_ptr.append(globals.alloc.*, data);
-}
-
-/// Removes files with unique sizes to reduce memory and processing
-pub fn removeUniques(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
-    var i: usize = map.count();
-    while (i > 0) {
-        i -= 1;
-        if (map.values()[i].items.len == 1) {
-            const key: usize = map.keys()[i];
-            var removed_list: std.array_list.Aligned([]const u8, null) = map.get(key).?;
-            cleanArrayMap(usize, &removed_list, map, &key);
-        }
-    }
 }
 
 /// Groups files that have identical content into lists
@@ -94,6 +108,23 @@ pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.Arr
     }
 }
 
+pub fn remove         (total_items: *u64) !void { return dup_single.check(total_items,   true);  }
+
+pub fn remove_parallel(total_items: *u64) !void { return dup_parallel.check(total_items, true);  }
+
+/// Removes files with unique sizes to reduce memory and processing
+pub fn removeUniques(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
+    var i: usize = map.count();
+    while (i > 0) {
+        i -= 1;
+        if (map.values()[i].items.len == 1) {
+            const key: usize = map.keys()[i];
+            var removed_list: std.array_list.Aligned([]const u8, null) = map.get(key).?;
+            cleanArrayMap(usize, &removed_list, map, &key);
+        }
+    }
+}
+
 /// Remove groups that only contain a single file (no duplicates found)
 pub fn removeUniquesArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) void {
     var i: usize = array_list.items.len;
@@ -104,35 +135,6 @@ pub fn removeUniquesArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) v
             cleanList(std.ArrayList([]u8), &removed);
         }
     }
-}
-
-/// Cleans up an array list and free all its memory
-pub fn cleanArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) void {
-    for (array_list.items) |*value| { cleanList(std.ArrayList([]u8), value); }
-    array_list.deinit(globals.alloc.*);
-}
-
-/// Cleans up a hash map and free all its memory
-pub fn cleanHashMap(
-    comptime T: type,
-    map: *std.AutoArrayHashMapUnmanaged(T, std.ArrayList([]const u8)),
-) void {
-    var iter = map.iterator();
-    while (iter.next()) |entry| { cleanList(std.ArrayList([]const u8), entry.value_ptr); }
-    map.deinit(globals.alloc.*);
-}
-
-/// Cleans up and removes a specific entry from the map
-/// Used during removeUniques to clean up single-file entries
-pub fn cleanArrayMap(comptime T: type, removed_list: *std.ArrayList([]const u8), same_size_files_map: *std.AutoArrayHashMapUnmanaged(T, std.ArrayList([]const u8)), key: *const T) void {
-    cleanList(std.ArrayList([]const u8), removed_list);
-    _ = same_size_files_map.swapRemove(key.*);
-}
-
-/// Free all strings in a list and deinitialize the list
-fn cleanList(comptime T: type, list: *T) void {
-    for (list.items) |value| { globals.alloc.*.free(value); }
-    list.deinit(globals.alloc.*);
 }
 
 /// Compares two files byte-by-byte to determine if they're identical

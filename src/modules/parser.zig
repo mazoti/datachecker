@@ -18,12 +18,11 @@ pub fn checkJSON(args: anytype) !bool {
             core.debugPrintError(err);
 
             if (err == error.StreamTooLong) {
-                try print.err(i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
-                globals.exit_code = 1;
-                args[1].* += 1;
+                try core.exitCodeFn(args[1], print.err, i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
                 return true;
             }
 
+            globals.exit_code = 1;
             return err;
         };
     defer globals.alloc.*.free(file_contents);
@@ -31,10 +30,7 @@ pub fn checkJSON(args: anytype) !bool {
     var parsed: std.json.Parsed(std.json.Value) = std.json.parseFromSlice(std.json.Value, globals.alloc.*,
     file_contents, .{}) catch |err| {
         core.debugPrintError(err);
-
-        try print.err(i18n.PARSE_JSON_FILES_ERROR, .{args[0]});
-        globals.exit_code = 1;
-        args[1].* += 1;
+        try core.exitCodeFn(args[1], print.err, i18n.PARSE_JSON_FILES_ERROR, .{args[0]});
         return true;
     };
     defer parsed.deinit();

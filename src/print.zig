@@ -35,6 +35,40 @@ pub fn check(comptime fmt: []const u8, args: anytype) !void {
     return core(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args);
 }
 
+/// Prints message with a green "CHECK" on the left (multi-thread)
+pub fn check_mt(comptime fmt: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    return core_mt(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args);
+}
+
+/// Core printing function with optional ANSI color codes
+fn core(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    const fmt_str: []const u8 = try std.fmt.bufPrint(globals.buffer, fmt, args);
+
+    // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
+    const data: []const u8 = if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}\x1b[0m{s}", .{ ansi_color, print_message, fmt_str }) else try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}", .{ print_message, fmt_str });
+
+    return stderr(data);
+}
+
+/// Core printing function with optional ANSI color codes (multi-thread)
+fn core_mt(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    var buf:  [config.COMPTIME_IO_BUFFER_SIZE / 4]u8 = undefined;
+    var buf2: [config.COMPTIME_IO_BUFFER_SIZE / 4]u8 = undefined;
+
+    const fmt_str: []const u8 = try std.fmt.bufPrint(&buf, fmt, args);
+
+    // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
+    const data: []const u8 = if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&buf2, "{s}{s}\x1b[0m{s}", .{ ansi_color, print_message, fmt_str }) else try std.fmt.bufPrint(&buf2, "{s}{s}", .{ print_message, fmt_str });
+
+    return stderr(data);
+}
+
 /// Prints duplicate files grouped by size
 pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8)), remove_duplicate: bool) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
@@ -78,6 +112,13 @@ pub fn err(comptime fmt: []const u8, args: anytype) !void {
     return core(fmt, "\x1b[31m", i18n.ERROR_MESSAGE, args);
 }
 
+/// Prints message with a red "ERROR" on the left (multi-thread)
+pub fn err_mt(comptime fmt: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    return core_mt(fmt, "\x1b[31m", i18n.ERROR_MESSAGE, args);
+}
+
 /// Prints error message at stderr and exits with error code 1
 pub fn errorDirectory(directory_path: []const u8) noreturn {
     if (config.COMPTIME_STDOUT_STDERR) {
@@ -91,11 +132,32 @@ pub fn errorDirectory(directory_path: []const u8) noreturn {
     std.process.exit(1);
 }
 
+/// Prints message with a
+pub fn found(comptime fmt: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    return core(fmt, "\x1b[34m", i18n.FOUND_MESSAGE, args);
+}
+
 /// Prints message with a green "OK" on the left
 pub fn ok(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
     return core(fmt, "\x1b[32m", i18n.OK_MESSAGE_FILE, args);
+}
+
+/// Prints message with a green "OK" on the left (multi-thread)
+pub fn ok_mt(comptime fmt: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    return core_mt(fmt, "\x1b[32m", i18n.OK_MESSAGE_FILE, args);
+}
+
+/// Prints message with a red "REMOVING" on the left
+pub fn removing(comptime fmt: []const u8, args: anytype) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    return core(fmt, "\x1b[31m", i18n.REMOVING_MESSAGE, args);
 }
 
 /// Prints results using singular or plural after total
@@ -125,32 +187,6 @@ pub fn stderr(str: []const u8) !void {
     return globals.file_writer_stderr.interface.flush();
 }
 
-/// Prints message with a yellow "WARNING" on the left
-pub fn warning(comptime fmt: []const u8, args: anytype) !void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    return core(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args);
-}
-
-/// Prints message with a red "REMOVING" on the left
-pub fn removing(comptime fmt: []const u8, args: anytype) !void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    return core(fmt, "\x1b[31m", i18n.REMOVING_MESSAGE, args);
-}
-
-/// Core printing function with optional ANSI color codes
-fn core(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    const fmt_str: []const u8 = try std.fmt.bufPrint(globals.buffer, fmt, args);
-
-    // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
-    const data: []const u8 = if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}\x1b[0m{s}", .{ ansi_color, print_message, fmt_str }) else try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{s}", .{ print_message, fmt_str });
-
-    return stderr(data);
-}
-
 /// Prints a blue "Total" with tabs
 fn total(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
@@ -158,38 +194,9 @@ fn total(comptime fmt: []const u8, args: anytype) !void {
     return core(fmt, "\x1b[36m", i18n.TOTAL_MESSAGE, args);
 }
 
-/// Prints message with a green "OK" on the left (multi-thread)
-pub fn ok_mt(comptime fmt: []const u8, args: anytype) !void {
+/// Prints message with a yellow "WARNING" on the left
+pub fn warning(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
-    return core_mt(fmt, "\x1b[32m", i18n.OK_MESSAGE_FILE, args);
-}
-
-/// Prints message with a red "ERROR" on the left (multi-thread)
-pub fn err_mt(comptime fmt: []const u8, args: anytype) !void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    return core_mt(fmt, "\x1b[31m", i18n.ERROR_MESSAGE, args);
-}
-
-/// Prints message with a green "CHECK" on the left (multi-thread)
-pub fn check_mt(comptime fmt: []const u8, args: anytype) !void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    return core_mt(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args);
-}
-
-/// Core printing function with optional ANSI color codes (multi-thread)
-fn core_mt(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    var buf:  [config.COMPTIME_IO_BUFFER_SIZE / 4]u8 = undefined;
-    var buf2: [config.COMPTIME_IO_BUFFER_SIZE / 4]u8 = undefined;
-
-    const fmt_str: []const u8 = try std.fmt.bufPrint(&buf, fmt, args);
-
-    // ANSI color format: ESC[<code>m <text> ESC[0m (reset)
-    const data: []const u8 = if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&buf2, "{s}{s}\x1b[0m{s}", .{ ansi_color, print_message, fmt_str }) else try std.fmt.bufPrint(&buf2, "{s}{s}", .{ print_message, fmt_str });
-
-    return stderr(data);
+    return core(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args);
 }

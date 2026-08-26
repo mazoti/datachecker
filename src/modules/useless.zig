@@ -48,6 +48,123 @@ const FULL_NAME = std.StaticStringMap([]const u8).initComptime(.{
     .{ "THUMBS.DB"             , "Windows thumbnail cache"             },
 });
 
+/// Map of legacy/obsolete file extensions to their descriptions
+/// Contains formats from older software, operating systems, and file formats
+const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initComptime(.{
+    .{ ".123"                 , "Lotus 1-2-3"                          },
+    .{ ".669"                 , "Composer 669"                         },
+    .{ ".8svx"                , "Amiga 8-bit sound"                    },
+    .{ ".adf"                 , "Amiga Disk File"                      },
+    .{ ".aiff"                , "Audio Interchange File Format"        },
+    .{ ".arc"                 , "ARC archive"                          },
+    .{ ".arj"                 , "ARJ compressed archive"               },
+    .{ ".asf"                 , "Advanced Systems Format"              },
+    .{ ".au"                  , "Sun Audio file"                       },
+    .{ ".b64"                 , "Base64 encoded"                       },
+    .{ ".bas"                 , "BASIC source code"                    },
+    .{ ".bat"                 , "Batch file"                           },
+    .{ ".binhex"              , "BinHex encoded"                       },
+    .{ ".bmp"                 , "Bitmap"                               },
+    .{ ".cgm"                 , "Computer Graphics Metafile"           },
+    .{ ".cmf"                 , "Creative Music File"                  },
+    .{ ".com"                 , "DOS executable"                       },
+    .{ ".cut"                 , "Dr. Halo"                             },
+    .{ ".cwk"                 , "ClarisWorks document"                 },
+    .{ ".d64"                 , "Commodore 64 disk"                    },
+    .{ ".dbf"                 , "dBASE database file"                  },
+    .{ ".dif"                 , "Data Interchange Format"              },
+    .{ ".dl"                  , "DL Animation"                         },
+    .{ ".doc"                 , "Microsoft Word 97-2003"               },
+    .{ ".dsk"                 , "Disk image"                           },
+    .{ ".dxf"                 , "AutoCAD exchange"                     },
+    .{ ".ez"                  , "Andrew Toolkit Document"              },
+    .{ ".far"                 , "Farandole Composer"                   },
+    .{ ".fdi"                 , "Formatted Disk Image"                 },
+    .{ ".fla"                 , "Adobe Flash source"                   },
+    .{ ".flc"                 , "Autodesk Animator"                    },
+    .{ ".fli"                 , "Autodesk Animator"                    },
+    .{ ".fon"                 , "Font file"                            },
+    .{ ".frm"                 , "FoxPro form"                          },
+    .{ ".gem"                 , "GEM Metafile"                         },
+    .{ ".gl"                  , "Grasp GL"                             },
+    .{ ".grp"                 , "Program Group"                        },
+    .{ ".hqx"                 , "BinHex - Mac"                         },
+    .{ ".iff"                 , "Interchange File Format - Amiga"      },
+    .{ ".ima"                 , "Disk image"                           },
+    .{ ".it"                  , "Impulse Tracker"                      },
+    .{ ".lbm"                 , "Deluxe Paint"                         },
+    .{ ".lha"                 , "LHArc"                                },
+    .{ ".lzh"                 , "LZH compressed archive"               },
+    .{ ".manuscript"          , "WriteNow"                             },
+    .{ ".mcw"                 , "MacWrite"                             },
+    .{ ".mdb"                 , "Microsoft Access Database"            },
+    .{ ".mdx"                 , "Multiple index"                       },
+    .{ ".mid"                 , "Musical Instrument Digital Interface" },
+    .{ ".midi"                , "Musical Instrument Digital Interface" },
+    .{ ".mime"                , "MIME encoded"                         },
+    .{ ".mov"                 , "QuickTime movie"                      },
+    .{ ".msp"                 , "Microsoft Paint"                      },
+    .{ ".mtm"                 , "MultiTracker"                         },
+    .{ ".nb"                  , "Nota Bene"                            },
+    .{ ".ndx"                 , "dBASE index"                          },
+    .{ ".ntx"                 , "Clipper index"                        },
+    .{ ".nuv"                 , "NuppelVideo"                          },
+    .{ ".ovl"                 , "Overlay file"                         },
+    .{ ".pak"                 , "PAK archive"                          },
+    .{ ".pas"                 , "Pascal source code"                   },
+    .{ ".pct"                 , "PICT image"                           },
+    .{ ".pcx"                 , "PC Paintbrush image"                  },
+    .{ ".pfr"                 , "Portable Font Resource"               },
+    .{ ".pic"                 , "PC Paint/Pictor"                      },
+    .{ ".pif"                 , "Program Information File"             },
+    .{ ".pit"                 , "PackIt archive - Mac"                 },
+    .{ ".plt"                 , "HPGL plotter"                         },
+    .{ ".prg"                 , "dBASE program"                        },
+    .{ ".psw"                 , "Pocket Word"                          },
+    .{ ".pwl"                 , "Password List"                        },
+    .{ ".pxl"                 , "Pocket Excel"                         },
+    .{ ".qpd"                 , "Quattro Pro"                          },
+    .{ ".ra"                  , "RealAudio"                            },
+    .{ ".rm"                  , "RealMedia file"                       },
+    .{ ".rol"                 , "AdLib ROL file"                       },
+    .{ ".rtf"                 , "Rich Text Format"                     },
+    .{ ".s3m"                 , "ScreamTracker 3"                      },
+    .{ ".sam"                 , "Samna Word"                           },
+    .{ ".scr"                 , "Screen saver"                         },
+    .{ ".scx"                 , "FoxPro screen"                        },
+    .{ ".sdw"                 , "StarOffice Writer document"           },
+    .{ ".sgi"                 , "Silicon Graphics Image"               },
+    .{ ".sit"                 , "StuffIt archive"                      },
+    .{ ".snd"                 , "Sound file"                           },
+    .{ ".sqz"                 , "Squeeze"                              },
+    .{ ".sun"                 , "Sun Raster"                           },
+    .{ ".sylk"                , "Symbolic Link"                        },
+    .{ ".targa"               , "TARGA image"                          },
+    .{ ".td0"                 , "Teledisk"                             },
+    .{ ".tga"                 , "TARGA image"                          },
+    .{ ".tiff"                , "Tagged Image File Format"             },
+    .{ ".tsr"                 , "Terminate and Stay Resident"          },
+    .{ ".ult"                 , "Ultra Tracker"                        },
+    .{ ".uue"                 , "UUEncoded"                            },
+    .{ ".voc"                 , "Creative Voice File"                  },
+    .{ ".wav"                 , "Waveform Audio File Format"           },
+    .{ ".wk1"                 , "Lotus 1-2-3 spreadsheet"              },
+    .{ ".wk3"                 , "Lotus 1-2-3 spreadsheet"              },
+    .{ ".wk4"                 , "Lotus 1-2-3 spreadsheet"              },
+    .{ ".wks"                 , "Microsoft Works spreadsheet"          },
+    .{ ".wmf"                 , "Windows Metafile"                     },
+    .{ ".wmv"                 , "Windows Media Video"                  },
+    .{ ".wpd"                 , "WordPerfect Document"                 },
+    .{ ".wpg"                 , "WordPerfect Graphics"                 },
+    .{ ".wps"                 , "Microsoft Works Word Processor"       },
+    .{ ".wri"                 , "Windows Write"                        },
+    .{ ".xls"                 , "Microsoft Excel 97-2003"              },
+    .{ ".xm"                  , "FastTracker 2"                        },
+    .{ ".xy"                  , "XyWrite"                              },
+    .{ ".yuv"                 , "Raw YUV video"                        },
+    .{ ".zoo"                 , "ZOO compressed archive"               },
+});
+
 /// Dual-condition pattern matcher for filename prefix/suffix combinations
 /// Allows matching files like "~*.docx" (temp Word files) or "*~" (backup files)
 /// Empty string means "no constraint" - enabling prefix-only or suffix-only matching
@@ -67,7 +184,6 @@ const START_END = [_]StartEndPattern{
     .{ .start = "temp"         , .end = ""                             }, // temp* naming convention
     .{ .start = "tmp"          , .end = ""                             }, // tmp* naming convention
 };
-
 
 /// Map of file extensions to descriptions for temporary and cache files
 /// Covers a wide range of temporary files from various applications and systems
@@ -188,122 +304,39 @@ const TEMPORARY_EXTENSIONS = std.StaticStringMap([]const u8).initComptime(.{
     .{ ".lok"                 , ""                                     },
 });
 
-/// Map of legacy/obsolete file extensions to their descriptions
-/// Contains formats from older software, operating systems, and file formats
-const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initComptime(.{
-    .{ ".123"                 , "Lotus 1-2-3"                          },
-    .{ ".669"                 , "Composer 669"                         },
-    .{ ".8svx"                , "Amiga 8-bit sound"                    },
-    .{ ".adf"                 , "Amiga Disk File"                      },
-    .{ ".aiff"                , "Audio Interchange File Format"        },
-    .{ ".arc"                 , "ARC archive"                          },
-    .{ ".arj"                 , "ARJ compressed archive"               },
-    .{ ".asf"                 , "Advanced Systems Format"              },
-    .{ ".au"                  , "Sun Audio file"                       },
-    .{ ".b64"                 , "Base64 encoded"                       },
-    .{ ".bas"                 , "BASIC source code"                    },
-    .{ ".bat"                 , "Batch file"                           },
-    .{ ".binhex"              , "BinHex encoded"                       },
-    .{ ".bmp"                 , "Bitmap"                               },
-    .{ ".cgm"                 , "Computer Graphics Metafile"           },
-    .{ ".cmf"                 , "Creative Music File"                  },
-    .{ ".com"                 , "DOS executable"                       },
-    .{ ".cut"                 , "Dr. Halo"                             },
-    .{ ".cwk"                 , "ClarisWorks document"                 },
-    .{ ".d64"                 , "Commodore 64 disk"                    },
-    .{ ".dbf"                 , "dBASE database file"                  },
-    .{ ".dif"                 , "Data Interchange Format"              },
-    .{ ".dl"                  , "DL Animation"                         },
-    .{ ".doc"                 , "Microsoft Word 97-2003"               },
-    .{ ".dsk"                 , "Disk image"                           },
-    .{ ".dxf"                 , "AutoCAD exchange"                     },
-    .{ ".ez"                  , "Andrew Toolkit Document"              },
-    .{ ".far"                 , "Farandole Composer"                   },
-    .{ ".fdi"                 , "Formatted Disk Image"                 },
-    .{ ".fla"                 , "Adobe Flash source"                   },
-    .{ ".flc"                 , "Autodesk Animator"                    },
-    .{ ".fli"                 , "Autodesk Animator"                    },
-    .{ ".fon"                 , "Font file"                            },
-    .{ ".frm"                 , "FoxPro form"                          },
-    .{ ".gem"                 , "GEM Metafile"                         },
-    .{ ".gl"                  , "Grasp GL"                             },
-    .{ ".grp"                 , "Program Group"                        },
-    .{ ".hqx"                 , "BinHex - Mac"                         },
-    .{ ".iff"                 , "Interchange File Format - Amiga"      },
-    .{ ".ima"                 , "Disk image"                           },
-    .{ ".it"                  , "Impulse Tracker"                      },
-    .{ ".lbm"                 , "Deluxe Paint"                         },
-    .{ ".lha"                 , "LHArc"                                },
-    .{ ".lzh"                 , "LZH compressed archive"               },
-    .{ ".manuscript"          , "WriteNow"                             },
-    .{ ".mcw"                 , "MacWrite"                             },
-    .{ ".mdb"                 , "Microsoft Access Database"            },
-    .{ ".mdx"                 , "Multiple index"                       },
-    .{ ".mid"                 , "Musical Instrument Digital Interface" },
-    .{ ".midi"                , "Musical Instrument Digital Interface" },
-    .{ ".mime"                , "MIME encoded"                         },
-    .{ ".mov"                 , "QuickTime movie"                      },
-    .{ ".msp"                 , "Microsoft Paint"                      },
-    .{ ".mtm"                 , "MultiTracker"                         },
-    .{ ".nb"                  , "Nota Bene"                            },
-    .{ ".ndx"                 , "dBASE index"                          },
-    .{ ".ntx"                 , "Clipper index"                        },
-    .{ ".nuv"                 , "NuppelVideo"                          },
-    .{ ".ovl"                 , "Overlay file"                         },
-    .{ ".pak"                 , "PAK archive"                          },
-    .{ ".pas"                 , "Pascal source code"                   },
-    .{ ".pct"                 , "PICT image"                           },
-    .{ ".pcx"                 , "PC Paintbrush image"                  },
-    .{ ".pfr"                 , "Portable Font Resource"               },
-    .{ ".pic"                 , "PC Paint/Pictor"                      },
-    .{ ".pif"                 , "Program Information File"             },
-    .{ ".pit"                 , "PackIt archive - Mac"                 },
-    .{ ".plt"                 , "HPGL plotter"                         },
-    .{ ".prg"                 , "dBASE program"                        },
-    .{ ".psw"                 , "Pocket Word"                          },
-    .{ ".pwl"                 , "Password List"                        },
-    .{ ".pxl"                 , "Pocket Excel"                         },
-    .{ ".qpd"                 , "Quattro Pro"                          },
-    .{ ".ra"                  , "RealAudio"                            },
-    .{ ".rm"                  , "RealMedia file"                       },
-    .{ ".rol"                 , "AdLib ROL file"                       },
-    .{ ".rtf"                 , "Rich Text Format"                     },
-    .{ ".s3m"                 , "ScreamTracker 3"                      },
-    .{ ".sam"                 , "Samna Word"                           },
-    .{ ".scr"                 , "Screen saver"                         },
-    .{ ".scx"                 , "FoxPro screen"                        },
-    .{ ".sdw"                 , "StarOffice Writer document"           },
-    .{ ".sgi"                 , "Silicon Graphics Image"               },
-    .{ ".sit"                 , "StuffIt archive"                      },
-    .{ ".snd"                 , "Sound file"                           },
-    .{ ".sqz"                 , "Squeeze"                              },
-    .{ ".sun"                 , "Sun Raster"                           },
-    .{ ".sylk"                , "Symbolic Link"                        },
-    .{ ".targa"               , "TARGA image"                          },
-    .{ ".td0"                 , "Teledisk"                             },
-    .{ ".tga"                 , "TARGA image"                          },
-    .{ ".tiff"                , "Tagged Image File Format"             },
-    .{ ".tsr"                 , "Terminate and Stay Resident"          },
-    .{ ".ult"                 , "Ultra Tracker"                        },
-    .{ ".uue"                 , "UUEncoded"                            },
-    .{ ".voc"                 , "Creative Voice File"                  },
-    .{ ".wav"                 , "Waveform Audio File Format"           },
-    .{ ".wk1"                 , "Lotus 1-2-3 spreadsheet"              },
-    .{ ".wk3"                 , "Lotus 1-2-3 spreadsheet"              },
-    .{ ".wk4"                 , "Lotus 1-2-3 spreadsheet"              },
-    .{ ".wks"                 , "Microsoft Works spreadsheet"          },
-    .{ ".wmf"                 , "Windows Metafile"                     },
-    .{ ".wmv"                 , "Windows Media Video"                  },
-    .{ ".wpd"                 , "WordPerfect Document"                 },
-    .{ ".wpg"                 , "WordPerfect Graphics"                 },
-    .{ ".wps"                 , "Microsoft Works Word Processor"       },
-    .{ ".wri"                 , "Windows Write"                        },
-    .{ ".xls"                 , "Microsoft Excel 97-2003"              },
-    .{ ".xm"                  , "FastTracker 2"                        },
-    .{ ".xy"                  , "XyWrite"                              },
-    .{ ".yuv"                 , "Raw YUV video"                        },
-    .{ ".zoo"                 , "ZOO compressed archive"               },
-});
+fn checkTempFiles(args: anytype, remove_file: bool) !void {
+    // Extract and normalize extension for case-insensitive matching
+    const filename: []const u8 = std.fs.path.basename(args[0]);
+
+    if (core.getExtensionLowercase(args[0])) |lowercase| {
+        // Checks if the file extension is in the temporary extensions map
+        if (TEMPORARY_EXTENSIONS.has(lowercase)) {
+            args[1].* += args[2].size;
+            return warnRemoveFile(args[0], remove_file);
+        }
+    }
+
+    // Checks if the full filename matches exactly
+    if (FULL_NAME.has(filename)) {
+        args[1].* += args[2].size;
+        return warnRemoveFile(args[0], remove_file);
+    }
+
+    // Checks if filename matches start/end patterns
+    for (START_END) |pattern| {
+        if ((pattern.start.len > 0 and !std.mem.startsWith(u8, filename, pattern.start)) or
+            (pattern.end.len   > 0 and !std.mem.endsWith(  u8, filename, pattern.end))) continue;
+
+        args[1].* += args[2].size;
+        return warnRemoveFile(args[0], remove_file);
+    }
+
+    // Checks if the path contains any of the known temporary patterns
+    if (args[3].contains(args[0])) {
+        args[1].* += args[2].size;
+        return warnRemoveFile(args[0], remove_file);
+    }
+}
 
 /// Scans a directory tree for legacy file formats
 pub fn legacyFiles(args: anytype) !bool {
@@ -340,40 +373,6 @@ pub fn temporaryRemoveFiles(total_items: *u64) !void {
 
     while (try file_iterator.next(total_items)) |entry| {
         try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, true);
-    }
-}
-
-fn checkTempFiles(args: anytype, remove_file: bool) !void {
-    // Extract and normalize extension for case-insensitive matching
-    const filename: []const u8 = std.fs.path.basename(args[0]);
-
-    if (core.getExtensionLowercase(args[0])) |lowercase| {
-        // Checks if the file extension is in the temporary extensions map
-        if (TEMPORARY_EXTENSIONS.has(lowercase)) {
-            args[1].* += args[2].size;
-            return warnRemoveFile(args[0], remove_file);
-        }
-    }
-
-    // Checks if the full filename matches exactly
-    if (FULL_NAME.has(filename)) {
-        args[1].* += args[2].size;
-        return warnRemoveFile(args[0], remove_file);
-    }
-
-    // Checks if filename matches start/end patterns
-    for (START_END) |pattern| {
-        if ((pattern.start.len > 0 and !std.mem.startsWith(u8, filename, pattern.start)) or
-            (pattern.end.len   > 0 and !std.mem.endsWith(  u8, filename, pattern.end))) continue;
-
-        args[1].* += args[2].size;
-        return warnRemoveFile(args[0], remove_file);
-    }
-
-    // Checks if the path contains any of the known temporary patterns
-    if (args[3].contains(args[0])) {
-        args[1].* += args[2].size;
-        return warnRemoveFile(args[0], remove_file);
     }
 }
 

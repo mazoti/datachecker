@@ -7,6 +7,7 @@ const i18n = @import("i18n");
 
 /// Compile-time flags to determine which features are compiled into the binary
 pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 16384;
+
 pub const COMPTIME_EMOJI_COLOR:                       bool = true;
 pub const COMPTIME_STDOUT_STDERR:                     bool = true;
 
@@ -18,6 +19,8 @@ pub const COMPTIME_DUPLICATE_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_DUPLICATE_FILES:                   bool = true;
 pub const COMPTIME_EMPTY_FILES:                       bool = true;
 pub const COMPTIME_EMPTY_DIRECTORIES:                 bool = true;
+pub const COMPTIME_FILES_NEWER_MTIME:                 bool = true;
+pub const COMPTIME_FILES_OLDER_MTIME:                 bool = true;
 pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
 pub const COMPTIME_IGNORE_PATH_PATTERNS:              bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
@@ -56,6 +59,8 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_EMPTY_FILES)                     i18n.COMPTIME_EMPTY_FILES                     else "")
     ++ (if (COMPTIME_EMPTY_DIRECTORIES_REMOVE)        i18n.COMPTIME_EMPTY_DIRECTORIES_REMOVE        else "")
     ++ (if (COMPTIME_EMPTY_DIRECTORIES)               i18n.COMPTIME_EMPTY_DIRECTORIES               else "")
+    ++ (if (COMPTIME_FILES_NEWER_MTIME)               i18n.COMPTIME_FILES_NEWER_MTIME               else "")
+    ++ (if (COMPTIME_FILES_OLDER_MTIME)               i18n.COMPTIME_FILES_OLDER_MTIME               else "")
     ++ (if (COMPTIME_FULL_PATH_SIZE)                  i18n.COMPTIME_FULL_PATH_SIZE                  else "")
     ++ (if (COMPTIME_INTEGRITY_FILES_PARALLEL)        i18n.COMPTIME_INTEGRITY_FILES_PARALLEL        else "")
     ++ (if (COMPTIME_INTEGRITY_FILES)                 i18n.COMPTIME_INTEGRITY_FILES                 else "")
@@ -95,6 +100,9 @@ pub const Config = struct {
     DUPLICATE_FILES:            bool         = false,
     EMPTY_FILES:                bool         = true,
     EMPTY_DIRECTORIES:          bool         = true,
+    FILES_NEWER_MTIME:          bool         = true,
+    FILES_OLDER_MTIME:          bool         = true,
+        FILE_TIME:              u64          = 0,
     FULL_PATH_SIZE:             bool         = true, // Checks for deeply nested paths
         MAX_FULL_PATH_SIZE:     u32          = 1024,
     IGNORE_PATH_PATTERNS:       bool         = true,
@@ -211,6 +219,9 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "DUPLICATE_FILES":                 false,
     \\    "EMPTY_FILES":                     true,
     \\    "EMPTY_DIRECTORIES":               true,
+    \\    "FILES_NEWER_MTIME":               true,
+    \\    "FILES_OLDER_MTIME":               true,
+    \\        "FILE_TIME":                   0,
     \\    "FULL_PATH_SIZE":                  true,
     \\        "MAX_FULL_PATH_SIZE":          1024,
     \\    "IGNORE_PATH_PATTERNS":            true,

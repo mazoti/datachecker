@@ -23,15 +23,6 @@ pub const AhoCorasick = struct {
     root:      *Node,
     current:   *Node,
 
-    pub fn start(self: *Self) void { self.current = self.root; }
-
-    pub fn initEmpty(alloc: std.mem.Allocator) !Self {
-        // Creates root node
-        const root_node: *Node = try Node.init(alloc);
-        root_node.failure_link = root_node;
-        return Self { .allocator = alloc, .root = root_node, .current = root_node };
-    }
-
     pub fn add(self: *Self, data: []const u8) !void {
         if (data.len == 0) return;
 
@@ -85,28 +76,6 @@ pub const AhoCorasick = struct {
         }
     }
 
-    pub fn init(alloc: std.mem.Allocator, patterns: []const []const u8) !Self {
-        // Creates root node
-        var ahocorasick = try AhoCorasick.initEmpty(alloc);
-
-        // Creates the trie adding data
-        for (patterns) |pattern| { try ahocorasick.add(pattern); }
-
-        // Set failure links
-        try ahocorasick.configure();
-
-        return ahocorasick;
-    }
-
-    pub fn deinit(self: *Self) void { self.destroyNode(self.root); }
-
-    fn destroyNode(self: *Self, node: *Node) void {
-        for (node.next) |child_opt| {
-            if (child_opt) |child| { self.destroyNode(child); }
-        }
-        self.allocator.destroy(node);
-    }
-
     pub fn contains(self: *Self, data: []const u8) bool {
         self.current = self.root;
         return self.containsBuffer(data);
@@ -122,6 +91,37 @@ pub const AhoCorasick = struct {
         }
         return false;
     }
+
+    pub fn deinit(self: *Self) void { self.destroyNode(self.root); }
+
+    fn destroyNode(self: *Self, node: *Node) void {
+        for (node.next) |child_opt| {
+            if (child_opt) |child| { self.destroyNode(child); }
+        }
+        self.allocator.destroy(node);
+    }
+
+    pub fn init(alloc: std.mem.Allocator, patterns: []const []const u8) !Self {
+        // Creates root node
+        var ahocorasick = try AhoCorasick.initEmpty(alloc);
+
+        // Creates the trie adding data
+        for (patterns) |pattern| { try ahocorasick.add(pattern); }
+
+        // Set failure links
+        try ahocorasick.configure();
+
+        return ahocorasick;
+    }
+
+    pub fn initEmpty(alloc: std.mem.Allocator) !Self {
+        // Creates root node
+        const root_node: *Node = try Node.init(alloc);
+        root_node.failure_link = root_node;
+        return Self { .allocator = alloc, .root = root_node, .current = root_node };
+    }
+
+    pub fn start(self: *Self) void { self.current = self.root; }
 };
 
 test "Pattern matching" {

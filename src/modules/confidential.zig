@@ -40,18 +40,8 @@ pub fn checkConfidential(total_items: *u64) !void {
 
     while (try file_iterator.next(total_items)) |entry| {
         checkConfidentialFiles(.{entry.path, total_items, &entry.stat, &ac}) catch |err| switch (err) {
-            error.AccessDenied => {
-                try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
-                globals.exit_code = 1;
-                total_items.* += 1;
-                return;
-            },
-            error.FileNotFound => {
-                try print.err(i18n.ERROR_READING_FILE, .{entry.path});
-                globals.exit_code = 1;
-                total_items.* += 1;
-                return;
-            },
+            error.AccessDenied => return core.exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path}),
+            error.FileNotFound => return core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{entry.path}),
             else => {
                 globals.exit_code = 1;
                 return err;

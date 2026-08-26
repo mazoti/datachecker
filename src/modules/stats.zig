@@ -19,6 +19,54 @@ const WINDOWS_RESTRICTIONS = std.StaticStringMap([]const u8).initComptime(.{
     .{ "LPT7" , "" }, .{ "LPT8" , "" }, .{ "LPT9" , "" },
 });
 
+/// Detects files with timestamps in the future
+pub fn checkWrongDates(args: anytype) !bool {
+    if ((args[2].*.atime.?.nanoseconds > globals.now_stat.atime.?.nanoseconds) or
+        (args[2].*.ctime.nanoseconds   > globals.now_stat.ctime.nanoseconds)   or
+        (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds)) {
+            try print.warning(i18n.WRONG_DATES_WARNING, .{args[0]});
+            args[1].* += 1;
+            return true;
+    }
+
+    return false;
+}
+
+/// Helper function to count the number of items in a directory
+fn countItems(base_path: []const u8) !u64 {
+    if (globals.dir_count.get(base_path)) |result_count| { return result_count; }
+
+    var result: usize = 0;
+
+    var input_dir: std.Io.Dir = try std.Io.Dir.openDirAbsolute(globals.io, base_path, .{ .iterate = true });
+    defer input_dir.close(globals.io);
+
+    var iterator: std.Io.Dir.Iterator = input_dir.iterate();
+    while (try iterator.next(globals.io)) |_| { result += 1; }
+
+    // Not in cache, store the result
+    if (globals.config_parsed.value.ENABLE_CACHE) {
+        const key: []const u8 = try globals.alloc.*.dupe(u8, base_path);
+
+        errdefer globals.alloc.free(key);
+        try globals.dir_count.put(key, result);
+    }
+
+    return result;
+}
+
+/// Checks if directory or file names exceed the maximum allowed size
+pub fn dirFileNameSize(args: anytype) !bool {
+    const dir_file_name: []const u8 = std.fs.path.basename(args[0]);
+
+    if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
+        try print.warning(i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
+        args[1].* += 1;
+    }
+
+    return false;
+}
+
 /// Detects possible mistakes typing the same character twice
 pub fn duplicateCharacters(args: anytype) !bool {
     // Checks last letter before the extension
@@ -60,6 +108,104 @@ pub fn duplicateCharacters(args: anytype) !bool {
     return false;
 }
 
+/// Identifies empty directories
+pub fn emptyDirectories(args: anytype) !bool {
+    if (try countItems(args[0]) != 0) return false;
+
+    try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
+    args[1].* += 1;
+    return true;
+}
+
+/// Detects files with zero bytes
+pub fn emptyFiles(args: anytype) !bool {
+    if (args[2].size != 0) return false;
+
+    try print.warning(i18n.EMPTY_FILES_WARNING, .{args[0]});
+    args[1].* += 1;
+    return true;
+}
+
+/// Removes empty directories
+pub fn emptyRemoveDirectories(args: anytype) !bool {
+    if (try countItems(args[0]) != 0) return false;
+
+    try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
+    args[1].* += 1;
+    try print.removing("\"{s}\"", .{args[0]});
+    return true;
+}
+
+/// Removes files with zero bytes
+pub fn emptyRemoveFiles(args: anytype) !bool {
+    const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.io, args[0], .{});
+
+    if (file_stat.size != 0) return false;
+
+    try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
+    args[1].* += 1;
+    try print.removing("\"{s}\"", .{args[0]});
+    return true;
+}
+
+/// Enables file search with newer modified time
+pub fn filesNewerMTime(args: anytype) !bool {
+    if (globals.config_parsed.value.FILE_TIME == 0) return true;
+
+    if (args[2].*.mtime.nanoseconds > globals.config_parsed.value.FILE_TIME) {
+        try print.found(i18n.FILES_TIME_FOUND, .{args[0]});
+        args[1].* += 1;
+    }
+
+    return false;
+}
+
+/// Enables file search with older modified time
+pub fn filesOlderMTime(args: anytype) !bool {
+    if (globals.config_parsed.value.FILE_TIME == 0) return true;
+
+    if (args[2].*.mtime.nanoseconds < globals.config_parsed.value.FILE_TIME) {
+        try print.found(i18n.FILES_TIME_FOUND, .{args[0]});
+        args[1].* += 1;
+    }
+
+    return false;
+}
+
+/// Checks if full path length exceeds maximum allowed size
+pub fn fullPathSize(args: anytype) !bool {
+    if (args[0].len <= globals.config_parsed.value.MAX_FULL_PATH_SIZE) return false;
+
+    try print.warning(i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
+    args[1].* += 1;
+    return true;
+}
+
+/// Identifies files that exceed the configured large file size threshold
+pub fn largeFiles(args: anytype) !bool {
+    if (args[2].size <= globals.config_parsed.value.LARGE_FILE_SIZE) return false;
+
+    try print.warning(i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
+    args[1].* += 1;
+    return true;
+}
+
+/// Identifies files that haven't been accessed within the configured time threshold
+pub fn lastAccess(args: anytype) !bool {
+    const last_access: i96 = globals.now_stat.atime.?.nanoseconds - args[2].atime.?.nanoseconds;
+
+    if (last_access <= globals.config_parsed.value.LAST_ACCESS_TIME) return false;
+
+    try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
+    args[1].* += args[2].size;
+    return true;
+}
+
+/// Removes shortcuts and symlinks
+pub fn linkRemoveShortcuts(total_items: *u64) !void {
+    return linkShortcutsOrRemove(total_items, true);
+}
+
 fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
     defer walker.deinit();
@@ -93,13 +239,9 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
                     .{.mode = .read_only, .lock = .shared})
                 catch |err| {
                     _ = switch (err) {
-                        error.FileNotFound => {
-                            globals.exit_code = 1;
-                            try print.err(i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path});
-                        },
-                        else => try print.err(i18n.ERROR_READING_FILE, .{absolute_path}),
+                        error.FileNotFound => try core.exitCodeFn(total_items, print.err, i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path}),
+                        else => try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path}),
                     };
-                    total_items.* += 1;
                     continue;
                 };
                 defer input_file.close(globals.io);
@@ -127,16 +269,12 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
             const chunk = try file_reader.interface.take(4);
 
             if (chunk.len != 4) {
-                try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                globals.exit_code = 1;
-                total_items.* += 1;
+                try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path});
                 continue;
             }
 
             if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
-                try print.err(i18n.ERROR_READING_FILE, .{absolute_path});
-                globals.exit_code = 1;
-                total_items.* += 1;
+                try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path});
                 continue;
             }
 
@@ -153,87 +291,9 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
     }
 }
 
-/// Removes shortcuts and symlinks
-pub fn linkRemoveShortcuts(total_items: *u64) !void {
-    return linkShortcutsOrRemove(total_items, true);
-}
-
 /// Detects shortcuts and symlinks and checks if symlinks are pointing to nowhere
 pub fn linkShortcuts(total_items: *u64) !void {
     return linkShortcutsOrRemove(total_items, false);
-}
-
-/// Detects files with zero bytes
-pub fn emptyFiles(args: anytype) !bool {
-    if (args[2].size != 0) return false;
-
-    try print.warning(i18n.EMPTY_FILES_WARNING, .{args[0]});
-    args[1].* += 1;
-    return true;
-}
-
-/// Removes files with zero bytes
-pub fn emptyRemoveFiles(args: anytype) !bool {
-    const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.io, args[0], .{});
-
-    if (file_stat.size != 0) return false;
-
-    try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
-    args[1].* += 1;
-    try print.removing("\"{s}\"", .{args[0]});
-    return true;
-}
-
-/// Identifies files that exceed the configured large file size threshold
-pub fn largeFiles(args: anytype) !bool {
-    if (args[2].size <= globals.config_parsed.value.LARGE_FILE_SIZE) return false;
-
-    try print.warning(i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
-    args[1].* += 1;
-    return true;
-}
-
-/// Identifies files that haven't been accessed within the configured time threshold
-pub fn lastAccess(args: anytype) !bool {
-    const last_access: i96 = globals.now_stat.atime.?.nanoseconds - args[2].atime.?.nanoseconds;
-
-    if (last_access <= globals.config_parsed.value.LAST_ACCESS_TIME) return false;
-
-    try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
-    args[1].* += args[2].size;
-    return true;
-}
-
-/// Detects files with timestamps in the future
-pub fn checkWrongDates(args: anytype) !bool {
-    if ((args[2].*.atime.?.nanoseconds > globals.now_stat.atime.?.nanoseconds) or
-        (args[2].*.ctime.nanoseconds   > globals.now_stat.ctime.nanoseconds)   or
-        (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds)) {
-            try print.warning(i18n.WRONG_DATES_WARNING, .{args[0]});
-            args[1].* += 1;
-            return true;
-    }
-
-    return false;
-}
-
-/// Identifies empty directories
-pub fn emptyDirectories(args: anytype) !bool {
-    if (try countItems(args[0]) != 0) return false;
-
-    try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
-    args[1].* += 1;
-    return true;
-}
-
-/// Removes empty directories
-pub fn emptyRemoveDirectories(args: anytype) !bool {
-    if (try countItems(args[0]) != 0) return false;
-
-    try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
-    args[1].* += 1;
-    try print.removing("\"{s}\"", .{args[0]});
-    return true;
 }
 
 /// Detects directories exceeding configured maximum
@@ -252,27 +312,6 @@ pub fn oneItemDirectory(args: anytype) !bool {
         args[1].* += 1;
     }
     return false;
-}
-
-/// Checks if directory or file names exceed the maximum allowed size
-pub fn dirFileNameSize(args: anytype) !bool {
-    const dir_file_name: []const u8 = std.fs.path.basename(args[0]);
-
-    if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
-        try print.warning(i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
-        args[1].* += 1;
-    }
-
-    return false;
-}
-
-/// Checks if full path length exceeds maximum allowed size
-pub fn fullPathSize(args: anytype) !bool {
-    if (args[0].len <= globals.config_parsed.value.MAX_FULL_PATH_SIZE) return false;
-
-    try print.warning(i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
-    args[1].* += 1;
-    return true;
 }
 
 /// Checks for unportable characters and names
@@ -321,27 +360,4 @@ pub fn unportableCharacters(args: anytype) !bool {
         }
     }
     return false;
-}
-
-/// Helper function to count the number of items in a directory
-fn countItems(base_path: []const u8) !u64 {
-    if (globals.dir_count.get(base_path)) |result_count| { return result_count; }
-
-    var result: usize = 0;
-
-    var input_dir: std.Io.Dir = try std.Io.Dir.openDirAbsolute(globals.io, base_path, .{ .iterate = true });
-    defer input_dir.close(globals.io);
-
-    var iterator: std.Io.Dir.Iterator = input_dir.iterate();
-    while (try iterator.next(globals.io)) |_| { result += 1; }
-
-    // Not in cache, store the result
-    if (globals.config_parsed.value.ENABLE_CACHE) {
-        const key: []const u8 = try globals.alloc.*.dupe(u8, base_path);
-
-        errdefer globals.alloc.free(key);
-        try globals.dir_count.put(key, result);
-    }
-
-    return result;
 }

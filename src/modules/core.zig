@@ -19,6 +19,64 @@ const useless       = @import("useless.zig");
 
 const Filter        = enum { Files, Directories, Both };
 
+pub const FileIterator = struct {
+    cache_iterator: ?std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext, 80).Iterator = null,
+    walker: ?std.Io.Dir.Walker = null,
+    using_cache: bool,
+
+    pub const Entry = struct {
+        path: []const u8,
+        stat: std.Io.File.Stat,
+    };
+
+    pub fn deinit(self: *FileIterator) void { if (self.walker) |*w| w.deinit(); }
+
+    pub fn init(alloc: std.mem.Allocator) !FileIterator {
+        if (globals.file_stats.count() > 0) {
+            return FileIterator{
+                .cache_iterator = globals.file_stats.iterator(),
+                .using_cache = true,
+            };
+        } else {
+            return FileIterator{
+                .walker = try globals.input_directory.walk(alloc),
+                .using_cache = false,
+            };
+        }
+    }
+
+    pub fn next(self: *FileIterator, total_items: *u64) !?Entry {
+        if (self.using_cache) {
+            while (self.cache_iterator.?.next()) |entry| {
+                const stat = entry.value_ptr.*;
+
+                if (stat.kind != .file) continue;
+                if (try ignorePath(entry.key_ptr.*)) continue;
+
+                return Entry{ .path = entry.key_ptr.*, .stat = stat };
+            }
+            return null;
+        } else {
+            while (true) {
+                var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
+                if (try nextEntry(&self.walker.?, total_items, &entry_tmp)) continue;
+
+                const entry = entry_tmp orelse return null;
+
+                if (entry.kind != .file and entry.kind != .directory) continue;
+
+                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}", .{ globals.absolute_input_path, std.fs.path.sep, entry.path });
+                if (try ignorePath(absolute_path)) continue;
+
+                const stat = try fetchStatWithErrorHandling(absolute_path, total_items) orelse continue;
+
+                if (entry.kind != .file) continue;
+                return Entry{ .path = absolute_path, .stat = stat };
+            }
+        }
+    }
+};
+
 /// Enables compressed files check
 pub fn compressedFiles() !void {
     try decorate(config.COMPTIME_COMPRESSED_FILES, true, false, Filter.Files, compressed.check, i18n.COMPRESSED_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
@@ -41,22 +99,32 @@ pub fn duplicateChars() !void {
 
 /// Enables duplicate files check in parallel
 pub fn duplicateFilesParallel() !void {
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL, true, duplicates.check_parallel, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_FILES_TOTAL, i18n.DUPLICATE_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL, true, duplicates.check_parallel, i18n.DUPLICATE_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
 /// Enables duplicate files check
 pub fn duplicateFiles() !void {
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES, true, duplicates.check, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_FILES_TOTAL, i18n.DUPLICATE_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES, true, duplicates.check, i18n.DUPLICATE_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
 /// Enables empty files check
 pub fn emptyFiles() !void {
-    try decorate(config.COMPTIME_EMPTY_FILES, true, false, Filter.Files, stats.emptyFiles, i18n.EMPTY_FILES_HEADER, i18n.EMPTY_FILES_TOTAL, i18n.EMPTY_FILES_TOTALS);
+    try decorate(config.COMPTIME_EMPTY_FILES, true, false, Filter.Files, stats.emptyFiles, i18n.EMPTY_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Enables empty directories check
 pub fn emptyDirectories() !void {
-    try decorate(config.COMPTIME_EMPTY_DIRECTORIES, true, true, Filter.Directories, stats.emptyDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.EMPTY_DIRECTORIES_TOTAL, i18n.EMPTY_DIRECTORIES_TOTALS);
+    try decorate(config.COMPTIME_EMPTY_DIRECTORIES, true, true, Filter.Directories, stats.emptyDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
+}
+
+/// Enables file search with newer modified time
+pub fn filesNewerMTime() !void {
+    try decorate(config.COMPTIME_FILES_NEWER_MTIME, true, true, Filter.Files, stats.filesNewerMTime, i18n.FILES_NEWER_MTIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
+/// Enables file search with older modified time
+pub fn filesOlderMTime() !void {
+    try decorate(config.COMPTIME_FILES_OLDER_MTIME, true, true, Filter.Files, stats.filesOlderMTime, i18n.FILES_OLDER_MTIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Enables full path size check
@@ -81,7 +149,7 @@ pub fn checkJSON() !void {
 
 /// Enables large files check
 pub fn largeFiles() !void {
-    try decorate(config.COMPTIME_LARGE_FILES, true, false, Filter.Files, stats.largeFiles, i18n.LARGE_FILES_HEADER, i18n.LARGE_FILES_TOTAL, i18n.LARGE_FILES_TOTALS);
+    try decorate(config.COMPTIME_LARGE_FILES, true, false, Filter.Files, stats.largeFiles, i18n.LARGE_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Enables last access files
@@ -91,7 +159,7 @@ pub fn lastAccess() !void {
 
 /// Enables legacy files check
 pub fn legacyFiles() !void {
-    try decorate(config.COMPTIME_LEGACY_FILES, true, false, Filter.Files, useless.legacyFiles, i18n.LEGACY_FILES_HEADER, i18n.LEGACY_FILES_TOTAL, i18n.LEGACY_FILES_TOTALS);
+    try decorate(config.COMPTIME_LEGACY_FILES, true, false, Filter.Files, useless.legacyFiles, i18n.LEGACY_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Enables links and shortcuts check
@@ -106,7 +174,7 @@ pub fn magicNumbers() !void {
 
 /// Enables many items directory check
 pub fn manyItemsDirectories() !void {
-    try decorate(config.COMPTIME_MANY_ITEMS_DIRECTORY, true, true, Filter.Directories, stats.manyItemsDirectory, i18n.MANY_ITEMS_DIRECTORIES_HEADER, i18n.MANY_ITEMS_DIRECTORIES_TOTAL, i18n.MANY_ITEMS_DIRECTORIES_TOTALS);
+    try decorate(config.COMPTIME_MANY_ITEMS_DIRECTORY, true, true, Filter.Directories, stats.manyItemsDirectory, i18n.MANY_ITEMS_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
 }
 
 /// Enables no extension check
@@ -116,7 +184,7 @@ pub fn noExtension() !void {
 
 /// Enables one item directory check
 pub fn oneItemDirectories() !void {
-    try decorate(config.COMPTIME_ONE_ITEM_DIRECTORY, true, true, Filter.Directories, stats.oneItemDirectory, i18n.ONE_ITEM_DIRECTORIES_HEADER, i18n.ONE_ITEM_DIRECTORIES_TOTAL, i18n.ONE_ITEM_DIRECTORIES_TOTALS);
+    try decorate(config.COMPTIME_ONE_ITEM_DIRECTORY, true, true, Filter.Directories, stats.oneItemDirectory, i18n.ONE_ITEM_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
 }
 
 /// Enables temporary files check
@@ -136,12 +204,12 @@ pub fn wrongDates() !void {
 
 /// Removes duplicate files in parallel
 pub fn duplicateRemoveFilesParallel() !void {
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE, true, duplicates.remove_parallel, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE, true, duplicates.remove_parallel, i18n.DUPLICATE_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
 /// Removes duplicate files
 pub fn duplicateRemoveFiles() !void {
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_REMOVE, true, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_REMOVE_FILES_TOTAL, i18n.DUPLICATE_REMOVE_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_REMOVE, true, duplicates.remove, i18n.DUPLICATE_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
 /// Removes empty directories, runs until no empty directory is found
@@ -154,7 +222,7 @@ pub fn emptyRemoveDirectories() !void {
 
     // Handle functions that can exit early
     if (try stats.emptyRemoveDirectories(.{ globals.absolute_input_path, &total_items })) {
-        return print.results(total_items, i18n.EMPTY_DIRECTORIES_HEADER, i18n.EMPTY_DIRECTORIES_TOTAL, i18n.EMPTY_DIRECTORIES_TOTALS);
+        return print.results(total_items, i18n.EMPTY_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
     }
 
     if(config.COMPTIME_IGNORE_PATH_PATTERNS) {
@@ -193,7 +261,7 @@ pub fn emptyRemoveDirectories() !void {
     // Remove root if it is empty
     _ = try stats.emptyRemoveDirectories(.{ globals.absolute_input_path, &total_items });
 
-    return print.results(total_items, i18n.EMPTY_DIRECTORIES_HEADER, i18n.EMPTY_DIRECTORIES_TOTAL, i18n.EMPTY_DIRECTORIES_TOTALS);
+    return print.results(total_items, i18n.EMPTY_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
 }
 
 /// Enables remove empty files
@@ -225,7 +293,7 @@ pub fn emptyRemoveFiles() !void {
         _ = try stats.emptyRemoveFiles(.{ absolute_path, &total_items });
     }
 
-    return print.results(total_items, i18n.EMPTY_FILES_HEADER, i18n.EMPTY_FILES_TOTAL, i18n.EMPTY_FILES_TOTALS);
+    return print.results(total_items, i18n.EMPTY_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Removes links and shortcuts
@@ -240,81 +308,40 @@ pub fn temporaryRemoveFiles() !void {
 
 /// Executes all file/directory check modules based on configurations
 pub fn run() !void {
-    try decorate      (config.COMPTIME_COMPRESSED_FILES,         globals.config_parsed.value.COMPRESSED_FILES,         false, Filter.Files, compressed.check, i18n.COMPRESSED_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
-    try decorateWalker(config.COMPTIME_CONFIDENTIAL_FILES,       globals.config_parsed.value.CONFIDENTIAL_FILES,       confidential.checkConfidential, i18n.CONFIDENTIAL_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
-    try decorate      (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, globals.config_parsed.value.DIRECTORY_FILE_NAME_SIZE, true,  Filter.Both, stats.dirFileNameSize, i18n.DIR_FILE_NAME_SIZE_HEADER, i18n.DIR_FILE_NAME_SIZE_TOTAL, i18n.DIR_FILE_NAME_SIZE_TOTALS);
-    try decorate      (config.COMPTIME_DUPLICATE_CHARS_FILES,    globals.config_parsed.value.DUPLICATE_CHARS_FILES,    false, Filter.Files, stats.duplicateCharacters, i18n.DUPLICATE_CHARS_FILES_HEADER, i18n.DUPLICATE_CHARS_FILES_TOTAL, i18n.DUPLICATE_CHARS_FILES_TOTALS);
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL, globals.config_parsed.value.DUPLICATE_FILES_PARALLEL, duplicates.check_parallel, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_FILES_TOTAL, i18n.DUPLICATE_FILES_TOTALS);
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES,          globals.config_parsed.value.DUPLICATE_FILES,          duplicates.check, i18n.DUPLICATE_FILES_HEADER, i18n.DUPLICATE_FILES_TOTAL, i18n.DUPLICATE_FILES_TOTALS);
-    try decorate      (config.COMPTIME_EMPTY_FILES,              globals.config_parsed.value.EMPTY_FILES,              false, Filter.Files, stats.emptyFiles, i18n.EMPTY_FILES_HEADER, i18n.EMPTY_FILES_TOTAL, i18n.EMPTY_FILES_TOTALS);
-    try decorate      (config.COMPTIME_EMPTY_DIRECTORIES,        globals.config_parsed.value.EMPTY_DIRECTORIES,        true,  Filter.Directories, stats.emptyDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.EMPTY_DIRECTORIES_TOTAL, i18n.EMPTY_DIRECTORIES_TOTALS);
-    try decorate      (config.COMPTIME_FULL_PATH_SIZE,           globals.config_parsed.value.FULL_PATH_SIZE,           true,  Filter.Both, stats.fullPathSize, i18n.FULL_PATH_SIZE_HEADER, i18n.FULL_PATH_SIZE_TOTAL, i18n.FULL_PATH_SIZE_TOTALS);
-    try decorateWalker(config.COMPTIME_INTEGRITY_FILES_PARALLEL, globals.config_parsed.value.INTEGRITY_FILES_PARALLEL, integrity.checkParallel, i18n.INTEGRITY_FILES_HEADER, i18n.INTEGRITY_FILES_TOTAL, i18n.INTEGRITY_FILES_TOTALS);
-    try decorateWalker(config.COMPTIME_INTEGRITY_FILES,          globals.config_parsed.value.INTEGRITY_FILES,          integrity.checkSingle, i18n.INTEGRITY_FILES_HEADER, i18n.INTEGRITY_FILES_TOTAL, i18n.INTEGRITY_FILES_TOTALS);
-    try decorate      (config.COMPTIME_PARSE_JSON_FILES,         globals.config_parsed.value.PARSE_JSON_FILES,         false, Filter.Files, parser.checkJSON, i18n.PARSE_JSON_FILES_HEADER, i18n.PARSE_JSON_FILES_TOTAL, i18n.PARSE_JSON_FILES_TOTALS);
-    try decorate      (config.COMPTIME_LARGE_FILES,              globals.config_parsed.value.LARGE_FILES,              false, Filter.Files, stats.largeFiles, i18n.LARGE_FILES_HEADER, i18n.LARGE_FILES_TOTAL, i18n.LARGE_FILES_TOTALS);
-    try decorate      (config.COMPTIME_LAST_ACCESS_FILES,        globals.config_parsed.value.LAST_ACCESS_FILES,        false, Filter.Files, stats.lastAccess, i18n.LAST_ACCESS_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
-    try decorate      (config.COMPTIME_LEGACY_FILES,             globals.config_parsed.value.LEGACY_FILES,             false, Filter.Files, useless.legacyFiles, i18n.LEGACY_FILES_HEADER, i18n.LEGACY_FILES_TOTAL, i18n.LEGACY_FILES_TOTALS);
-    try decorateWalker(config.COMPTIME_LINKS_SHORTCUTS,          globals.config_parsed.value.LINKS_SHORTCUTS,          stats.linkShortcuts, i18n.LINKS_SHORTCUTS_HEADER, i18n.LINKS_SHORTCUTS_TOTAL, i18n.LINKS_SHORTCUTS_TOTALS);
-    try decorate      (config.COMPTIME_MAGIC_NUMBERS,            globals.config_parsed.value.MAGIC_NUMBERS,            false, Filter.Files, magic_numbers.check, i18n.MAGIC_NUMBERS_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
-    try decorate      (config.COMPTIME_MANY_ITEMS_DIRECTORY,     globals.config_parsed.value.MANY_ITEMS_DIRECTORY,     true,  Filter.Directories, stats.manyItemsDirectory, i18n.MANY_ITEMS_DIRECTORIES_HEADER, i18n.MANY_ITEMS_DIRECTORIES_TOTAL, i18n.MANY_ITEMS_DIRECTORIES_TOTALS);
-    try decorate      (config.COMPTIME_NO_EXTENSION,             globals.config_parsed.value.NO_EXTENSION,             false, Filter.Files, magic_numbers.checkNoExtension, i18n.NO_EXTENSION_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
-    try decorate      (config.COMPTIME_ONE_ITEM_DIRECTORY,       globals.config_parsed.value.ONE_ITEM_DIRECTORY,       true,  Filter.Directories, stats.oneItemDirectory, i18n.ONE_ITEM_DIRECTORIES_HEADER, i18n.ONE_ITEM_DIRECTORIES_TOTAL, i18n.ONE_ITEM_DIRECTORIES_TOTALS);
-    try decorateWalker(config.COMPTIME_TEMPORARY_FILES,          globals.config_parsed.value.TEMPORARY_FILES,          useless.temporaryFiles, i18n.TEMPORARY_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
-    try decorate      (config.COMPTIME_UNPORTABLE_CHARS,         globals.config_parsed.value.UNPORTABLE_CHARS,         true,  Filter.Both, stats.unportableCharacters, i18n.UNPORTABLE_CHARS_HEADER, i18n.UNPORTABLE_CHARS_TOTAL, i18n.UNPORTABLE_CHARS_TOTALS);
-    try decorate      (config.COMPTIME_WRONG_DATES,              globals.config_parsed.value.WRONG_DATES,              false, Filter.Files, stats.checkWrongDates, i18n.WRONG_DATES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+    try decorate      (config.COMPTIME_COMPRESSED_FILES,         globals.config_parsed.value.COMPRESSED_FILES,         false,                          Filter.Files,                    compressed.check,               i18n.COMPRESSED_FILES_HEADER,       i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorateWalker(config.COMPTIME_CONFIDENTIAL_FILES,       globals.config_parsed.value.CONFIDENTIAL_FILES,       confidential.checkConfidential, i18n.CONFIDENTIAL_FILES_HEADER,  i18n.FILES_TOTAL,               i18n.FILES_TOTALS                                                                                      );
+    try decorate      (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, globals.config_parsed.value.DIRECTORY_FILE_NAME_SIZE, true,                           Filter.Both,                     stats.dirFileNameSize,          i18n.DIR_FILE_NAME_SIZE_HEADER,     i18n.DIR_FILE_NAME_SIZE_TOTAL,    i18n.DIR_FILE_NAME_SIZE_TOTALS   );
+    try decorate      (config.COMPTIME_DUPLICATE_CHARS_FILES,    globals.config_parsed.value.DUPLICATE_CHARS_FILES,    false,                          Filter.Files,                    stats.duplicateCharacters,      i18n.DUPLICATE_CHARS_FILES_HEADER,  i18n.DUPLICATE_CHARS_FILES_TOTAL, i18n.DUPLICATE_CHARS_FILES_TOTALS);
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL, globals.config_parsed.value.DUPLICATE_FILES_PARALLEL, duplicates.check_parallel,      i18n.DUPLICATE_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
+    try decorateWalker(config.COMPTIME_DUPLICATE_FILES,          globals.config_parsed.value.DUPLICATE_FILES,          duplicates.check,               i18n.DUPLICATE_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
+    try decorate      (config.COMPTIME_EMPTY_FILES,              globals.config_parsed.value.EMPTY_FILES,              false,                          Filter.Files,                    stats.emptyFiles,               i18n.EMPTY_FILES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_EMPTY_DIRECTORIES,        globals.config_parsed.value.EMPTY_DIRECTORIES,        true,                           Filter.Directories,              stats.emptyDirectories,         i18n.EMPTY_DIRECTORIES_HEADER,      i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
+    try decorate      (config.COMPTIME_FILES_NEWER_MTIME,        globals.config_parsed.value.FILES_NEWER_MTIME,        true,                           Filter.Files,                    stats.filesNewerMTime,          i18n.FILES_NEWER_MTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_FILES_OLDER_MTIME,        globals.config_parsed.value.FILES_OLDER_MTIME,        true,                           Filter.Files,                    stats.filesOlderMTime,          i18n.FILES_OLDER_MTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_FULL_PATH_SIZE,           globals.config_parsed.value.FULL_PATH_SIZE,           true,                           Filter.Both,                     stats.fullPathSize,             i18n.FULL_PATH_SIZE_HEADER,         i18n.FULL_PATH_SIZE_TOTAL,        i18n.FULL_PATH_SIZE_TOTALS       );
+    try decorateWalker(config.COMPTIME_INTEGRITY_FILES_PARALLEL, globals.config_parsed.value.INTEGRITY_FILES_PARALLEL, integrity.checkParallel,        i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
+    try decorateWalker(config.COMPTIME_INTEGRITY_FILES,          globals.config_parsed.value.INTEGRITY_FILES,          integrity.checkSingle,          i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
+    try decorate      (config.COMPTIME_PARSE_JSON_FILES,         globals.config_parsed.value.PARSE_JSON_FILES,         false,                          Filter.Files,                    parser.checkJSON,               i18n.PARSE_JSON_FILES_HEADER,       i18n.PARSE_JSON_FILES_TOTAL,      i18n.PARSE_JSON_FILES_TOTALS     );
+    try decorate      (config.COMPTIME_LARGE_FILES,              globals.config_parsed.value.LARGE_FILES,              false,                          Filter.Files,                    stats.largeFiles,               i18n.LARGE_FILES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_LAST_ACCESS_FILES,        globals.config_parsed.value.LAST_ACCESS_FILES,        false,                          Filter.Files,                    stats.lastAccess,               i18n.LAST_ACCESS_HEADER,            i18n.BYTES_TOTAL,                 i18n.BYTES_TOTALS                );
+    try decorate      (config.COMPTIME_LEGACY_FILES,             globals.config_parsed.value.LEGACY_FILES,             false,                          Filter.Files,                    useless.legacyFiles,            i18n.LEGACY_FILES_HEADER,           i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorateWalker(config.COMPTIME_LINKS_SHORTCUTS,          globals.config_parsed.value.LINKS_SHORTCUTS,          stats.linkShortcuts,            i18n.LINKS_SHORTCUTS_HEADER,     i18n.LINKS_SHORTCUTS_TOTAL,     i18n.LINKS_SHORTCUTS_TOTALS                                                                            );
+    try decorate      (config.COMPTIME_MAGIC_NUMBERS,            globals.config_parsed.value.MAGIC_NUMBERS,            false,                          Filter.Files,                    magic_numbers.check,            i18n.MAGIC_NUMBERS_HEADER,          i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_MANY_ITEMS_DIRECTORY,     globals.config_parsed.value.MANY_ITEMS_DIRECTORY,     true,                           Filter.Directories,              stats.manyItemsDirectory,       i18n.MANY_ITEMS_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
+    try decorate      (config.COMPTIME_NO_EXTENSION,             globals.config_parsed.value.NO_EXTENSION,             false,                          Filter.Files,                    magic_numbers.checkNoExtension, i18n.NO_EXTENSION_HEADER,           i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_ONE_ITEM_DIRECTORY,       globals.config_parsed.value.ONE_ITEM_DIRECTORY,       true,                           Filter.Directories,              stats.oneItemDirectory,         i18n.ONE_ITEM_DIRECTORIES_HEADER,   i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
+    try decorateWalker(config.COMPTIME_TEMPORARY_FILES,          globals.config_parsed.value.TEMPORARY_FILES,          useless.temporaryFiles,         i18n.TEMPORARY_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
+    try decorate      (config.COMPTIME_UNPORTABLE_CHARS,         globals.config_parsed.value.UNPORTABLE_CHARS,         true,                           Filter.Both,                     stats.unportableCharacters,     i18n.UNPORTABLE_CHARS_HEADER,       i18n.UNPORTABLE_CHARS_TOTAL,      i18n.UNPORTABLE_CHARS_TOTALS     );
+    try decorate      (config.COMPTIME_WRONG_DATES,              globals.config_parsed.value.WRONG_DATES,              false,                          Filter.Files,                    stats.checkWrongDates,          i18n.WRONG_DATES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
 }
 
-/// Fetchs file statistics with optional caching
-fn fetchAdd(absolute_path: []const u8) !std.Io.File.Stat {
-    if (globals.file_stats.get(absolute_path)) |retrieved_stat| { return retrieved_stat; }
+// Prints error, file and line in debug mode
+pub inline fn debugPrintError(err: anyerror) void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
 
-    const stat: std.Io.File.Stat = try statFileOrDirectory(absolute_path);
-
-    // Not in cache, fetch and store
-    if (globals.config_parsed.value.ENABLE_CACHE) {
-        const key: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
-        errdefer globals.alloc.free(key);
-
-        try globals.file_stats.put(key, stat);
+    if (builtin.mode == .debug) {
+        std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
     }
-
-    return stat;
-}
-
-/// Fetchs path or ignores AccessDenied and FileBusy errors
-pub fn fetchStatWithErrorHandling(absolute_path: []const u8, total_items: *u64) !?std.Io.File.Stat {
-    return fetchAdd(absolute_path) catch |err| switch (err) {
-        error.AccessDenied => {
-            try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-            globals.exit_code = 1;
-            total_items.* += 1;
-            return null;
-        },
-        error.FileBusy => {
-            try print.err(i18n.ERROR_FILE_BUSY, .{absolute_path});
-            globals.exit_code = 1;
-            total_items.* += 1;
-            return null;
-        },
-        else => {
-            globals.exit_code = 1;
-            return err;
-        },
-    };
-}
-
-/// Helper function to stat a file or directory
-fn statFileOrDirectory(path: []const u8) !std.Io.File.Stat {
-    return std.Io.Dir.cwd().statFile(globals.io, path, .{}) catch |err| {
-        globals.exit_code = 1;
-        if (err == error.IsDir) {
-            var dir_stat: std.Io.File.Stat = std.mem.zeroes(std.Io.File.Stat);
-            dir_stat.kind = .directory;
-            return dir_stat;
-        }
-        return err;
-    };
 }
 
 /// Conditionally runs a check in every item if both compile-time and runtime flags are enabled
@@ -342,8 +369,11 @@ fn decorate(
 
         if (try ignorePath(absolute_path)) return print.results(total_items, header, total, totals);
 
-        if (try process_fn(.{ absolute_path, &total_items, null })) {
-            return print.results(total_items, header, total, totals);
+        const stat_tmp: ?std.Io.File.Stat = try fetchStatWithErrorHandling(absolute_path, &total_items);
+        if (stat_tmp) |stat| {
+            if (try process_fn(.{ absolute_path, &total_items, &stat })) {
+                return print.results(total_items, header, total, totals);
+            }
         }
     }
 
@@ -412,6 +442,57 @@ fn decorateWalker(
     _ = try print.results(total_items, header, total, totals);
 }
 
+pub fn exitCodeFn(total_items: *u64, comptime process_fn: anytype,comptime msg_fmt: []const u8, args: anytype) !void {
+    try process_fn(msg_fmt, args);
+    globals.exit_code = 1;
+    total_items.* += 1;
+}
+
+/// Fetchs file statistics with optional caching
+fn fetchAdd(absolute_path: []const u8) !std.Io.File.Stat {
+    if (globals.file_stats.get(absolute_path)) |retrieved_stat| { return retrieved_stat; }
+
+    const stat: std.Io.File.Stat = try statFileOrDirectory(absolute_path);
+
+    // Not in cache, fetch and store
+    if (globals.config_parsed.value.ENABLE_CACHE) {
+        const key: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
+        errdefer globals.alloc.free(key);
+
+        try globals.file_stats.put(key, stat);
+    }
+
+    return stat;
+}
+
+/// Fetchs path or ignores AccessDenied and FileBusy errors
+pub fn fetchStatWithErrorHandling(absolute_path: []const u8, total_items: *u64) !?std.Io.File.Stat {
+    return fetchAdd(absolute_path) catch |err| switch (err) {
+        error.AccessDenied => {
+            try exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+            return null;
+        },
+        error.FileBusy => {
+            try exitCodeFn(total_items, print.err, i18n.ERROR_FILE_BUSY, .{absolute_path});
+            return null;
+        },
+        else => {
+            globals.exit_code = 1;
+            return err;
+        },
+    };
+}
+
+// Extracts extension and normalize to lowercase for case-insensitive matching
+pub fn getExtensionLowercase(filepath: []const u8) ?[]const u8 {
+    const extension = std.fs.path.extension(filepath);
+
+    // Bounds check before lowercasing
+    if (extension.len == 0 or extension.len > globals.buffer.len) return null;
+
+    return std.ascii.lowerString(globals.buffer[0..extension.len], extension);
+}
+
 /// Compute cryptographic hash of file by processesing file in chunks
 pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.digest_length]u8) !void {
     const file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, filepath, .{ .mode = .read_only, .lock = .shared }) catch |err| switch (err) {
@@ -453,14 +534,19 @@ pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.di
     std.debug.panic("SHOULD NEVER PASS HERE");
 }
 
+fn ignorePath(filepath: []const u8) !bool {
+    if(!config.COMPTIME_IGNORE_PATH_PATTERNS)             return false;
+    if(!globals.config_parsed.value.IGNORE_PATH_PATTERNS) return false;
+
+    return globals.ignore_path_patterns.contains(filepath);
+}
+
 /// Gets the next entry or ignores AccessDenied error
 pub fn nextEntry(walker: *std.Io.Dir.Walker, total_items: *u64, entry: *?std.Io.Dir.Walker.Entry) !bool {
     entry.* = walker.next(globals.io) catch |err| switch (err) {
         error.AccessDenied => {
             const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}", .{ globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items });
-            try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
-            globals.exit_code = 1;
-            total_items.* += 1;
+            try exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
             return true; // Signal to continue
         },
         else => {
@@ -472,31 +558,10 @@ pub fn nextEntry(walker: *std.Io.Dir.Walker, total_items: *u64, entry: *?std.Io.
     return false;
 }
 
-// Extracts extension and normalize to lowercase for case-insensitive matching
-pub fn getExtensionLowercase(filepath: []const u8) ?[]const u8 {
-    const extension = std.fs.path.extension(filepath);
-
-    // Bounds check before lowercasing
-    if (extension.len == 0 or extension.len > globals.buffer.len) return null;
-
-    return std.ascii.lowerString(globals.buffer[0..extension.len], extension);
-}
-
-// Prints error, file and line in debug mode
-pub inline fn debugPrintError(err: anyerror) void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
-
-    if (builtin.mode == .debug) {
-        std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-    }
-}
-
 pub fn readExactChunk(reader: *std.Io.File.Reader, size: usize, filepath: []const u8, total_items: *u64) !?[]const u8 {
     const chunk = reader.interface.take(size) catch |err| switch (err) {
         error.EndOfStream => {
-            try print.err(i18n.ERROR_READING_FILE, .{filepath});
-            globals.exit_code = 1;
-            total_items.* += 1;
+            try exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{filepath});
             return null;
         },
         else => {
@@ -506,76 +571,22 @@ pub fn readExactChunk(reader: *std.Io.File.Reader, size: usize, filepath: []cons
     };
 
     if (chunk.len != size) {
-        try print.err(i18n.ERROR_READING_FILE, .{filepath});
-        globals.exit_code = 1;
-        total_items.* += 1;
+        try exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{filepath});
         return null;
     }
 
     return chunk;
 }
 
-pub const FileIterator = struct {
-    cache_iterator: ?std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext, 80).Iterator = null,
-    walker: ?std.Io.Dir.Walker = null,
-    using_cache: bool,
-
-    pub const Entry = struct {
-        path: []const u8,
-        stat: std.Io.File.Stat,
+/// Helper function to stat a file or directory
+fn statFileOrDirectory(path: []const u8) !std.Io.File.Stat {
+    return std.Io.Dir.cwd().statFile(globals.io, path, .{}) catch |err| {
+        globals.exit_code = 1;
+        if (err == error.IsDir) {
+            var dir_stat: std.Io.File.Stat = std.mem.zeroes(std.Io.File.Stat);
+            dir_stat.kind = .directory;
+            return dir_stat;
+        }
+        return err;
     };
-
-    pub fn init(alloc: std.mem.Allocator) !FileIterator {
-        if (globals.file_stats.count() > 0) {
-            return FileIterator{
-                .cache_iterator = globals.file_stats.iterator(),
-                .using_cache = true,
-            };
-        } else {
-            return FileIterator{
-                .walker = try globals.input_directory.walk(alloc),
-                .using_cache = false,
-            };
-        }
-    }
-
-    pub fn deinit(self: *FileIterator) void { if (self.walker) |*w| w.deinit(); }
-
-    pub fn next(self: *FileIterator, total_items: *u64) !?Entry {
-        if (self.using_cache) {
-            while (self.cache_iterator.?.next()) |entry| {
-                const stat = entry.value_ptr.*;
-
-                if (stat.kind != .file) continue;
-                if (try ignorePath(entry.key_ptr.*)) continue;
-
-                return Entry{ .path = entry.key_ptr.*, .stat = stat };
-            }
-            return null;
-        } else {
-            while (true) {
-                var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
-                if (try nextEntry(&self.walker.?, total_items, &entry_tmp)) continue;
-
-                const entry = entry_tmp orelse return null;
-
-                if (entry.kind != .file and entry.kind != .directory) continue;
-
-                const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}", .{ globals.absolute_input_path, std.fs.path.sep, entry.path });
-                if (try ignorePath(absolute_path)) continue;
-
-                const stat = try fetchStatWithErrorHandling(absolute_path, total_items) orelse continue;
-
-                if (entry.kind != .file) continue;
-                return Entry{ .path = absolute_path, .stat = stat };
-            }
-        }
-    }
-};
-
-fn ignorePath(filepath: []const u8) !bool {
-    if(!config.COMPTIME_IGNORE_PATH_PATTERNS)             return false;
-    if(!globals.config_parsed.value.IGNORE_PATH_PATTERNS) return false;
-
-    return globals.ignore_path_patterns.contains(filepath);
 }

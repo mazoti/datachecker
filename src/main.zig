@@ -13,31 +13,11 @@ const print           = @import("print");
 
 const NoParameterFunc = *const fn () anyerror!void;
 
+/// Changes terminal codepage on Windows
+extern "kernel32" fn SetConsoleOutputCP(wCodePageID: std.os.windows.UINT) callconv(.winapi) std.os.windows.BOOL;
+
 /// Map of command-line flags to their corresponding handler functions
 /// Supports various help and version flag formats (Unix, Windows, case variations)
-const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
-    .{ "--config"        , &createConfig                      },
-    .{ "--configure"     , &createConfig                      },
-    .{ "config"          , &createConfig                      },
-    .{ "configure"       , &createConfig                      },
-
-    .{ "--help"          , &printHelp                         },
-    .{ "-?"              , &printHelp                         },
-    .{ "-h"              , &printHelp                         },
-    .{ "-H"              , &printHelp                         },
-    .{ "/?"              , &printHelp                         },
-    .{ "/h"              , &printHelp                         },
-    .{ "help"            , &printHelp                         },
-    .{ "HELP"            , &printHelp                         },
-
-    .{ "--version"       , &printVersion                      },
-    .{ "-v"              , &printVersion                      },
-    .{ "-V"              , &printVersion                      },
-    .{ "/V"              , &printVersion                      },
-    .{ "version"         , &printVersion                      },
-    .{ "VERSION"         , &printVersion                      },
-});
-
 const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "--compressed"    , &core.compressedFiles              },
     .{ "-c"              , &core.compressedFiles              },
@@ -122,6 +102,20 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "emptydirs_rm"    , &core.emptyRemoveDirectories       },
     .{ "/ERM"            , &core.emptyRemoveDirectories       },
     .{ "EMPTYDIRS_RM"    , &core.emptyRemoveDirectories       },
+
+    .{ "--fnm"           , &core.filesNewerMTime              },
+    .{ "-fnm"            , &core.filesNewerMTime              },
+    .{ "-FNM"            , &core.filesNewerMTime              },
+    .{ "fnm"             , &core.filesNewerMTime              },
+    .{ "/FNM"            , &core.filesNewerMTime              },
+    .{ "FNM"             , &core.filesNewerMTime              },
+
+    .{ "--fom"           , &core.filesOlderMTime              },
+    .{ "-fom"            , &core.filesOlderMTime              },
+    .{ "-FOM"            , &core.filesOlderMTime              },
+    .{ "fom"             , &core.filesOlderMTime              },
+    .{ "/FOM"            , &core.filesOlderMTime              },
+    .{ "FOM"             , &core.filesOlderMTime              },
 
     .{ "--fullpathsize"  , &core.fullPathSize                 },
     .{ "-f"              , &core.fullPathSize                 },
@@ -242,11 +236,28 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "WRONG"           , &core.wrongDates                   },
 });
 
-/// Prints help and exits
-fn printHelp() !void { try print.stdout(config.HELP); }
+const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
+    .{ "--config"        , &createConfig                      },
+    .{ "--configure"     , &createConfig                      },
+    .{ "config"          , &createConfig                      },
+    .{ "configure"       , &createConfig                      },
 
-/// Do nothing: version already is on system header
-fn printVersion() !void {}
+    .{ "--help"          , &printHelp                         },
+    .{ "-?"              , &printHelp                         },
+    .{ "-h"              , &printHelp                         },
+    .{ "-H"              , &printHelp                         },
+    .{ "/?"              , &printHelp                         },
+    .{ "/h"              , &printHelp                         },
+    .{ "help"            , &printHelp                         },
+    .{ "HELP"            , &printHelp                         },
+
+    .{ "--version"       , &printVersion                      },
+    .{ "-v"              , &printVersion                      },
+    .{ "-V"              , &printVersion                      },
+    .{ "/V"              , &printVersion                      },
+    .{ "version"         , &printVersion                      },
+    .{ "VERSION"         , &printVersion                      },
+});
 
 /// Creates a config.json with default values in the same directory of the system
 fn createConfig() !void {
@@ -271,51 +282,6 @@ fn createConfig() !void {
 
     globals.exit_code = 1;
     return print.stderr(i18n.ERROR_CONFIG_FILE);
-}
-
-/// Attempts to load configuration from a local "config.json" file in the current working directory
-pub fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io, alloc: *const std.mem.Allocator) bool {
-    config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
-        core.debugPrintError(err);
-        break :blk "";
-    };
-
-    // Parses JSON with enum support, on error sets default values
-    var result: bool = (config_file.*.len > 0);
-    const data: []const u8 = if (result) config_file.* else config.DEFAULT_JSON_CONFIG;
-
-    config_parsed.* = parseJSON(data, alloc, config_file, &result) catch {
-        std.debug.panic("\n\n\nPANIC: DEFAULT_JSON_CONFIG IS INVALID AND THIS SHOULD NEVER HAPPEN\n\n\n", .{});
-    };
-
-    return result;
-}
-
-fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]const u8, result: *bool) !std.json.Parsed(config.Config) {
-    return std.json.parseFromSlice(config.Config, alloc.*, data, .{}) catch |err| {
-        // Invalid config.json
-        result.* = false;
-        alloc.*.free(config_file.*);
-        config_file.* = "";
-
-        core.debugPrintError(err);
-        try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
-        globals.exit_code = 1;
-
-        return std.json.parseFromSlice(config.Config, alloc.*, config.DEFAULT_JSON_CONFIG, .{});
-    };
-}
-
-/// Changes terminal codepage on Windows
-extern "kernel32" fn SetConsoleOutputCP(wCodePageID: std.os.windows.UINT) callconv(.winapi) std.os.windows.BOOL;
-
-pub fn main(init: std.process.Init) !void {
-    if (@import("builtin").os.tag == .windows) {
-        if (!SetConsoleOutputCP(65001).toBool()) return error.SetConsoleOutputCPFailed;
-    }
-
-    try commonMain(init);
-    std.process.exit(globals.exit_code);
 }
 
 /// Common main for all operating systems
@@ -471,6 +437,54 @@ fn commonMain(init: std.process.Init) !void {
     var file_reader: std.Io.File.Reader = std.Io.File.stdin().reader(globals.io, globals.buffer);
     _ = try file_reader.interface.take(1);
 }
+
+/// Attempts to load configuration from a local "config.json" file in the current working directory
+pub fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io, alloc: *const std.mem.Allocator) bool {
+    config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
+        core.debugPrintError(err);
+        break :blk "";
+    };
+
+    // Parses JSON with enum support, on error sets default values
+    var result: bool = (config_file.*.len > 0);
+    const data: []const u8 = if (result) config_file.* else config.DEFAULT_JSON_CONFIG;
+
+    config_parsed.* = parseJSON(data, alloc, config_file, &result) catch {
+        std.debug.panic("\n\n\nPANIC: DEFAULT_JSON_CONFIG IS INVALID AND THIS SHOULD NEVER HAPPEN\n\n\n", .{});
+    };
+
+    return result;
+}
+
+pub fn main(init: std.process.Init) !void {
+    if (@import("builtin").os.tag == .windows) {
+        if (!SetConsoleOutputCP(65001).toBool()) return error.SetConsoleOutputCPFailed;
+    }
+
+    try commonMain(init);
+    std.process.exit(globals.exit_code);
+}
+
+fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]const u8, result: *bool) !std.json.Parsed(config.Config) {
+    return std.json.parseFromSlice(config.Config, alloc.*, data, .{}) catch |err| {
+        // Invalid config.json
+        result.* = false;
+        alloc.*.free(config_file.*);
+        config_file.* = "";
+
+        core.debugPrintError(err);
+        try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
+        globals.exit_code = 1;
+
+        return std.json.parseFromSlice(config.Config, alloc.*, config.DEFAULT_JSON_CONFIG, .{});
+    };
+}
+
+/// Prints help and exits
+fn printHelp() !void { try print.stdout(config.HELP); }
+
+/// Do nothing: version already is on system header
+fn printVersion() !void {}
 
 test "No config file" {
     var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};

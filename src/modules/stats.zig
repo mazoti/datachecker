@@ -24,9 +24,8 @@ pub fn checkWrongDates(args: anytype) !bool {
     if ((args[2].*.atime.?.nanoseconds > globals.now_stat.atime.?.nanoseconds) or
         (args[2].*.ctime.nanoseconds   > globals.now_stat.ctime.nanoseconds)   or
         (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds)) {
-            try print.warning(i18n.WRONG_DATES_WARNING, .{args[0]});
-            args[1].* += 1;
-            return true;
+
+        return print.messageSumReturn(true, args[1], print.warning, i18n.WRONG_DATES_WARNING, .{args[0]});
     }
 
     return false;
@@ -60,8 +59,7 @@ pub fn dirFileNameSize(args: anytype) !bool {
     const dir_file_name: []const u8 = std.fs.path.basename(args[0]);
 
     if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
-        try print.warning(i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
-        args[1].* += 1;
+        return print.messageSumReturn(false, args[1], print.warning, i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
     }
 
     return false;
@@ -76,9 +74,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
         const path_no_ext: []const u8 = args[0][0..(args[0].len - extension.len)];
 
         if (path_no_ext.len > 1 and path_no_ext[path_no_ext.len - 1] == path_no_ext[path_no_ext.len - 2]) {
-            try print.check(i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], path_no_ext[path_no_ext.len - 2]});
-            args[1].* += 1;
-            return true;
+            return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], path_no_ext[path_no_ext.len - 2]});
         }
 
         // Checks for duplicated extensions
@@ -86,9 +82,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
         if (args[0].len >= index) {
             const tmp_extension: []const u8 = args[0][(args[0].len - index)..(args[0].len - extension.len)];
             if (std.mem.eql(u8, extension, tmp_extension)) {
-                try print.check(i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0], extension});
-                args[1].* += 1;
-                return true;
+                return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0], extension});
             }
         }
     }
@@ -99,9 +93,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
     for (0..args[0].len - 1) |i| {
         if ((args[0][i] == args[0][i + 1]) and (args[0][i] == ' ' or args[0][i] == '-' or
             args[0][i] == '_' or args[0][i] == '.')) {
-                try print.check(i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], args[0][i]});
-                args[1].* += 1;
-                return true;
+            return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], args[0][i]});
         }
     }
 
@@ -111,19 +103,13 @@ pub fn duplicateCharacters(args: anytype) !bool {
 /// Identifies empty directories
 pub fn emptyDirectories(args: anytype) !bool {
     if (try countItems(args[0]) != 0) return false;
-
-    try print.warning(i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
-    args[1].* += 1;
-    return true;
+    return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
 }
 
 /// Detects files with zero bytes
 pub fn emptyFiles(args: anytype) !bool {
     if (args[2].size != 0) return false;
-
-    try print.warning(i18n.EMPTY_FILES_WARNING, .{args[0]});
-    args[1].* += 1;
-    return true;
+    return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_FILES_WARNING, .{args[0]});
 }
 
 /// Removes empty directories
@@ -131,9 +117,7 @@ pub fn emptyRemoveDirectories(args: anytype) !bool {
     if (try countItems(args[0]) != 0) return false;
 
     try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
-    args[1].* += 1;
-    try print.removing("\"{s}\"", .{args[0]});
-    return true;
+    return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
 }
 
 /// Removes files with zero bytes
@@ -143,51 +127,63 @@ pub fn emptyRemoveFiles(args: anytype) !bool {
     if (file_stat.size != 0) return false;
 
     try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
-    args[1].* += 1;
-    try print.removing("\"{s}\"", .{args[0]});
-    return true;
+    return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
+}
+
+/// Compares file times and prints a message
+fn filesCheck(newer: bool, time_ns: i96, args: anytype) !bool {
+    if (globals.config_parsed.value.FILE_TIME == 0) return true;
+
+    if ((newer == true  and time_ns > globals.config_parsed.value.FILE_TIME) or
+        (newer == false and time_ns < globals.config_parsed.value.FILE_TIME)) {
+        return print.messageSumReturn(false, args[1], print.found, i18n.FILES_TIME_FOUND, .{args[0]});
+    }
+
+    return false;
+}
+
+/// Enables file search with newer access time
+pub fn filesNewerATime(args: anytype) !bool {
+    return filesCheck(true, args[2].*.atime.?.nanoseconds, args);
+}
+
+/// Enables file search with newer change time
+pub fn filesNewerCTime(args: anytype) !bool {
+    return filesCheck(true, args[2].*.ctime.nanoseconds, args);
 }
 
 /// Enables file search with newer modified time
 pub fn filesNewerMTime(args: anytype) !bool {
-    if (globals.config_parsed.value.FILE_TIME == 0) return true;
+    return filesCheck(true, args[2].*.mtime.nanoseconds, args);
+}
 
-    if (args[2].*.mtime.nanoseconds > globals.config_parsed.value.FILE_TIME) {
-        try print.found(i18n.FILES_TIME_FOUND, .{args[0]});
-        args[1].* += 1;
-    }
+/// Enables file search with older modified time
+pub fn filesOlderATime(args: anytype) !bool {
+    return filesCheck(false, args[2].*.atime.?.nanoseconds, args);
+}
 
-    return false;
+/// Enables file search with older change time
+pub fn filesOlderCTime(args: anytype) !bool {
+    return filesCheck(false, args[2].*.ctime.nanoseconds, args);
 }
 
 /// Enables file search with older modified time
 pub fn filesOlderMTime(args: anytype) !bool {
-    if (globals.config_parsed.value.FILE_TIME == 0) return true;
-
-    if (args[2].*.mtime.nanoseconds < globals.config_parsed.value.FILE_TIME) {
-        try print.found(i18n.FILES_TIME_FOUND, .{args[0]});
-        args[1].* += 1;
-    }
-
-    return false;
+    return filesCheck(false, args[2].*.mtime.nanoseconds, args);
 }
 
 /// Checks if full path length exceeds maximum allowed size
 pub fn fullPathSize(args: anytype) !bool {
     if (args[0].len <= globals.config_parsed.value.MAX_FULL_PATH_SIZE) return false;
 
-    try print.warning(i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
-    args[1].* += 1;
-    return true;
+    return print.messageSumReturn(true, args[1], print.warning, i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
 }
 
 /// Identifies files that exceed the configured large file size threshold
 pub fn largeFiles(args: anytype) !bool {
     if (args[2].size <= globals.config_parsed.value.LARGE_FILE_SIZE) return false;
 
-    try print.warning(i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
-    args[1].* += 1;
-    return true;
+    return print.messageSumReturn(true, args[1], print.warning, i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
 }
 
 /// Identifies files that haven't been accessed within the configured time threshold
@@ -299,8 +295,7 @@ pub fn linkShortcuts(total_items: *u64) !void {
 /// Detects directories exceeding configured maximum
 pub fn manyItemsDirectory(args: anytype) !bool {
     if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORY) {
-        try print.warning(i18n.MANY_ITEMS_DIRECTORIES_WARNING,.{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
-        args[1].* += 1;
+        return print.messageSumReturn(false, args[1], print.warning, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
     }
     return false;
 }
@@ -308,8 +303,7 @@ pub fn manyItemsDirectory(args: anytype) !bool {
 /// Detects directories with one item only
 pub fn oneItemDirectory(args: anytype) !bool {
     if (try countItems(args[0]) == 1) {
-        try print.warning(i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
-        args[1].* += 1;
+        return print.messageSumReturn(false, args[1], print.warning, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
     }
     return false;
 }
@@ -322,41 +316,28 @@ pub fn unportableCharacters(args: anytype) !bool {
 
     // Windows filename restrictions
     if (WINDOWS_RESTRICTIONS.has(filename)) {
-        try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-        args[1].* += 1;
-        return false;
+        return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
     }
 
     // Windows silently strips trailing dots and spaces
     if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ') {
-        try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-        args[1].* += 1;
-        return false;
+        return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
     }
 
     // < > : " | ? * and chars below ASCII 32
     for (0..args[0].len) |i| {
         if (args[0][i] < 32) {
-            try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-            args[1].* += 1;
-            return false;
+            return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
         }
 
-        if (args[0][i] == '<' or args[0][i] == '>' or args[0][i] == '"' or args[0][i] == '|' or args[0][i] == '?'
-            or args[0][i] == '*') {
-
-            try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-            args[1].* += 1;
-            return false;
+        if (args[0][i] == '<' or args[0][i] == '>' or args[0][i] == '"' or args[0][i] == '|' or args[0][i] == '?' or args[0][i] == '*') {
+            return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
         }
 
         // Special handling for colon (allowed only in Windows drive letters)
         if (args[0][i] == ':') {
             if (i < (args[0].len - 1) and (args[0][i + 1] == '\\' or args[0][i + 1] == '/')) continue;
-
-            try print.warning(i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-            args[1].* += 1;
-            return false;
+            return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
         }
     }
     return false;

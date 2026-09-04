@@ -9,7 +9,6 @@ const config      = @import("config");
 /// Defines the hash map type
 pub const FileStatMap: type = std.StringHashMap(std.Io.File.Stat);
 
-
 /// The full path string of the processed input directory
 pub var absolute_input_path: []const u8 = undefined;
 

@@ -3,7 +3,7 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 /// Spacing constant for alignment - matches the largest header string size in output
-pub const ALIGNED_OK_SPACES: u32 = 49;
+pub const ALIGNED_SPACES: u32 = 49;
 
 pub const HEADER = "DataChecker v2.8 by Marcos Mazoti - https://mazoti.github.io/datachecker";
 
@@ -33,6 +33,13 @@ pub const COMPTIME_CONFIDENTIAL_FILES =
     \\    --conf, -cf, -CF, conf, /CF, CONF
     \\        Search for confidential data in files
     \\        (create config.json to customize search patterns)
+    \\
+    \\
+;
+
+pub const COMPTIME_DEBUG_INFO =
+    \\    --debuginfo, -di, -DI, debuginfo, /DI, DEBUGINFO
+    \\        Search for binary files with debug information
     \\
     \\
 ;
@@ -108,9 +115,41 @@ pub const COMPTIME_EMPTY_DIRECTORIES =
     \\
 ;
 
+pub const COMPTIME_FILES_NEWER_ATIME =
+    \\    --fna, -fna, -FNA, fna, /FNA, FNA
+    \\        Search for files with newer access time
+    \\        (create config.json to customize time)
+    \\
+    \\
+;
+
+pub const COMPTIME_FILES_NEWER_CTIME =
+    \\    --fnc, -fnc, -FNC, fnc, /FNC, FNC
+    \\        Search for files with newer change time
+    \\        (create config.json to customize time)
+    \\
+    \\
+;
+
 pub const COMPTIME_FILES_NEWER_MTIME =
     \\    --fnm, -fnm, -FNM, fnm, /FNM, FNM
     \\        Search for files with newer modified time
+    \\        (create config.json to customize time)
+    \\
+    \\
+;
+
+pub const COMPTIME_FILES_OLDER_ATIME =
+    \\    --foa, -foa, -FOA, foa, /FOA, FOA
+    \\        Search for files with older access time
+    \\        (create config.json to customize time)
+    \\
+    \\
+;
+
+pub const COMPTIME_FILES_OLDER_CTIME =
+    \\    --foc, -foc, -FOC, foc, /FOC, FOC
+    \\        Search for files with older change time
     \\        (create config.json to customize time)
     \\
     \\
@@ -262,6 +301,9 @@ pub const COMPRESSED_FILES_WARNING        = "\"{s}\" compression could be improv
 pub const CONFIDENTIAL_FILES_HEADER       = "\n\tLooking for confidential files...\n";
 pub const CONFIDENTIAL_FILES_WARNING      = "\"{s}\" has confidential data";
 
+pub const DEBUG_INFO_HEADER               = "\n\tLooking for debug info in binary files...\n";
+pub const DEBUG_INFO_WARNING              = "\"{s}\" has debug/symbol information";
+
 pub const DIR_FILE_NAME_SIZE_HEADER       = "\n\tLooking for large names...\n";
 pub const DIR_FILE_NAME_SIZE_TOTAL        = "{d} file or directory\n";
 pub const DIR_FILE_NAME_SIZE_TOTALS       = "{d} files or directories\n";
@@ -280,8 +322,14 @@ pub const DUPLICATE_FILES_HEADER          = "\n\tLooking for duplicate files...\
 
 pub const DUPLICATE_REMOVE_FILES          = "Removing";
 
+pub const FILES_NEWER_ATIME_HEADER        = "\n\tLooking for files with newer access time...\n";
+pub const FILES_NEWER_CTIME_HEADER        = "\n\tLooking for files with newer change time...\n";
 pub const FILES_NEWER_MTIME_HEADER        = "\n\tLooking for files with newer modified time...\n";
+
+pub const FILES_OLDER_ATIME_HEADER        = "\n\tLooking for files with older access time...\n";
+pub const FILES_OLDER_CTIME_HEADER        = "\n\tLooking for files with older change time...\n";
 pub const FILES_OLDER_MTIME_HEADER        = "\n\tLooking for files with older modified time...\n";
+
 pub const FILES_TIME_FOUND                = "\"{s}\"";
 
 pub const FILES_TOTAL                     = "{d} file\n";
@@ -352,6 +400,7 @@ pub const WRONG_DATES_WARNING             = "File \"{s}\" has a date in the futu
 
 /// System messages
 pub const CHECK_MESSAGE                   = "\n\t\t CHECK  ";
+pub const DISABLED_MESSAGE                = "DISABLED";
 pub const ERROR_MESSAGE                   = "\n\t\t ERROR  ";
 pub const FOUND_MESSAGE                   = "\n\t\t FOUND  ";
 pub const OK_MESSAGE                      = "OK";

@@ -4,6 +4,7 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const ahocorasick     = @import("ahocorasick");
+const builtin         = @import("builtin");
 const config          = @import("config");
 const core            = @import("core.zig");
 const globals         = @import("globals");
@@ -336,6 +337,92 @@ fn checkTempFiles(args: anytype, remove_file: bool) !void {
         args[1].* += args[2].size;
         return warnRemoveFile(args[0], remove_file);
     }
+}
+
+/// Scans a directory tree for legacy file formats
+pub fn debugInfo(args: anytype) !bool {
+    var input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, args[0],
+        .{.mode = .read_only, .lock = .shared}) catch |err| {
+            core.debugPrintError(err);
+            globals.exit_code = 1;
+            return false;
+        };
+    defer input_file.close(globals.io);
+
+    var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer[0..4]);
+
+    const chunk_tmp: ?[]const u8 = core.readExactChunk(&file_reader, 4, args[0], args[1]) catch |err| {
+        core.debugPrintError(err);
+        globals.exit_code = 1;
+        return false;
+    };
+
+    const chunk = chunk_tmp orelse return false;
+
+    // ELF executable
+    if (std.mem.eql(u8, chunk[0..4], "\x7F\x45\x4C\x46")) {
+        var elf_file = try std.debug.ElfFile.load(globals.alloc.*, globals.io, input_file, &.{}, &std.debug.ElfFile.DebugInfoSearchPaths.none);
+        defer elf_file.deinit(globals.alloc.*);
+
+        if (elf_file.dwarf != null or elf_file.symtab != null) {
+            args[1].* += 1;
+            try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
+        }
+        return false;
+    }
+
+    // PE executable
+    if (std.mem.eql(u8, chunk[0..2], "MZ")) {
+        // Small .exe files makes the system panic
+        if (args[2].size < 4096) return false;
+
+        try file_reader.seekTo(0);
+
+        const data = try file_reader.interface.allocRemaining(globals.alloc.*, std.Io.Limit.limited64(globals.memory_limit));
+        defer globals.alloc.*.free(data);
+
+        var coff = try std.coff.Coff.init(data, false);
+
+        const pdb_path = coff.getPdbPath() catch blk: { break :blk null; };
+
+        var has_embedded_dwarf = false;
+        inline for (.{ ".debug_info", ".debug_line", ".debug_abbrev", ".debug_str" }) |name| {
+            if (coff.getSectionByName(name) != null) {
+                has_embedded_dwarf = true;
+                break;
+           }
+        }
+
+        const symtab = coff.getSymtab();
+        const has_symtab = symtab != null and symtab.?.len() > 0;
+
+        if (pdb_path != null or has_embedded_dwarf or has_symtab) {
+            args[1].* += 1;
+            try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
+        }
+        return false;
+    }
+
+    // Mach-O executable
+    if (std.mem.eql(u8, chunk[0..4], "\xFE\xED\xFA\xCE") or std.mem.eql(u8, chunk[0..4], "\xCE\xFA\xED\xFE") or
+        std.mem.eql(u8, chunk[0..4], "\xFE\xED\xFA\xCF") or std.mem.eql(u8, chunk[0..4], "\xCF\xFA\xED\xFE") or
+        std.mem.eql(u8, chunk[0..4], "\xCA\xFE\xBA\xBE") or std.mem.eql(u8, chunk[0..4], "\xBE\xBA\xFE\xCA") or
+        std.mem.eql(u8, chunk[0..4], "\xCA\xFE\xBA\xBF") or std.mem.eql(u8, chunk[0..4], "\xBF\xBA\xFE\xCA")) {
+
+            for ([_]std.Target.Cpu.Arch{ .x86_64, .aarch64 }) |arch| {
+                var macho_file = std.debug.MachOFile.load(globals.alloc.*, globals.io, args[0], arch) catch continue;
+                defer macho_file.deinit(globals.alloc.*);
+
+                for (macho_file.symbols) |sym| {
+                    _ = macho_file.getDwarfForAddress(globals.alloc.*, globals.io, sym.addr) catch continue;
+
+                    args[1].* += 1;
+                    try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
+                    return false;
+                }
+            }
+    }
+    return false;
 }
 
 /// Scans a directory tree for legacy file formats

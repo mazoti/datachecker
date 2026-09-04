@@ -5,21 +5,21 @@
 const std = @import("std");
 
 fn createExecutableForTarget(b: *std.Build, resolved_target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    const ahocorasick_mod = b.createModule(.{ .root_source_file = b.path("src/ahocorasick.zig") , .target = resolved_target });
-    const i18n_mod        = b.createModule(.{ .root_source_file = b.path("src/i18n.zig")        , .target = resolved_target });
-    const config_mod      = b.createModule(.{ .root_source_file = b.path("src/config.zig")      , .target = resolved_target, .imports = &.{.{ .name = "i18n",   .module = i18n_mod   }}});
-    const globals_mod     = b.createModule(.{ .root_source_file = b.path("src/globals.zig")     , .target = resolved_target, .imports = &.{.{ .name = "config", .module = config_mod }, .{ .name = "ahocorasick" , .module = ahocorasick_mod }}});
+    const ahocorasick_mod: *std.Build.Module = b.createModule(.{ .root_source_file = b.path("src/ahocorasick.zig") , .target = resolved_target });
+    const i18n_mod:        *std.Build.Module = b.createModule(.{ .root_source_file = b.path("src/i18n.zig")        , .target = resolved_target });
+    const config_mod:      *std.Build.Module = b.createModule(.{ .root_source_file = b.path("src/config.zig")      , .target = resolved_target, .imports = &.{.{ .name = "i18n",   .module = i18n_mod   }}});
+    const globals_mod:     *std.Build.Module = b.createModule(.{ .root_source_file = b.path("src/globals.zig")     , .target = resolved_target, .imports = &.{.{ .name = "config", .module = config_mod }, .{ .name = "ahocorasick" , .module = ahocorasick_mod }}});
 
     // Required to set an icon on Windows
-    const icon_mod = b.createModule(.{ .root_source_file = b.path("src/empty.zig"), .target = resolved_target });
+    const icon_mod: *std.Build.Module  = b.createModule(.{ .root_source_file = b.path("src/empty.zig"), .target = resolved_target });
 
-    const print_mod = b.createModule(.{ .root_source_file = b.path("src/print.zig"), .target = resolved_target, .imports = &.{
+    const print_mod: *std.Build.Module = b.createModule(.{ .root_source_file = b.path("src/print.zig"), .target = resolved_target, .imports = &.{
         .{ .name = "config"  , .module = config_mod  },
         .{ .name = "globals" , .module = globals_mod },
         .{ .name = "i18n"    , .module = i18n_mod    },
     } });
 
-    const core_mod = b.createModule(.{ .root_source_file = b.path("src/modules/core.zig"), .target = resolved_target, .imports = &.{
+    const core_mod: *std.Build.Module  = b.createModule(.{ .root_source_file = b.path("src/modules/core.zig"), .target = resolved_target, .imports = &.{
         .{ .name = "ahocorasick" , .module = ahocorasick_mod },
         .{ .name = "config"      , .module = config_mod      },
         .{ .name = "globals"     , .module = globals_mod     },
@@ -27,7 +27,7 @@ fn createExecutableForTarget(b: *std.Build, resolved_target: std.Build.ResolvedT
         .{ .name = "print"       , .module = print_mod       },
     } });
 
-    const exe = b.addExecutable(.{ .name = "datachecker", .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .target = resolved_target, .optimize = optimize, .imports = &.{
+    const exe: *std.Build.Step.Compile = b.addExecutable(.{ .name = "datachecker", .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .target = resolved_target, .optimize = optimize, .imports = &.{
         .{ .name = "ahocorasick" , .module = ahocorasick_mod },
         .{ .name = "icon"        , .module = icon_mod        },
         .{ .name = "config"      , .module = config_mod      },
@@ -45,33 +45,33 @@ fn createExecutableForTarget(b: *std.Build, resolved_target: std.Build.ResolvedT
 }
 
 pub fn build(b: *std.Build) void {
-    const target   = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    const target: std.Build.ResolvedTarget = b.standardTargetOptions(.{});
+    const optimize: std.builtin.Optimize   = b.standardOptimizeOption(.{});
 
-    const exe = createExecutableForTarget(b, target, optimize);
+    const exe: *std.Build.Step.Compile     = createExecutableForTarget(b, target, optimize);
     b.installArtifact(exe);
 
-    const run_step = b.step("run", "Run the app");
-    const run_cmd  = b.addRunArtifact(exe);
+    const run_step: *std.Build.Step        = b.step("run", "Run the app");
+    const run_cmd: *std.Build.Step.Run     = b.addRunArtifact(exe);
 
     run_step.dependOn(&run_cmd.step);
     run_cmd.step.dependOn(b.getInstallStep());
 
     run_cmd.addPassthruArgs();
 
-    const test_step = b.step("test", "Run tests");
+    const test_step: *std.Build.Step = b.step("test", "Run tests");
 
     // Create test modules with default target
-    const ahocorasick_mod = b.addModule("ahocorasick" , .{ .root_source_file = b.path("src/ahocorasick.zig") , .target = target });
-    const config_mod      = b.addModule("config"      , .{ .root_source_file = b.path("src/config.zig")      , .target = target });
+    const ahocorasick_mod: *std.Build.Module = b.addModule("ahocorasick" , .{ .root_source_file = b.path("src/ahocorasick.zig") , .target = target });
+    const config_mod:      *std.Build.Module = b.addModule("config"      , .{ .root_source_file = b.path("src/config.zig")      , .target = target });
 
-    const ahocorasick_tests = b.addTest(.{ .root_module = ahocorasick_mod });
-    const config_tests      = b.addTest(.{ .root_module = config_mod      });
-    const exe_tests         = b.addTest(.{ .root_module = exe.root_module });
+    const ahocorasick_tests: *std.Build.Step.Compile = b.addTest(.{ .root_module = ahocorasick_mod });
+    const config_tests:      *std.Build.Step.Compile = b.addTest(.{ .root_module = config_mod      });
+    const exe_tests:         *std.Build.Step.Compile = b.addTest(.{ .root_module = exe.root_module });
 
-    const run_ahocorasick_tests = b.addRunArtifact(ahocorasick_tests);
-    const run_config_tests      = b.addRunArtifact(config_tests);
-    const run_exe_tests         = b.addRunArtifact(exe_tests);
+    const run_ahocorasick_tests: *std.Build.Step.Run = b.addRunArtifact(ahocorasick_tests);
+    const run_config_tests:      *std.Build.Step.Run = b.addRunArtifact(config_tests);
+    const run_exe_tests:         *std.Build.Step.Run = b.addRunArtifact(exe_tests);
 
     test_step.dependOn(&run_ahocorasick_tests.step);
     test_step.dependOn(&run_config_tests.step);
@@ -80,12 +80,12 @@ pub fn build(b: *std.Build) void {
     // -------------------------------------------------------------------------
     // all: every target Zig can cross-compile to
     // -------------------------------------------------------------------------
-    const build_all_step = b.step("all", "Build for every target Zig supports");
+    const build_all_step: *std.Build.Step = b.step("all", "Build for every target Zig supports");
 
     // All targets are expressed as { query, output_folder_name } pairs so the
     // deploy helper's allocPrint format strings are bypassed and each triple
     // gets a stable, unique directory under zig-out/.
-    const all_targets = [_]std.Target.Query{
+    const all_targets: [129]std.Target.Query = [_]std.Target.Query{
         // ── FreeBSD ──────────────────────────────────────────────────────────
         .{ .cpu_arch = .x86_64      , .os_tag = .freebsd                         },
         .{ .cpu_arch = .x86         , .os_tag = .freebsd                         },
@@ -240,14 +240,11 @@ pub fn build(b: *std.Build) void {
 /// Deploy using zigTriple as the output folder name, works for any query.
 fn deployAllTargets(targets: []const std.Target.Query, b: *std.Build, step: *std.Build.Step) void {
     for (targets) |query| {
-        const resolved_target = b.resolveTargetQuery(query);
-        const binary_build    = createExecutableForTarget(b, resolved_target, .ReleaseSmall);
+        const resolved_target: std.Build.ResolvedTarget = b.resolveTargetQuery(query);
+        const binary_build:    *std.Build.Step.Compile  = createExecutableForTarget(b, resolved_target, .ReleaseSmall);
 
-        const triple = query.zigTriple(b.allocator) catch @panic("OOM");
-
-        const target_output = b.addInstallArtifact(binary_build, .{
-            .dest_dir = .{ .override = .{ .custom = triple } },
-        });
+        const triple: []u8 = query.zigTriple(b.allocator) catch @panic("OOM");
+        const target_output: *std.Build.Step.InstallArtifact = b.addInstallArtifact(binary_build, .{.dest_dir = .{.override = .{.custom = triple }}});
 
         step.dependOn(&target_output.step);
     }

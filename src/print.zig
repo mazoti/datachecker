@@ -2,30 +2,42 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std     = @import("std");
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");
+const std     = @import("std");
+
+// Prints spaces and a colored (or not) status
+fn alignedCore(message: []const u8, comptime status_message: []const u8, comptime color_code: []const u8) !void {
+    const fmt_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[1A\x1b[2K{s}", .{message[1 .. message.len - 1]});
+    try stdout(fmt_str);
+
+    if (i18n.ALIGNED_SPACES > message.len) {
+        for (0..(i18n.ALIGNED_SPACES - message.len)) |_| { _ = try stdout(" "); }
+
+        if (config.COMPTIME_EMOJI_COLOR) {
+            const status_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[{s}m{s}\x1b[0m", .{color_code, status_message});
+            return stdout(status_str);
+        }
+    }
+
+    return stdout(status_message);
+}
+
+/// Prints message with aligned "DISABLED" status (moves cursor up and clears line)
+pub fn alignedDisabled(comptime message: []const u8) !void {
+    if (!config.COMPTIME_STDOUT_STDERR) return;
+
+    try stdout(message);
+
+    return alignedCore(message, i18n.DISABLED_MESSAGE, "31");
+}
 
 /// Prints message with aligned "OK" status (moves cursor up and clears line)
 pub fn alignedOk(message: []const u8) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
-    const fmt_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[1A\x1b[2K{s}", .{message[1 .. message.len - 1]});
-    try stdout(fmt_str);
-
-    if (i18n.ALIGNED_OK_SPACES > message.len) {
-        for (0..(i18n.ALIGNED_OK_SPACES - message.len)) |_| {
-            _ = try stdout(" ");
-        }
-
-        if (config.COMPTIME_EMOJI_COLOR) {
-            const ok_str: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "\x1b[32m{s}\x1b[0m", .{i18n.OK_MESSAGE});
-            return stdout(ok_str);
-        }
-    }
-
-    return stdout(i18n.OK_MESSAGE);
+    return alignedCore(message, i18n.OK_MESSAGE, "32");
 }
 
 /// Prints message with a green "CHECK" on the left
@@ -139,6 +151,13 @@ pub fn found(comptime fmt: []const u8, args: anytype) !void {
     return core(fmt, "\x1b[34m", i18n.FOUND_MESSAGE, args);
 }
 
+/// Prints message, increase items count and returns parameter value
+pub fn messageSumReturn(return_value: bool, total_items: *u64, comptime process_fn: anytype, comptime fmt: []const u8, args: anytype) !bool {
+    try process_fn(fmt , args);
+    total_items.* += 1;
+    return return_value;
+}
+
 /// Prints message with a green "OK" on the left
 pub fn ok(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
@@ -165,8 +184,8 @@ pub fn results(total_items: u64, comptime header_message: []const u8, comptime m
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
     return switch (total_items) {
-        0 => alignedOk(header_message),
-        1 => total(message_total, .{total_items}),
+        0    => alignedOk(header_message),
+        1    => total(message_total,  .{total_items}),
         else => total(message_totals, .{total_items}),
     };
 }
@@ -183,7 +202,7 @@ pub fn stdout(str: []const u8) !void {
 pub fn stderr(str: []const u8) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
-    try globals.file_writer_stderr.interface.writeAll(str);
+    try    globals.file_writer_stderr.interface.writeAll(str);
     return globals.file_writer_stderr.interface.flush();
 }
 

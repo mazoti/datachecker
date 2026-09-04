@@ -87,6 +87,11 @@ pub fn confidentialFiles() !void {
     try decorateWalker(config.COMPTIME_CONFIDENTIAL_FILES, true, confidential.checkConfidential, i18n.CONFIDENTIAL_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
+/// Enables debug information check
+pub fn debugInfo() !void {
+    try decorate(config.COMPTIME_DEBUG_INFO, true, false, Filter.Files, useless.debugInfo, i18n.DEBUG_INFO_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
 /// Enables directory and filename size check
 pub fn dirFileNameSize() !void {
     try decorate(config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, true, true, Filter.Both, stats.dirFileNameSize, i18n.DIR_FILE_NAME_SIZE_HEADER, i18n.DIR_FILE_NAME_SIZE_TOTAL, i18n.DIR_FILE_NAME_SIZE_TOTALS);
@@ -117,9 +122,29 @@ pub fn emptyDirectories() !void {
     try decorate(config.COMPTIME_EMPTY_DIRECTORIES, true, true, Filter.Directories, stats.emptyDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
 }
 
+/// Enables file search with newer access time
+pub fn filesNewerATime() !void {
+    try decorate(config.COMPTIME_FILES_NEWER_ATIME, true, true, Filter.Files, stats.filesNewerATime, i18n.FILES_NEWER_ATIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
+/// Enables file search with newer change time
+pub fn filesNewerCTime() !void {
+    try decorate(config.COMPTIME_FILES_NEWER_CTIME, true, true, Filter.Files, stats.filesNewerCTime, i18n.FILES_NEWER_CTIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
 /// Enables file search with newer modified time
 pub fn filesNewerMTime() !void {
     try decorate(config.COMPTIME_FILES_NEWER_MTIME, true, true, Filter.Files, stats.filesNewerMTime, i18n.FILES_NEWER_MTIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
+/// Enables file search with older access time
+pub fn filesOlderATime() !void {
+    try decorate(config.COMPTIME_FILES_OLDER_ATIME, true, true, Filter.Files, stats.filesOlderATime, i18n.FILES_OLDER_ATIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
+/// Enables file search with older modified time
+pub fn filesOlderCTime() !void {
+    try decorate(config.COMPTIME_FILES_OLDER_CTIME, true, true, Filter.Files, stats.filesOlderCTime, i18n.FILES_OLDER_CTIME_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Enables file search with older modified time
@@ -310,17 +335,32 @@ pub fn temporaryRemoveFiles() !void {
 pub fn run() !void {
     try decorate      (config.COMPTIME_COMPRESSED_FILES,         globals.config_parsed.value.COMPRESSED_FILES,         false,                          Filter.Files,                    compressed.check,               i18n.COMPRESSED_FILES_HEADER,       i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorateWalker(config.COMPTIME_CONFIDENTIAL_FILES,       globals.config_parsed.value.CONFIDENTIAL_FILES,       confidential.checkConfidential, i18n.CONFIDENTIAL_FILES_HEADER,  i18n.FILES_TOTAL,               i18n.FILES_TOTALS                                                                                      );
+    try decorate      (config.COMPTIME_DEBUG_INFO,               globals.config_parsed.value.DEBUG_INFO,               false,                           Filter.Files,                    useless.debugInfo,              i18n.DEBUG_INFO_HEADER,             i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, globals.config_parsed.value.DIRECTORY_FILE_NAME_SIZE, true,                           Filter.Both,                     stats.dirFileNameSize,          i18n.DIR_FILE_NAME_SIZE_HEADER,     i18n.DIR_FILE_NAME_SIZE_TOTAL,    i18n.DIR_FILE_NAME_SIZE_TOTALS   );
     try decorate      (config.COMPTIME_DUPLICATE_CHARS_FILES,    globals.config_parsed.value.DUPLICATE_CHARS_FILES,    false,                          Filter.Files,                    stats.duplicateCharacters,      i18n.DUPLICATE_CHARS_FILES_HEADER,  i18n.DUPLICATE_CHARS_FILES_TOTAL, i18n.DUPLICATE_CHARS_FILES_TOTALS);
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL, globals.config_parsed.value.DUPLICATE_FILES_PARALLEL, duplicates.check_parallel,      i18n.DUPLICATE_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
-    try decorateWalker(config.COMPTIME_DUPLICATE_FILES,          globals.config_parsed.value.DUPLICATE_FILES,          duplicates.check,               i18n.DUPLICATE_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
+
+    if(globals.config_parsed.value.DUPLICATE_FILES_PARALLEL == true) {
+        try decorateWalker(config.COMPTIME_DUPLICATE_FILES_PARALLEL, globals.config_parsed.value.DUPLICATE_FILES_PARALLEL, duplicates.check_parallel,      i18n.DUPLICATE_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                  );
+    } else {
+        try decorateWalker(config.COMPTIME_DUPLICATE_FILES,          globals.config_parsed.value.DUPLICATE_FILES,          duplicates.check,               i18n.DUPLICATE_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                  );
+    }
+
     try decorate      (config.COMPTIME_EMPTY_FILES,              globals.config_parsed.value.EMPTY_FILES,              false,                          Filter.Files,                    stats.emptyFiles,               i18n.EMPTY_FILES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_EMPTY_DIRECTORIES,        globals.config_parsed.value.EMPTY_DIRECTORIES,        true,                           Filter.Directories,              stats.emptyDirectories,         i18n.EMPTY_DIRECTORIES_HEADER,      i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
+    try decorate      (config.COMPTIME_FILES_NEWER_ATIME,        globals.config_parsed.value.FILES_NEWER_ATIME,        true,                           Filter.Files,                    stats.filesNewerATime,          i18n.FILES_NEWER_ATIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_FILES_NEWER_CTIME,        globals.config_parsed.value.FILES_NEWER_CTIME,        true,                           Filter.Files,                    stats.filesNewerCTime,          i18n.FILES_NEWER_CTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_FILES_NEWER_MTIME,        globals.config_parsed.value.FILES_NEWER_MTIME,        true,                           Filter.Files,                    stats.filesNewerMTime,          i18n.FILES_NEWER_MTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_FILES_OLDER_ATIME,        globals.config_parsed.value.FILES_OLDER_ATIME,        true,                           Filter.Files,                    stats.filesOlderATime,          i18n.FILES_OLDER_ATIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
+    try decorate      (config.COMPTIME_FILES_OLDER_CTIME,        globals.config_parsed.value.FILES_OLDER_CTIME,        true,                           Filter.Files,                    stats.filesOlderCTime,          i18n.FILES_OLDER_CTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_FILES_OLDER_MTIME,        globals.config_parsed.value.FILES_OLDER_MTIME,        true,                           Filter.Files,                    stats.filesOlderMTime,          i18n.FILES_OLDER_MTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_FULL_PATH_SIZE,           globals.config_parsed.value.FULL_PATH_SIZE,           true,                           Filter.Both,                     stats.fullPathSize,             i18n.FULL_PATH_SIZE_HEADER,         i18n.FULL_PATH_SIZE_TOTAL,        i18n.FULL_PATH_SIZE_TOTALS       );
-    try decorateWalker(config.COMPTIME_INTEGRITY_FILES_PARALLEL, globals.config_parsed.value.INTEGRITY_FILES_PARALLEL, integrity.checkParallel,        i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
-    try decorateWalker(config.COMPTIME_INTEGRITY_FILES,          globals.config_parsed.value.INTEGRITY_FILES,          integrity.checkSingle,          i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
+
+    if(globals.config_parsed.value.INTEGRITY_FILES_PARALLEL == true) {
+        try decorateWalker(config.COMPTIME_INTEGRITY_FILES_PARALLEL, globals.config_parsed.value.INTEGRITY_FILES_PARALLEL, integrity.checkParallel,        i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
+    } else {
+        try decorateWalker(config.COMPTIME_INTEGRITY_FILES,          globals.config_parsed.value.INTEGRITY_FILES,          integrity.checkSingle,          i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
+    }
+
     try decorate      (config.COMPTIME_PARSE_JSON_FILES,         globals.config_parsed.value.PARSE_JSON_FILES,         false,                          Filter.Files,                    parser.checkJSON,               i18n.PARSE_JSON_FILES_HEADER,       i18n.PARSE_JSON_FILES_TOTAL,      i18n.PARSE_JSON_FILES_TOTALS     );
     try decorate      (config.COMPTIME_LARGE_FILES,              globals.config_parsed.value.LARGE_FILES,              false,                          Filter.Files,                    stats.largeFiles,               i18n.LARGE_FILES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_LAST_ACCESS_FILES,        globals.config_parsed.value.LAST_ACCESS_FILES,        false,                          Filter.Files,                    stats.lastAccess,               i18n.LAST_ACCESS_HEADER,            i18n.BYTES_TOTAL,                 i18n.BYTES_TOTALS                );
@@ -356,7 +396,7 @@ fn decorate(
     comptime totals:        []const u8,
 ) !void {
     if (!comptime comptime_flag) return;
-    if (!runtime_flag)           return;
+    if (!runtime_flag)           return print.alignedDisabled(header);
 
     try print.stdout(header);
 
@@ -433,7 +473,7 @@ fn decorateWalker(
     comptime totals:        []const u8,
 ) !void {
     if (!comptime comptime_flag) return;
-    if (!runtime_flag)           return;
+    if (!runtime_flag)           return print.alignedDisabled(header);
 
     var total_items: u64 = 0;
     _ = try print.stdout(header);

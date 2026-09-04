@@ -9,20 +9,25 @@ const i18n = @import("i18n");
 pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 16384;
 
 pub const COMPTIME_EMOJI_COLOR:                       bool = true;
+pub const COMPTIME_IGNORE_PATH_PATTERNS:              bool = true;
 pub const COMPTIME_STDOUT_STDERR:                     bool = true;
 
 pub const COMPTIME_COMPRESSED_FILES:                  bool = true;
 pub const COMPTIME_CONFIDENTIAL_FILES:                bool = true;
+pub const COMPTIME_DEBUG_INFO:                        bool = true;
 pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE:          bool = true;
 pub const COMPTIME_DUPLICATE_CHARS_FILES:             bool = true;
 pub const COMPTIME_DUPLICATE_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_DUPLICATE_FILES:                   bool = true;
 pub const COMPTIME_EMPTY_FILES:                       bool = true;
 pub const COMPTIME_EMPTY_DIRECTORIES:                 bool = true;
+pub const COMPTIME_FILES_NEWER_ATIME:                 bool = true;
+pub const COMPTIME_FILES_NEWER_CTIME:                 bool = true;
 pub const COMPTIME_FILES_NEWER_MTIME:                 bool = true;
+pub const COMPTIME_FILES_OLDER_ATIME:                 bool = true;
+pub const COMPTIME_FILES_OLDER_CTIME:                 bool = true;
 pub const COMPTIME_FILES_OLDER_MTIME:                 bool = true;
 pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
-pub const COMPTIME_IGNORE_PATH_PATTERNS:              bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_INTEGRITY_FILES:                   bool = true;
 pub const COMPTIME_PARSE_JSON_FILES:                  bool = true;
@@ -49,6 +54,7 @@ pub const COMPTIME_TEMPORARY_FILES_REMOVE:            bool = true;
 pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_COMPRESSED_FILES)                i18n.COMPTIME_COMPRESSED_FILES                else "")
     ++ (if (COMPTIME_CONFIDENTIAL_FILES)              i18n.COMPTIME_CONFIDENTIAL_FILES              else "")
+    ++ (if (COMPTIME_DEBUG_INFO)                      i18n.COMPTIME_DEBUG_INFO                      else "")
     ++ (if (COMPTIME_DIRECTORY_FILE_NAME_SIZE)        i18n.COMPTIME_DIRECTORY_FILE_NAME_SIZE        else "")
     ++ (if (COMPTIME_DUPLICATE_CHARS_FILES)           i18n.COMPTIME_DUPLICATE_CHARS_FILES           else "")
     ++ (if (COMPTIME_DUPLICATE_FILES_PARALLEL)        i18n.COMPTIME_DUPLICATE_FILES_PARALLEL        else "")
@@ -59,7 +65,11 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_EMPTY_FILES)                     i18n.COMPTIME_EMPTY_FILES                     else "")
     ++ (if (COMPTIME_EMPTY_DIRECTORIES_REMOVE)        i18n.COMPTIME_EMPTY_DIRECTORIES_REMOVE        else "")
     ++ (if (COMPTIME_EMPTY_DIRECTORIES)               i18n.COMPTIME_EMPTY_DIRECTORIES               else "")
+    ++ (if (COMPTIME_FILES_NEWER_ATIME)               i18n.COMPTIME_FILES_NEWER_ATIME               else "")
+    ++ (if (COMPTIME_FILES_NEWER_CTIME)               i18n.COMPTIME_FILES_NEWER_CTIME               else "")
     ++ (if (COMPTIME_FILES_NEWER_MTIME)               i18n.COMPTIME_FILES_NEWER_MTIME               else "")
+    ++ (if (COMPTIME_FILES_OLDER_ATIME)               i18n.COMPTIME_FILES_OLDER_ATIME               else "")
+    ++ (if (COMPTIME_FILES_OLDER_CTIME)               i18n.COMPTIME_FILES_OLDER_CTIME               else "")
     ++ (if (COMPTIME_FILES_OLDER_MTIME)               i18n.COMPTIME_FILES_OLDER_MTIME               else "")
     ++ (if (COMPTIME_FULL_PATH_SIZE)                  i18n.COMPTIME_FULL_PATH_SIZE                  else "")
     ++ (if (COMPTIME_INTEGRITY_FILES_PARALLEL)        i18n.COMPTIME_INTEGRITY_FILES_PARALLEL        else "")
@@ -93,6 +103,7 @@ pub const Config = struct {
     CONFIDENTIAL_FILES:         bool         = true,
         PATTERNS:               [][]const u8 = &[_][]const u8{},
         PATTERN_BASE64_BYTES:   [][]const u8 = &[_][]const u8{},
+    DEBUG_INFO:                 bool         = true,
     DIRECTORY_FILE_NAME_SIZE:   bool         = true,
         MAX_DIR_FILE_NAME_SIZE: u32          = 200,
     DUPLICATE_CHARS_FILES:      bool         = true,
@@ -100,7 +111,11 @@ pub const Config = struct {
     DUPLICATE_FILES:            bool         = false,
     EMPTY_FILES:                bool         = true,
     EMPTY_DIRECTORIES:          bool         = true,
+    FILES_NEWER_ATIME:          bool         = true,
+    FILES_NEWER_CTIME:          bool         = true,
     FILES_NEWER_MTIME:          bool         = true,
+    FILES_OLDER_ATIME:          bool         = true,
+    FILES_OLDER_CTIME:          bool         = true,
     FILES_OLDER_MTIME:          bool         = true,
         FILE_TIME:              u64          = 0,
     FULL_PATH_SIZE:             bool         = true, // Checks for deeply nested paths
@@ -211,7 +226,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\            "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t",
     \\            "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ=="
     \\                                       ],
-    \\
+    \\    "DEBUG_INFO":                      true,
     \\    "DIRECTORY_FILE_NAME_SIZE":        true,
     \\        "MAX_DIR_FILE_NAME_SIZE":      200,
     \\    "DUPLICATE_CHARS_FILES":           true,
@@ -219,7 +234,11 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "DUPLICATE_FILES":                 false,
     \\    "EMPTY_FILES":                     true,
     \\    "EMPTY_DIRECTORIES":               true,
+    \\    "FILES_NEWER_ATIME":               true,
+    \\    "FILES_NEWER_CTIME":               true,
     \\    "FILES_NEWER_MTIME":               true,
+    \\    "FILES_OLDER_ATIME":               true,
+    \\    "FILES_OLDER_CTIME":               true,
     \\    "FILES_OLDER_MTIME":               true,
     \\        "FILE_TIME":                   0,
     \\    "FULL_PATH_SIZE":                  true,

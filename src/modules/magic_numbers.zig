@@ -273,49 +273,43 @@ const checkZIP = makeCheckerOR(&.{
 fn findType(filepath: []const u8, buffer: []u8) ?[]const u8 {
     const input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, filepath,
         .{.mode = .read_only, .lock = .shared}) catch |err| {
-            core.debugPrintError(err);
-            return null;
+            return nullErr(err);
         };
     defer input_file.close(globals.io);
 
     var file_reader: std.Io.File.Reader = input_file.reader(globals.io, buffer[0..17]);
 
     var total_items: u64 = 0;
+
     const chunk_tmp: ?[]const u8 = core.readExactChunk(&file_reader, 16, filepath, &total_items) catch |err| {
-        core.debugPrintError(err);
-        return null;
+        return nullErr(err);
     };
 
-    if (chunk_tmp) |chunk| {
-        // Try matching against simple magic numbers of increasing sizes
-        for (2..chunk.len) |size| {
-            if (MAGIC_NUMBERS_KEY.get(buffer[0..size])) |filetype| { return filetype; }
-        }
+    const chunk = chunk_tmp orelse return null;
 
-        // Try matching against complex format validators
-        for (format_config_map.keys()) |key| {
-            file_reader.seekTo(0) catch |err| {
-                core.debugPrintError(err);
-                return null;
+    // Try matching against simple magic numbers of increasing sizes
+    for (2..chunk.len) |size| {
+        if (MAGIC_NUMBERS_KEY.get(buffer[0..size])) |filetype| { return filetype; }
+    }
+
+    // Try matching against complex format validators
+    for (format_config_map.keys()) |key| {
+        file_reader.seekTo(0) catch |err| {
+            return nullErr(err);
+        };
+
+        const value: FormatConfig = format_config_map.get(key).?;
+
+        if (value.offset > 0) file_reader.seekTo(value.offset) catch |err| {
+            return nullErr(err);
+        };
+
+        const chunk_tmp2: ?[]const u8 = core.readExactChunk(&file_reader, value.size, filepath, &total_items)
+            catch |err| {
+                return nullErr(err);
             };
 
-            const value: FormatConfig = format_config_map.get(key).?;
-
-            if (value.offset > 0) file_reader.seekTo(value.offset) catch |err| {
-                core.debugPrintError(err);
-                globals.exit_code = 1;
-                return null;
-            };
-
-            const chunk_tmp2: ?[]const u8 = core.readExactChunk(&file_reader, value.size, filepath, &total_items)
-                catch |err| {
-                    core.debugPrintError(err);
-                    globals.exit_code = 1;
-                    return null;
-                };
-
-            if (chunk_tmp2) |_| { if (value.validator(buffer)) return key; }
-        }
+        if (chunk_tmp2) |_| { if (value.validator(buffer)) return key; }
     }
 
     return null;
@@ -345,4 +339,10 @@ fn makeCheckerOR(comptime signatures: []const struct{ offset: usize, bytes: []co
             return false;
         }
     }.check;
+}
+
+fn nullErr(err: anytype) ?[]const u8 {
+    core.debugPrintError(err);
+    globals.exit_code = 1;
+    return null;
 }

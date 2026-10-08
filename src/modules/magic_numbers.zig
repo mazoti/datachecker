@@ -30,6 +30,7 @@ const format_config_map = std.StaticStringMap(FormatConfig).initComptime(.{
     .{ ".mov"  , FormatConfig{ .size = 12 , .offset = 0     , .validator = &checkMOV      }},
     .{ ".mp3"  , FormatConfig{ .size = 3  , .offset = 0     , .validator = &checkMP3      }},
     .{ ".mp4"  , FormatConfig{ .size = 8  , .offset = 0     , .validator = &checkMP4      }},
+    .{ ".opus" , FormatConfig{ .size = 36 , .offset = 0     , .validator = &checkOPUS     }},
     .{ ".pfr"  , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkPFR      }},
     .{ ".pptx" , FormatConfig{ .size = 4  , .offset = 0     , .validator = &checkZIP      }},
     .{ ".tar"  , FormatConfig{ .size = 5  , .offset = 257   , .validator = &checkTar      }},
@@ -224,7 +225,7 @@ const checkISO = makeCheckerAND(&.{
 });
 
 const checkMOV = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x00\x00\x00" },
+    .{ .offset = 0, .bytes = "\x00\x00\x00"                     },
     .{ .offset = 4, .bytes = "\x66\x74\x79\x70\x71\x74\x20\x20" },
 });
 
@@ -236,8 +237,13 @@ const checkMP3 = makeCheckerOR(&.{
 });
 
 const checkMP4 = makeCheckerAND(&.{
-    .{ .offset = 0, .bytes = "\x00\x00\x00" },
+    .{ .offset = 0, .bytes = "\x00\x00\x00"     },
     .{ .offset = 4, .bytes = "\x66\x74\x79\x70" },
+});
+
+const checkOPUS = makeCheckerAND(&.{
+    .{ .offset = 0,  .bytes = "OggS"     },
+    .{ .offset = 28, .bytes = "OpusHead" },
 });
 
 const checkPFR = makeCheckerOR(&.{

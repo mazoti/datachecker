@@ -62,7 +62,8 @@ fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMap
 
     const gop: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)).GetOrPutResult = try map.getOrPut(globals.alloc.*, @intCast(stat.size));
 
-    if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
+    //if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
+    if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8).empty;
 
     const data: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
 
@@ -96,7 +97,7 @@ pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.Arr
         }
 
         // Different from all other files, add another result
-        var path_list: std.array_list.Aligned([]u8, null) = std.ArrayList([]u8){ .items = &.{}, .capacity = 0 };
+        var path_list: std.array_list.Aligned([]u8, null) = std.ArrayList([]u8).empty;
 
         const data: []u8 = try globals.alloc.*.dupe(u8, path);
 

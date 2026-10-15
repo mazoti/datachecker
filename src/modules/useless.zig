@@ -32,21 +32,59 @@ const CONTAINS = [_][]const u8{
     ".torrent.",                                   // Torrent metadata/partial files
     "/tmp/",                                       // Standard Unix temp directory
     "\\tmp\\",                                     // Windows temp directory
-    "node_modules/",                               // npm dependencies - massive directory, often excluded (Unix)
-    "node_modules\\",                              // npm dependencies
-    "pycache/",                                    // Python bytecode cache
-    "pycache\\",                                   // Python bytecode cache
+    "/node_modules/",                              // npm dependencies - massive directory, often excluded (Unix)
+    "\\node_modules\\",                            // npm dependencies
+    "/pycache/",                                   // Python bytecode cache
+    "\\pycache\\",                                 // Python bytecode cache
     "__pycache__",                                 // Python bytecode cache
+    "/logs/",                                      // Logs directory
+    "\\logs\\",                                    // Logs directory
+    "/.pyre/",                                     // Pyre’s working data
+    "\\.pyre\\",                                   // Pyre’s working data
+    "/.mypy_cache/",                               // mypy's cache results
+    "\\.mypy_cache\\",                             // mypy's cache results
+    "/.pytest_cache/",                             // Python testing framework cache folder
+    "\\.pytest_cache\\",                           // Python testing framework cache folder
+    "/.hypothesis/",                               // Hypothesis testing library folder
+    "\\.hypothesis\\",                             // Hypothesis testing library folder
+    "/.nox/",                                      // Nox automating tests folder
+    "\\.nox\\",                                    // Nox automating tests folder
+    "/.tox/",                                      // Tox automating tests folder
+    "\\.tox\\",                                    // Tox automating tests folder
+    "/htmlcov/",                                   // coverage.py’s HTML report
+    "\\htmlcov\\",                                 // coverage.py’s HTML report
+    "/build/",
+    "\\build\\",
+    "/dist/",
+    "\\dist\\",
+    "/eggs/",
+    "\\eggs\\",
+    "/.eggs/",
+    "\\.eggs\\",
+    "/develop-eggs/",
+    "\\develop-eggs\\",
+    ".egg-info/",
+    ".egg-info\\",
+    "/.ipynb_checkpoints/",
+    "\\.ipynb_checkpoints\\",
+    ".coverage.",
 };
 
 /// Map of exact filenames to their descriptions for system-generated temporary files
 const FULL_NAME = std.StaticStringMap([]const u8).initComptime(.{
-    .{ ".DS_Store"             , ""                                    },
-    .{ "desktop.ini"           , ""                                    },
-    .{ "ehthumbs.db"           , "Windows thumbnail cache (enhanced)"  },
-    .{ "hiberfil.sys"          , ""                                    },
-    .{ "Thumbs.db"             , "Windows thumbnail cache"             },
-    .{ "THUMBS.DB"             , "Windows thumbnail cache"             },
+    .{ ".DS_Store"                     , ""                                   },
+    .{ "desktop.ini"                   , ""                                   },
+    .{ "ehthumbs.db"                   , "Windows thumbnail cache (enhanced)" },
+    .{ "hiberfil.sys"                  , ""                                   },
+    .{ "Thumbs.db"                     , "Windows thumbnail cache"            },
+    .{ "THUMBS.DB"                     , "Windows thumbnail cache"            },
+    .{ "distutils.log"                 , ""                                   },
+    .{ "pip-log.txt"                   , ""                                   },
+    .{ "pip-delete-this-directory.txt" , ""                                   },
+    .{ "nosetests.xml"                 , "xUnit test results"                 },
+    .{ "coverage.xml"                  , "Cobertura coverage report"          },
+    .{ ".python-version"               , ""                                   },
+    .{ ".dmypy.json"                   , ""                                   },
 });
 
 /// Map of legacy/obsolete file extensions to their descriptions
@@ -253,6 +291,7 @@ const TEMPORARY_EXTENSIONS = std.StaticStringMap([]const u8).initComptime(.{
     // Logs
     .{ ".blf"                 , "Windows registry transaction logs"    },
     .{ ".etl"                 , "Windows event trace logs"             },
+    .{ ".jsonl"               , "JSON log"                             },
     .{ ".ldf"                 , "SQL Server log"                       },
     .{ ".log"                 , "Log files"                            },
     .{ ".plg"                 , "Visual Studio build log"              },
@@ -264,8 +303,11 @@ const TEMPORARY_EXTENSIONS = std.StaticStringMap([]const u8).initComptime(.{
     .{ ".aps"                 , "Visual Studio resource cache"         },
     .{ ".cmi"                 , "OCaml compiled interface"             },
     .{ ".cmo"                 , "OCaml compiled object"                },
+    .{ ".cover"               , "Extension for annotated source files" },
+    .{ ".coverage"            , "coverage.py raw data"                 },
     .{ ".db-journal"          , "SQLite rollback journal"              },
     .{ ".dylib"               , "Dynamic library"                      },
+    .{ ".egg"                 , "Python package created by setuptools" },
     .{ ".elc"                 , "Emacs Lisp compiled"                  },
     .{ ".exp"                 , "Export file"                          },
     .{ ".fasl"                , "Lisp compiled file"                   },

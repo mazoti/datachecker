@@ -131,6 +131,8 @@ const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initCompti
     .{ ".iff"                 , "Interchange File Format - Amiga"      },
     .{ ".ima"                 , "Disk image"                           },
     .{ ".it"                  , "Impulse Tracker"                      },
+    .{ ".jpeg"                , "Joint Photographic Experts Group"     },
+    .{ ".jpg"                 , "Joint Photographic Experts Group"     },
     .{ ".lbm"                 , "Deluxe Paint"                         },
     .{ ".lha"                 , "LHArc"                                },
     .{ ".lzh"                 , "LZH compressed archive"               },

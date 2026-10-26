@@ -30,7 +30,7 @@ pub const COMPTIME_FILES_OLDER_MTIME:                 bool = true;
 pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_INTEGRITY_FILES:                   bool = true;
-pub const COMPTIME_PARSE_JSON_FILES:                  bool = true;
+pub const COMPTIME_PARSE_FILES:                       bool = true;
 pub const COMPTIME_LARGE_FILES:                       bool = true;
 pub const COMPTIME_LAST_ACCESS_FILES:                 bool = true;
 pub const COMPTIME_LEGACY_FILES:                      bool = true;
@@ -74,7 +74,7 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_FULL_PATH_SIZE)                  i18n.COMPTIME_FULL_PATH_SIZE                  else "")
     ++ (if (COMPTIME_INTEGRITY_FILES_PARALLEL)        i18n.COMPTIME_INTEGRITY_FILES_PARALLEL        else "")
     ++ (if (COMPTIME_INTEGRITY_FILES)                 i18n.COMPTIME_INTEGRITY_FILES                 else "")
-    ++ (if (COMPTIME_PARSE_JSON_FILES)                i18n.COMPTIME_PARSE_JSON_FILES                else "")
+    ++ (if (COMPTIME_PARSE_FILES)                     i18n.COMPTIME_PARSE_FILES                     else "")
     ++ (if (COMPTIME_LARGE_FILES)                     i18n.COMPTIME_LARGE_FILES                     else "")
     ++ (if (COMPTIME_LAST_ACCESS_FILES)               i18n.COMPTIME_LAST_ACCESS_FILES               else "")
     ++ (if (COMPTIME_LEGACY_FILES)                    i18n.COMPTIME_LEGACY_FILES                    else "")
@@ -124,7 +124,7 @@ pub const Config = struct {
         IGNORE_PATTERNS:        [][]const u8 = &[_][]const u8{},
     INTEGRITY_FILES_PARALLEL:   bool         = true,
     INTEGRITY_FILES:            bool         = false,
-    PARSE_JSON_FILES:           bool         = true,
+    PARSE_FILES:                bool         = true,
     LARGE_FILES:                bool         = true,
         LARGE_FILE_SIZE:        u64          = 107374182400, // 100 GB
     LAST_ACCESS_FILES:          bool         = true,
@@ -247,7 +247,6 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\        "IGNORE_PATTERNS":             [".git", ".zig-cache", ".gitignore", "zig-out", ".svn", ".hg", "__pycache__", "node_modules" ],
     \\    "INTEGRITY_FILES_PARALLEL":        true,
     \\    "INTEGRITY_FILES":                 false,
-    \\    "PARSE_JSON_FILES":                true,
     \\    "LARGE_FILES":                     true,
     \\        "LARGE_FILE_SIZE":             107374182400,
     \\    "LAST_ACCESS_FILES":               true,
@@ -259,6 +258,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\        "MAX_ITEMS_DIRECTORY":         10000,
     \\    "NO_EXTENSION":                    true,
     \\    "ONE_ITEM_DIRECTORY":              true,
+    \\    "PARSE_FILES":                     true,
     \\    "TEMPORARY_FILES":                 true,
     \\    "UNPORTABLE_CHARS":                true,
     \\    "WRONG_DATES":                     true

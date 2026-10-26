@@ -178,13 +178,13 @@ const COMPTIME_INTEGRITY_FILES = .{
     .{ "INTEGRITY"       , &core.integrityFiles               },
 };
 
-const COMPTIME_PARSE_JSON_FILES = .{
-    .{ "--json"          , &core.checkJSON                    },
-    .{ "-j"              , &core.checkJSON                    },
-    .{ "-J"              , &core.checkJSON                    },
-    .{ "json"            , &core.checkJSON                    },
-    .{ "/J"              , &core.checkJSON                    },
-    .{ "JSON"            , &core.checkJSON                    },
+const COMPTIME_PARSE_FILES = .{
+    .{ "--parse"         , &core.parseFiles                   },
+    .{ "-p"              , &core.parseFiles                   },
+    .{ "-P"              , &core.parseFiles                   },
+    .{ "parse"           , &core.parseFiles                   },
+    .{ "/P"              , &core.parseFiles                   },
+    .{ "PARSE"           , &core.parseFiles                   },
 };
 
 const COMPTIME_LARGE_FILES = .{
@@ -384,7 +384,7 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(
     (if (config.COMPTIME_FULL_PATH_SIZE                 ) COMPTIME_FULL_PATH_SIZE                  else .{}) ++
     (if (config.COMPTIME_INTEGRITY_FILES_PARALLEL       ) COMPTIME_INTEGRITY_FILES_PARALLEL        else .{}) ++
     (if (config.COMPTIME_INTEGRITY_FILES                ) COMPTIME_INTEGRITY_FILES                 else .{}) ++
-    (if (config.COMPTIME_PARSE_JSON_FILES               ) COMPTIME_PARSE_JSON_FILES                else .{}) ++
+    (if (config.COMPTIME_PARSE_FILES                    ) COMPTIME_PARSE_FILES                     else .{}) ++
     (if (config.COMPTIME_LARGE_FILES                    ) COMPTIME_LARGE_FILES                     else .{}) ++
     (if (config.COMPTIME_LAST_ACCESS_FILES              ) COMPTIME_LAST_ACCESS_FILES               else .{}) ++
     (if (config.COMPTIME_LEGACY_FILES                   ) COMPTIME_LEGACY_FILES                    else .{}) ++

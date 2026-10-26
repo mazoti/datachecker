@@ -5,7 +5,7 @@
 /// Spacing constant for alignment - matches the largest header string size in output
 pub const ALIGNED_SPACES: u32 = 49;
 
-pub const HEADER = "DataChecker v2.8 by Marcos Mazoti - https://mazoti.github.io/datachecker";
+pub const HEADER = "DataChecker v2.9 by Marcos Mazoti - https://mazoti.github.io/datachecker";
 
 pub const USAGE =
     \\Usage:
@@ -185,13 +185,6 @@ pub const COMPTIME_INTEGRITY_FILES =
     \\
 ;
 
-pub const COMPTIME_PARSE_JSON_FILES =
-    \\    --json, -j, -J, json, /J, JSON
-    \\        Search for JSON files with syntax errors
-    \\
-    \\
-;
-
 pub const COMPTIME_LARGE_FILES =
     \\    --large, -lf, -LF, large, /LF, LARGE
     \\        Search for large files
@@ -254,6 +247,13 @@ pub const COMPTIME_NO_EXTENSION =
 pub const COMPTIME_ONE_ITEM_DIRECTORY =
     \\    --oneitem, -o, -O, oneitem, /O, ONEITEM
     \\        Search for directories containing only one item
+    \\
+    \\
+;
+
+pub const COMPTIME_PARSE_FILES =
+    \\    --parse, -p, -P, parse, /P, PARSE
+    \\        Parse files looking for errors
     \\
     \\
 ;
@@ -382,10 +382,10 @@ pub const NO_EXTENSION_WARNING            = "Format of \"{s}\" not found";
 pub const ONE_ITEM_DIRECTORIES_HEADER     = "\n\tLooking for one item directories...\n";
 pub const ONE_ITEM_DIRECTORIES_WARNING    = "\"{s}\" has one item";
 
-pub const PARSE_JSON_FILES_ERROR          = "Can't parse \"{s}\"";
-pub const PARSE_JSON_FILES_HEADER         = "\n\tLooking for errors in JSON files...\n";
-pub const PARSE_JSON_FILES_TOTAL          = "{d} error found\n";
-pub const PARSE_JSON_FILES_TOTALS         = "{d} errors found\n";
+pub const PARSE_FILES_ERROR               = "Can't parse \"{s}\"";
+pub const PARSE_FILES_HEADER              = "\n\tLooking for errors in parsed files...\n";
+pub const PARSE_FILES_TOTAL               = "{d} error found\n";
+pub const PARSE_FILES_TOTALS              = "{d} errors found\n";
 
 pub const TEMPORARY_FILES_HEADER          = "\n\tLooking for temporary files...\n";
 pub const TEMPORARY_FILES_WARNING         = "\"{s}\" is a temporary file";

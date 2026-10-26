@@ -167,11 +167,6 @@ pub fn integrityFiles() !void {
     try decorateWalker(config.COMPTIME_INTEGRITY_FILES, true, integrity.checkSingle, i18n.INTEGRITY_FILES_HEADER, i18n.INTEGRITY_FILES_TOTAL, i18n.INTEGRITY_FILES_TOTALS);
 }
 
-/// Enables JSON files check
-pub fn checkJSON() !void {
-    try decorate(config.COMPTIME_PARSE_JSON_FILES, true, false, Filter.Files, parser.checkJSON, i18n.PARSE_JSON_FILES_HEADER, i18n.PARSE_JSON_FILES_TOTAL, i18n.PARSE_JSON_FILES_TOTALS);
-}
-
 /// Enables large files check
 pub fn largeFiles() !void {
     try decorate(config.COMPTIME_LARGE_FILES, true, false, Filter.Files, stats.largeFiles, i18n.LARGE_FILES_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
@@ -210,6 +205,11 @@ pub fn noExtension() !void {
 /// Enables one item directory check
 pub fn oneItemDirectories() !void {
     try decorate(config.COMPTIME_ONE_ITEM_DIRECTORY, true, true, Filter.Directories, stats.oneItemDirectory, i18n.ONE_ITEM_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
+}
+
+/// Enables parse files
+pub fn parseFiles() !void {
+    try decorate(config.COMPTIME_PARSE_FILES, true, false, Filter.Files, parser.parseFiles, i18n.PARSE_FILES_HEADER, i18n.PARSE_FILES_TOTAL, i18n.PARSE_FILES_TOTALS);
 }
 
 /// Enables temporary files check
@@ -361,7 +361,6 @@ pub fn run() !void {
         try decorateWalker(config.COMPTIME_INTEGRITY_FILES,          globals.config_parsed.value.INTEGRITY_FILES,          integrity.checkSingle,          i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
     }
 
-    try decorate      (config.COMPTIME_PARSE_JSON_FILES,         globals.config_parsed.value.PARSE_JSON_FILES,         false,                          Filter.Files,                    parser.checkJSON,               i18n.PARSE_JSON_FILES_HEADER,       i18n.PARSE_JSON_FILES_TOTAL,      i18n.PARSE_JSON_FILES_TOTALS     );
     try decorate      (config.COMPTIME_LARGE_FILES,              globals.config_parsed.value.LARGE_FILES,              false,                          Filter.Files,                    stats.largeFiles,               i18n.LARGE_FILES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_LAST_ACCESS_FILES,        globals.config_parsed.value.LAST_ACCESS_FILES,        false,                          Filter.Files,                    stats.lastAccess,               i18n.LAST_ACCESS_HEADER,            i18n.BYTES_TOTAL,                 i18n.BYTES_TOTALS                );
     try decorate      (config.COMPTIME_LEGACY_FILES,             globals.config_parsed.value.LEGACY_FILES,             false,                          Filter.Files,                    useless.legacyFiles,            i18n.LEGACY_FILES_HEADER,           i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );

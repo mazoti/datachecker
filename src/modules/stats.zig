@@ -25,6 +25,7 @@ pub fn checkWrongDates(args: anytype) !bool {
         (args[2].*.ctime.nanoseconds   > globals.now_stat.ctime.nanoseconds)   or
         (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds)) {
 
+        globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(true, args[1], print.warning, i18n.WRONG_DATES_WARNING, .{args[0]});
     }
 
@@ -59,6 +60,7 @@ pub fn dirFileNameSize(args: anytype) !bool {
     const dir_file_name: []const u8 = std.fs.path.basename(args[0]);
 
     if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
+        globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(false, args[1], print.warning, i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
     }
 
@@ -103,12 +105,14 @@ pub fn duplicateCharacters(args: anytype) !bool {
 /// Identifies empty directories
 pub fn emptyDirectories(args: anytype) !bool {
     if (try countItems(args[0]) != 0) return false;
+    globals.exit_warning.store(true, .monotonic);
     return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
 }
 
 /// Detects files with zero bytes
 pub fn emptyFiles(args: anytype) !bool {
     if (args[2].size != 0) return false;
+    globals.exit_warning.store(true, .monotonic);
     return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_FILES_WARNING, .{args[0]});
 }
 
@@ -176,6 +180,7 @@ pub fn filesOlderMTime(args: anytype) !bool {
 pub fn fullPathSize(args: anytype) !bool {
     if (args[0].len <= globals.config_parsed.value.MAX_FULL_PATH_SIZE) return false;
 
+    globals.exit_warning.store(true, .monotonic);
     return print.messageSumReturn(true, args[1], print.warning, i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
 }
 
@@ -183,6 +188,7 @@ pub fn fullPathSize(args: anytype) !bool {
 pub fn largeFiles(args: anytype) !bool {
     if (args[2].size <= globals.config_parsed.value.LARGE_FILE_SIZE) return false;
 
+    globals.exit_warning.store(true, .monotonic);
     return print.messageSumReturn(true, args[1], print.warning, i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
 }
 
@@ -192,6 +198,7 @@ pub fn lastAccess(args: anytype) !bool {
 
     if (last_access <= globals.config_parsed.value.LAST_ACCESS_TIME) return false;
 
+    globals.exit_warning.store(true, .monotonic);
     try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
     args[1].* += args[2].size;
     return true;
@@ -246,6 +253,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
 
         // Skips entries like pipes and sockets
         if (entry.kind != .file and entry.kind != .directory) {
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
             total_items.* += 1;
             continue;
@@ -282,6 +290,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
                 continue;
             }
 
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
         }
     }
@@ -295,6 +304,7 @@ pub fn linkShortcuts(total_items: *u64) !void {
 /// Detects directories exceeding configured maximum
 pub fn manyItemsDirectory(args: anytype) !bool {
     if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORY) {
+        globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(false, args[1], print.warning, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
     }
     return false;
@@ -303,6 +313,7 @@ pub fn manyItemsDirectory(args: anytype) !bool {
 /// Detects directories with one item only
 pub fn oneItemDirectory(args: anytype) !bool {
     if (try countItems(args[0]) == 1) {
+        globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(false, args[1], print.warning, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
     }
     return false;
@@ -316,27 +327,32 @@ pub fn unportableCharacters(args: anytype) !bool {
 
     // Windows filename restrictions
     if (WINDOWS_RESTRICTIONS.has(filename)) {
+        globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
     }
 
     // Windows silently strips trailing dots and spaces
     if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ') {
+        globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
     }
 
     // < > : " | ? * and chars below ASCII 32
     for (0..args[0].len) |i| {
         if (args[0][i] < 32) {
+            globals.exit_warning.store(true, .monotonic);
             return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
         }
 
         if (args[0][i] == '<' or args[0][i] == '>' or args[0][i] == '"' or args[0][i] == '|' or args[0][i] == '?' or args[0][i] == '*') {
+            globals.exit_warning.store(true, .monotonic);
             return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
         }
 
         // Special handling for colon (allowed only in Windows drive letters)
         if (args[0][i] == ':') {
             if (i < (args[0].len - 1) and (args[0][i + 1] == '\\' or args[0][i + 1] == '/')) continue;
+            globals.exit_warning.store(true, .monotonic);
             return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
         }
     }

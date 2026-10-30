@@ -120,7 +120,7 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
 
     const hash_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write})
         catch |err| {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return core.debugPrintError(err);
         };
     defer hash_file.close(globals.io);
@@ -129,7 +129,7 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
     const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
         error.EndOfStream => break :blk "",
         else => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return core.debugPrintError(err);
         },
     };
@@ -146,11 +146,11 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
     if (chunk.len == 0) {
         var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
         file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower)) catch |err| {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return core.debugPrintError(err);
         };
         file_writer.interface.flush() catch |err| {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return core.debugPrintError(err);
         };
 
@@ -158,17 +158,17 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
     }
 
     if (chunk.len != hex_size) {
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         return messageSumMutex(print.err_mt, total_items, 1, i18n.ERROR_READING_FILE, .{hash_file_path});
     }
 
     const hash_code_bytes: []u8 = std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code) catch |err| switch (err) {
             error.InvalidCharacter => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return messageSumMutex(print.err_mt, total_items, 1, i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path});
             },
             else => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return core.debugPrintError(err);
             },
     };
@@ -176,7 +176,7 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
     if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) return messageSumMutex(print.ok_mt, total_items, 1,
         i18n.INTEGRITY_FILES_OK, .{input_file, extension});
 
-    globals.exit_code = 1;
+    globals.exit_error.store(true, .monotonic);
     messageSumMutex(print.err_mt, total_items, 1, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
 }
 
@@ -202,7 +202,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
         error.EndOfStream => break :blk "",
         else => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return err;
         },
     };
@@ -215,7 +215,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
             return true;
         }
 
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         return err;
     };
 
@@ -240,7 +240,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
                 return true;
             },
             else => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return err;
             }
     };

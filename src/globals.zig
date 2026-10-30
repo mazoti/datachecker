@@ -29,8 +29,9 @@ pub var config_file:   []const u8                     = undefined;
 /// Global hash map instance for caching directory items count
 pub var dir_count: std.StringHashMap(usize) = undefined;
 
-/// System exit code: 0 (no problems), 1 (errors)
-pub var exit_code: u8 = 0;
+/// System exit code: 0 (no problems), 1 (errors), 2 (warnings)
+pub var exit_warning: std.atomic.Value(bool) = .init(false);
+pub var exit_error:   std.atomic.Value(bool) = .init(false);
 
 /// Terminal I/O operations
 pub var file_writer_stdout:           std.Io.File.Writer = undefined;

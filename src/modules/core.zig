@@ -483,7 +483,7 @@ fn decorateWalker(
 
 pub fn exitCodeFn(total_items: *u64, comptime process_fn: anytype,comptime msg_fmt: []const u8, args: anytype) !void {
     try process_fn(msg_fmt, args);
-    globals.exit_code = 1;
+    globals.exit_error.store(true, .monotonic);
     total_items.* += 1;
 }
 
@@ -516,7 +516,7 @@ pub fn fetchStatWithErrorHandling(absolute_path: []const u8, total_items: *u64) 
             return null;
         },
         else => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return err;
         },
     };
@@ -536,15 +536,15 @@ pub fn getExtensionLowercase(filepath: []const u8) ?[]const u8 {
 pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.digest_length]u8) !void {
     const file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, filepath, .{ .mode = .read_only, .lock = .shared }) catch |err| switch (err) {
         error.AccessDenied => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{filepath});
         },
         error.FileNotFound => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return print.err(i18n.ERROR_READING_FILE, .{filepath});
         },
         else => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return err;
         },
     };
@@ -563,7 +563,7 @@ pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.di
                 return hasher.final(final_hash);
             },
             else => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return err;
             },
         };
@@ -589,7 +589,7 @@ pub fn nextEntry(walker: *std.Io.Dir.Walker, total_items: *u64, entry: *?std.Io.
             return true; // Signal to continue
         },
         else => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return err;
         },
     };
@@ -604,7 +604,7 @@ pub fn readExactChunk(reader: *std.Io.File.Reader, size: usize, filepath: []cons
             return null;
         },
         else => {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return err;
         },
     };
@@ -620,7 +620,7 @@ pub fn readExactChunk(reader: *std.Io.File.Reader, size: usize, filepath: []cons
 /// Helper function to stat a file or directory
 fn statFileOrDirectory(path: []const u8) !std.Io.File.Stat {
     return std.Io.Dir.cwd().statFile(globals.io, path, .{}) catch |err| {
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         if (err == error.IsDir) {
             var dir_stat: std.Io.File.Stat = std.mem.zeroes(std.Io.File.Stat);
             dir_stat.kind = .directory;

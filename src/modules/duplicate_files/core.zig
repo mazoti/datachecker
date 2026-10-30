@@ -158,7 +158,7 @@ fn sameFile(filepath1: []const u8, filepath2: []const u8) !bool {
         const chunk1: []u8 = file_reader1.interface.take(globals.buffer_size) catch |err| blk: switch (err) {
             error.EndOfStream => break :blk file_reader1.interface.buffer[0..file_reader1.interface.end],
             else => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return err;
             },
         };
@@ -166,7 +166,7 @@ fn sameFile(filepath1: []const u8, filepath2: []const u8) !bool {
         const chunk2: []u8 = file_reader2.interface.take(globals.buffer_size) catch |err| blk: switch (err) {
             error.EndOfStream => break :blk file_reader2.interface.buffer[0..file_reader2.interface.end],
             else => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return err;
             },
         };

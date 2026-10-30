@@ -43,7 +43,7 @@ pub fn checkConfidential(total_items: *u64) !void {
             error.AccessDenied => return core.exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path}),
             error.FileNotFound => return core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{entry.path}),
             else => {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 return err;
             },
         };
@@ -65,6 +65,7 @@ fn checkConfidentialFiles(args: anytype) !void {
             catch |err| switch (err) {
                 error.EndOfStream => {
                     if (args[3].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end])) {
+                        globals.exit_warning.store(true, .monotonic);
                         try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
                         args[1].* += 1;
                     }
@@ -74,6 +75,7 @@ fn checkConfidentialFiles(args: anytype) !void {
             };
 
         if (args[3].containsBuffer(chunk[0..chunk.len])) {
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
             args[1].* += 1;
             return;

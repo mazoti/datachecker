@@ -38,6 +38,7 @@ fn checkBZIP2(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File
     if (try core.readExactChunk(file_reader, 4, fullpath, total_items)) |chunk| {
         // Check the 4th byte: BZIP2 uses compression levels 1-9
         if(chunk[3] != '9') {
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
             total_items.* += 1;
             return true;
@@ -52,6 +53,7 @@ fn checkBZIP2(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File
 fn checkGZ(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Reader) !bool {
     if (try core.readExactChunk(file_reader, 9, fullpath, total_items)) |chunk| {
         if(chunk[8] != 2) {
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
             total_items.* += 1;
             return true;
@@ -80,6 +82,7 @@ fn checkPNG(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
 
                 // FLEVEL = 11xx xxxx == max compression
                 if (chunk2[pos+5] & 0xC0 != 0xC0) {
+                    globals.exit_warning.store(true, .monotonic);
                     try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
                     total_items.* += 1;
                     return true;
@@ -104,6 +107,7 @@ fn checkZIP(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
 
         // If compression method is between 1-7, it's suboptimal
         if(chunk[8] < 8 and chunk[8] > 0) {
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
             total_items.* += 1;
             return true;

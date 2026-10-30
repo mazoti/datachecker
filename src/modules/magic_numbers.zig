@@ -178,6 +178,7 @@ pub fn checkNoExtension(args: anytype) !bool {
         return true;
     }
 
+    globals.exit_warning.store(true, .monotonic);
     _ = try print.warning(i18n.NO_EXTENSION_WARNING, .{args[0]});
     return false;
 }
@@ -349,6 +350,6 @@ fn makeCheckerOR(comptime signatures: []const struct{ offset: usize, bytes: []co
 
 fn nullErr(err: anytype) ?[]const u8 {
     core.debugPrintError(err);
-    globals.exit_code = 1;
+    globals.exit_error.store(true, .monotonic);
     return null;
 }

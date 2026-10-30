@@ -11,14 +11,31 @@ const std     = @import("std");
 
 /// Parses files according to extension
 pub fn parseFiles(args: anytype) !bool {
-    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".gz"))   return parseGZ(args);
+    if (args[0].len >= 7) {
+        if (std.ascii.eqlIgnoreCase(args[0][args[0].len - 7 ..], ".tar.gz")) return decompressTARGZ(args);
+        if (std.ascii.eqlIgnoreCase(args[0][args[0].len - 7 ..], ".tar.xz")) return decompressTARXZ(args);
+
+        if (args[0].len >= 8 and std.ascii.eqlIgnoreCase(args[0][args[0].len - 8 ..], ".tar.zst"))  return decompressTARZST(args);
+        if (args[0].len >= 9 and std.ascii.eqlIgnoreCase(args[0][args[0].len - 9 ..], ".tar.lzma")) return decompressTARLZMA(args);
+    }
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".gz"))   return decompressGZ(args);
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".tgz"))  return decompressTARGZ(args);
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".lzma")) return decompressLZMA(args);
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".xz"))   return decompressXZ(args);
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".txz"))  return decompressTARXZ(args);
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".zst"))  return decompressZST(args);
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".tzst")) return decompressTARZST(args);
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".jar"))  return decompressZIP(args);
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".zip"))  return decompressZIP(args);
+
+    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".zlib")) return decompressZLIB(args);
     if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".json")) return parseJSON(args);
-    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".lzma")) return parseLZMA(args);
     if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".tar"))  return parseTAR(args);
-    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".xz"))   return parseXZ(args);
-    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".zip"))  return parseZIP(args);
-    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".zlib")) return parseZLIB(args);
-    if (std.ascii.eqlIgnoreCase(std.fs.path.extension(args[0]), ".zst"))  return parseZST(args);
 
     return false;
 }
@@ -27,7 +44,7 @@ pub fn parseFiles(args: anytype) !bool {
 fn parseError(args: anytype, err: anytype) !bool {
     core.debugPrintError(err);
     try core.exitCodeFn(args[1], print.err, i18n.PARSE_FILES_ERROR, .{args[0]});
-    globals.exit_code = 1;
+    globals.exit_error.store(true, .monotonic);
     return true;
 }
 
@@ -40,7 +57,7 @@ fn parseStreamTooLongError(args: anytype, err: anytype) !bool {
         return true;
     }
 
-    globals.exit_code = 1;
+    globals.exit_error.store(true, .monotonic);
     return err;
 }
 
@@ -69,6 +86,11 @@ fn parseTAR(args: anytype) !bool {
         };
     defer globals.alloc.*.free(file_contents);
 
+    return parseTarRAM(args, file_contents);
+}
+
+/// Parses a TAR file already in RAM
+fn parseTarRAM(args: anytype, file_contents: []const u8) !bool {
     var name_buffer: [std.fs.max_path_bytes]u8 = undefined;
     var link_buffer: [std.fs.max_path_bytes]u8 = undefined;
 
@@ -89,8 +111,32 @@ fn parseTAR(args: anytype) !bool {
     return false;
 }
 
+/// Decompress a .tar.gz file and returns false if no errors were found
+fn decompressTARGZ(args: anytype) !bool {
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+        std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
+            return parseStreamTooLongError(args, err);
+        };
+    defer globals.alloc.*.free(file_contents);
+
+    // Create a reader over the compressed data
+    var reader = std.Io.Reader.fixed(file_contents);
+
+    // Gzip requires a sliding-window buffer.
+    var window: [std.compress.flate.max_window_len]u8 = undefined;
+    var decompressor: std.compress.flate.Decompress = .init(&reader, .gzip, &window);
+
+    // Decompress into an allocated RAM buffer.
+    const data = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+        return parseError(args, err);
+    };
+    defer globals.alloc.*.free(data);
+
+    return parseTarRAM(args, data);
+}
+
 /// Decompress a GZ file and returns false if no errors were found
-fn parseGZ(args: anytype) !bool {
+fn decompressGZ(args: anytype) !bool {
     const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
@@ -102,7 +148,6 @@ fn parseGZ(args: anytype) !bool {
 
     // Gzip requires a sliding-window buffer.
     var window: [std.compress.flate.max_window_len]u8 = undefined;
-
     var decompressor: std.compress.flate.Decompress = .init(&reader, .gzip, &window);
 
     // Decompress into an allocated RAM buffer.
@@ -114,8 +159,30 @@ fn parseGZ(args: anytype) !bool {
     return false;
 }
 
-/// Decompress a ZST file and returns false if no errors were found
-fn parseLZMA(args: anytype) !bool {
+/// Decompress a .tar.lzma file and returns false if no errors were found
+fn decompressTARLZMA(args: anytype) !bool {
+    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
+    defer file.close(globals.io);
+
+    var stream = file.reader(globals.io, &globals.io_buffer);
+
+    // Initialize the LZMA decompressor.
+    var decompressor = std.compress.lzma.Decompress.initOptions(&stream.interface, globals.alloc.*, &.{}, .{}, globals.memory_limit) catch |err| {
+        return parseError(args, err);
+    };
+    defer decompressor.deinit();
+
+    // Decompress into an allocated RAM buffer
+    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+        return parseError(args, err);
+    };
+    defer globals.alloc.*.free(file_contents);
+
+    return parseTarRAM(args, file_contents);
+}
+
+/// Decompress a LZMA file and returns false if no errors were found
+fn decompressLZMA(args: anytype) !bool {
     const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
     defer file.close(globals.io);
 
@@ -136,8 +203,34 @@ fn parseLZMA(args: anytype) !bool {
     return false;
 }
 
+/// Decompress a .tar.xz file and returns false if no errors were found
+fn decompressTARXZ(args: anytype) !bool {
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+        std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
+            return parseStreamTooLongError(args, err);
+        };
+    defer globals.alloc.*.free(file_contents);
+
+    // Create a reader over the compressed data.
+    var reader = std.Io.Reader.fixed(file_contents);
+
+    // Initialize the standard-library XZ decompressor.
+    var decompressor = std.compress.xz.Decompress.init(&reader, globals.alloc.*, &.{}) catch |err| {
+        return parseError(args, err);
+    };
+    defer decompressor.deinit();
+
+    // Decompress everything into a RAM buffer.
+    const data = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+        return parseError(args, err);
+    };
+    defer globals.alloc.*.free(data);
+
+    return parseTarRAM(args, data);
+}
+
 /// Decompress a XZ file and returns false if no errors were found
-fn parseXZ(args: anytype) !bool {
+fn decompressXZ(args: anytype) !bool {
     const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
@@ -163,7 +256,7 @@ fn parseXZ(args: anytype) !bool {
 }
 
 /// Decompress a ZIP file and returns false if no errors were found
-fn parseZIP(args: anytype) !bool {
+fn decompressZIP(args: anytype) !bool {
     const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
     defer file.close(globals.io);
 
@@ -176,11 +269,10 @@ fn parseZIP(args: anytype) !bool {
     while (iterator.next()) |maybe_entry| {
         const entry = maybe_entry orelse break;
 
-        if (entry.uncompressed_size > globals.memory_limit) {
-            return parseError(args, error.EntryTooLarge);
-        }
+        if (entry.uncompressed_size > globals.memory_limit) return parseError(args, error.EntryTooLarge);
 
         const size: usize = @intCast(entry.uncompressed_size);
+
         const output = try globals.alloc.*.alloc(u8, size);
         defer globals.alloc.*.free(output);
 
@@ -193,17 +285,10 @@ fn parseZIP(args: anytype) !bool {
             return parseError(args, error.BadLocalHeader);
         }
 
-        if (@as(u32, header.filename_len) != entry.filename_len) {
-            return parseError(args, error.BadLocalHeader);
-        }
+        if (@as(u32, header.filename_len) != entry.filename_len) return parseError(args, error.BadLocalHeader);
 
         // Skip the local header, filename, and extra fields.
-        const data_offset =
-            entry.file_offset +
-            @sizeOf(std.zip.LocalFileHeader) +
-            @as(u64, header.filename_len) +
-            @as(u64, header.extra_len);
-
+        const data_offset = entry.file_offset + @sizeOf(std.zip.LocalFileHeader) + @as(u64, header.filename_len) + @as(u64, header.extra_len);
         try stream.seekTo(data_offset);
 
         // Write decompressed bytes directly to RAM.
@@ -224,9 +309,7 @@ fn parseZIP(args: anytype) !bool {
         var crc: std.hash.Crc32 = .init();
         crc.update(output);
 
-        if (crc.final() != entry.crc32) {
-            return parseError(args, error.BadCrc);
-        }
+        if (crc.final() != entry.crc32) return parseError(args, error.BadCrc);
     } else |err| {
         return parseError(args, err);
     }
@@ -235,7 +318,7 @@ fn parseZIP(args: anytype) !bool {
 }
 
 /// Decompress a ZLIB file and returns false if no errors were found
-fn parseZLIB(args: anytype) !bool {
+fn decompressZLIB(args: anytype) !bool {
     const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
     defer file.close(globals.io);
 
@@ -256,8 +339,29 @@ fn parseZLIB(args: anytype) !bool {
     return false;
 }
 
+/// Decompress a .tar.zst file and returns false if no errors were found
+fn decompressTARZST(args: anytype) !bool {
+    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
+    defer file.close(globals.io);
+
+    var stream = file.reader(globals.io, &globals.io_buffer);
+
+    // Accumulate decompressed data in RAM
+    var output: std.Io.Writer.Allocating = .init(globals.alloc.*);
+    defer output.deinit();
+
+    var decompressor = std.compress.zstd.Decompress.init(&stream.interface, &.{}, .{});
+
+    // Decompress until the input stream ends.
+    _ = decompressor.reader.streamRemaining(&output.writer) catch |err| {
+        return parseError(args, err);
+    };
+
+    return parseTarRAM(args, output.written());
+}
+
 /// Decompress a ZST file and returns false if no errors were found
-fn parseZST(args: anytype) !bool {
+fn decompressZST(args: anytype) !bool {
     const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
     defer file.close(globals.io);
 

@@ -85,7 +85,7 @@ void {
 
     // Blake3 chosen for: fast performance, strong collision resistance, streaming capability
     modules.hashFile(std.crypto.hash.Blake3, filepath, &file_hash) catch |err| {
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         _ = print.err(i18n.ERROR_HASH_FILE, .{filepath, err}) catch |err_inside| {
             modules.debugPrintError(err_inside);
         };
@@ -93,7 +93,7 @@ void {
     };
 
     const append_data: []const u8 = globals.alloc.*.dupe(u8, filepath) catch |err| {
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         _ = print.err(i18n.ERROR_ALLOC_MEM, .{filepath, err}) catch |err_inside| {
             modules.debugPrintError(err_inside);
         };
@@ -103,7 +103,7 @@ void {
     errdefer globals.alloc.free(append_data);
 
     globals.mutex.lock(globals.io) catch |err| {
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         modules.debugPrintError(err);
         return;
     };
@@ -112,7 +112,7 @@ void {
         // Case 1: Hash already exists - append to existing list (duplicate detected)
         if (map_hash.getPtr(file_hash)) |paths| {
             paths.append(globals.alloc.*, append_data) catch |err| {
-                globals.exit_code = 1;
+                globals.exit_error.store(true, .monotonic);
                 _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                     modules.debugPrintError(err_inside);
                 };
@@ -123,7 +123,7 @@ void {
         // Case 2: New hash - create entry. This is the first file with this hash value
         var path_list: std.array_list.Aligned([]const u8, null) = std.ArrayList([]const u8).empty;
         path_list.append(globals.alloc.*, append_data) catch |err| {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);
             };
@@ -132,7 +132,7 @@ void {
 
         // Insert new hash entry into map - subsequent files with same hash will hit Case 1
         map_hash.put(globals.alloc.*, file_hash, path_list) catch |err| {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             _ = print.err(i18n.ERROR_INSERT_HASHMAP, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);
             };

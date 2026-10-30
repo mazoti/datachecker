@@ -405,12 +405,23 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(
     (if (config.COMPTIME_TEMPORARY_FILES_REMOVE         ) COMPTIME_TEMPORARY_FILES_REMOVE          else .{}),
 );
 
+/// Sets system exit code: 0 (no problems), 1 (errors), 2 (warnings)
+fn exitCode() u8 {
+    const exit_error: bool = globals.exit_error.load(.monotonic);
+    if (exit_error) return 1;
+
+    const exit_warning: bool = globals.exit_warning.load(.monotonic);
+    if (exit_warning) return 2;
+
+    return 0;
+}
+
 /// Creates a config.json with default values in the same directory of the system
 fn createConfig() !void {
     try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
 
     _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         if (err == error.FileNotFound) {
             const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.io, "config.json", .{});
             defer config_file.close(globals.io);
@@ -426,7 +437,7 @@ fn createConfig() !void {
         return err;
     };
 
-    globals.exit_code = 1;
+    globals.exit_error.store(true, .monotonic);
     return print.stderr(i18n.ERROR_CONFIG_FILE);
 }
 
@@ -478,7 +489,7 @@ fn commonMain(init: std.process.Init) !void {
         _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
             if (err == error.FileNotFound) return printHelp();
 
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return err;
         };
     }
@@ -507,8 +518,9 @@ fn commonMain(init: std.process.Init) !void {
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 try print.stderr("\n");
+
+                globals.exit_warning.store(true, .monotonic);
                 try print.warning("{s}", .{i18n.CONFIG_MESSAGE_WARNING});
-                globals.exit_code = 1;
                 check_directory = try std.process.currentPathAlloc(globals.io, globals.alloc.*);
             } else {
                 check_directory = try globals.alloc.*.dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
@@ -531,13 +543,13 @@ fn commonMain(init: std.process.Init) !void {
     // Checks input directory
     globals.input_directory = if (std.fs.path.isAbsolute(check_directory))
         std.Io.Dir.openDirAbsolute(globals.io, check_directory, .{ .iterate = true }) catch {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return print.errorDirectory(check_directory);
         }
     else
         // Relative paths
         std.Io.Dir.cwd().openDir(globals.io, check_directory, .{ .iterate = true }) catch {
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return print.errorDirectory(check_directory);
         };
 
@@ -569,7 +581,7 @@ fn commonMain(init: std.process.Init) !void {
         } else {
             try print.stderr("\n");
             try print.err(i18n.ERROR_COMMAND_NOT_FOUND, .{args[1]});
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
         }
     } else {
         // Runs all enabled check modules
@@ -608,7 +620,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     try commonMain(init);
-    std.process.exit(globals.exit_code);
+    std.process.exit(exitCode());
 }
 
 fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]const u8, result: *bool) !std.json.Parsed(config.Config) {
@@ -620,7 +632,7 @@ fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]
 
         core.debugPrintError(err);
         try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
 
         return std.json.parseFromSlice(config.Config, alloc.*, config.DEFAULT_JSON_CONFIG, .{});
     };

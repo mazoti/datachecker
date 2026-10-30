@@ -388,7 +388,7 @@ pub fn debugInfo(args: anytype) !bool {
     var input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, args[0],
         .{.mode = .read_only, .lock = .shared}) catch |err| {
             core.debugPrintError(err);
-            globals.exit_code = 1;
+            globals.exit_error.store(true, .monotonic);
             return false;
         };
     defer input_file.close(globals.io);
@@ -397,7 +397,7 @@ pub fn debugInfo(args: anytype) !bool {
 
     const chunk_tmp: ?[]const u8 = core.readExactChunk(&file_reader, 4, args[0], args[1]) catch |err| {
         core.debugPrintError(err);
-        globals.exit_code = 1;
+        globals.exit_error.store(true, .monotonic);
         return false;
     };
 
@@ -410,6 +410,7 @@ pub fn debugInfo(args: anytype) !bool {
 
         if (elf_file.dwarf != null or elf_file.symtab != null) {
             args[1].* += 1;
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
         }
         return false;
@@ -442,6 +443,7 @@ pub fn debugInfo(args: anytype) !bool {
 
         if (pdb_path != null or has_embedded_dwarf or has_symtab) {
             args[1].* += 1;
+            globals.exit_warning.store(true, .monotonic);
             try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
         }
         return false;
@@ -461,6 +463,7 @@ pub fn debugInfo(args: anytype) !bool {
                     _ = macho_file.getDwarfForAddress(globals.alloc.*, globals.io, sym.addr) catch continue;
 
                     args[1].* += 1;
+                    globals.exit_warning.store(true, .monotonic);
                     try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
                     return false;
                 }
@@ -474,6 +477,7 @@ pub fn legacyFiles(args: anytype) !bool {
     const lowercase   = core.getExtensionLowercase(args[0])          orelse return false;
     const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
 
+    globals.exit_warning.store(true, .monotonic);
     try print.warning(i18n.LEGACY_FILES_WARNING, .{ args[0], description });
     args[1].* += 1;
     return true;
@@ -508,7 +512,10 @@ pub fn temporaryRemoveFiles(total_items: *u64) !void {
 }
 
 fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
-    if (!remove_file) return print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
+    if (!remove_file) {
+        globals.exit_warning.store(true, .monotonic);
+        return print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
+    }
 
     try std.Io.Dir.deleteFileAbsolute(globals.io, filepath);
     return print.removing("\"{s}\"", .{filepath});

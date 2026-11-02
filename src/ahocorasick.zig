@@ -104,6 +104,7 @@ pub const AhoCorasick = struct {
     pub fn init(alloc: std.mem.Allocator, patterns: []const []const u8) !Self {
         // Creates root node
         var ahocorasick = try AhoCorasick.initEmpty(alloc);
+        errdefer ahocorasick.deinit();
 
         // Creates the trie adding data
         for (patterns) |pattern| { try ahocorasick.add(pattern); }
@@ -231,4 +232,17 @@ test "Suffix match mid-stream" {
     // After matching "she", the node for 'e' in "she" path
     // should also signal "he" matched via failure link
     try std.testing.expect(ac.contains("she")); // matches "she" AND "he" suffix
+}
+
+test "Contains does not disturb streaming state" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "he", "she" });
+    defer ac.deinit();
+
+    ac.start();
+    try std.testing.expect(!ac.containsBuffer("s"));
+    try std.testing.expect(!ac.contains("xyz"));
+    try std.testing.expect(ac.containsBuffer("he"));
 }

@@ -266,7 +266,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\
 ;
 
-pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: *const std.mem.Allocator) void {
+pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: *const std.mem.Allocator, must_clean: bool) void {
     config_parsed.*.deinit();
-    if (config_file.*.len > 0) alloc.*.free(config_file.*);
+    if (must_clean) alloc.*.free(config_file.*);
 }

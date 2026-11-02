@@ -131,17 +131,15 @@ pub fn err_mt(comptime fmt: []const u8, args: anytype) !void {
     return core_mt(fmt, "\x1b[31m", i18n.ERROR_MESSAGE, args);
 }
 
-/// Prints error message at stderr and exits with error code 1
-pub fn errorDirectory(directory_path: []const u8) noreturn {
+/// Prints error message at stderr
+pub fn errorDirectory(directory_path: []const u8) !void {
     if (config.COMPTIME_STDOUT_STDERR) {
-        stderr("\n") catch {};
-        err("{s}", .{i18n.ERROR_INPUT_DIRECTORY}) catch {};
+        try stderr("\n");
+        try err("{s}", .{i18n.ERROR_INPUT_DIRECTORY});
 
-        const data: []const u8 = std.fmt.bufPrint(globals.buffer, " \"{s}\"\n\n", .{directory_path}) catch "";
-        stderr(data) catch {};
+        const data: []const u8 = try std.fmt.bufPrint(globals.buffer, " \"{s}\"\n\n", .{directory_path});
+        try stderr(data);
     }
-
-    std.process.exit(1);
 }
 
 /// Prints message with a

@@ -383,6 +383,13 @@ pub inline fn debugPrintError(err: anyerror) void {
     }
 }
 
+fn clearCache() void {
+    if (globals.clear_cache.load(.monotonic)) {
+        globals.file_stats.clearRetainingCapacity();
+        globals.clear_cache.store(false, .monotonic);
+    }
+}
+
 /// Conditionally runs a check in every item if both compile-time and runtime flags are enabled
 fn decorate(
     comptime comptime_flag: bool,
@@ -411,6 +418,7 @@ fn decorate(
         const stat_tmp: ?std.Io.File.Stat = try fetchStatWithErrorHandling(absolute_path, &total_items);
         if (stat_tmp) |stat| {
             if (try process_fn(.{ absolute_path, &total_items, &stat })) {
+                clearCache();
                 return print.results(total_items, header, total, totals);
             }
         }
@@ -432,6 +440,7 @@ fn decorate(
             _ = try process_fn(.{ entry.key_ptr.*, &total_items, &cached_stat });
         }
 
+        clearCache();
         return print.results(total_items, header, total, totals);
     }
 
@@ -459,6 +468,7 @@ fn decorate(
         continue;
     }
 
+    clearCache();
     return print.results(total_items, header, total, totals);
 }
 
@@ -479,6 +489,8 @@ fn decorateWalker(
     try process_fn(&total_items);
 
     _ = try print.results(total_items, header, total, totals);
+
+    clearCache();
 }
 
 pub fn exitCodeFn(total_items: *u64, comptime process_fn: anytype,comptime msg_fmt: []const u8, args: anytype) !void {

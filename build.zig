@@ -2,6 +2,16 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
+/// Commands available:
+///     zig build
+///     zig build run -- folder
+///     zig build test
+///     zig build all
+
+/// To deploy
+///     zig build deploy -p download
+///     zig build run -- -i download
+
 const std = @import("std");
 
 fn createExecutableForTarget(b: *std.Build, resolved_target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
@@ -81,6 +91,7 @@ pub fn build(b: *std.Build) void {
     // all: every target Zig can cross-compile to
     // -------------------------------------------------------------------------
     const build_all_step: *std.Build.Step = b.step("all", "Build for every target Zig supports");
+    const deploy_step: *std.Build.Step = b.step("deploy", "Build and xz-compress releases for every target");
 
     // All targets are expressed as { query, output_folder_name } pairs so the
     // deploy helper's allocPrint format strings are bypassed and each triple
@@ -234,18 +245,52 @@ pub fn build(b: *std.Build) void {
         .{ .cpu_arch = .ve          , .os_tag = .freestanding                    },
     };
 
-    deployAllTargets(&all_targets, b, build_all_step);
+    deployAllTargets(&all_targets, b, build_all_step, deploy_step);
 }
 
-/// Deploy using zigTriple as the output folder name, works for any query.
-fn deployAllTargets(targets: []const std.Target.Query, b: *std.Build, step: *std.Build.Step) void {
+/// Build every target, keep raw artifacts under `all`, and xz-compress them under `deploy`.
+fn deployAllTargets(
+    targets: []const std.Target.Query,
+    b: *std.Build,
+    build_all_step: *std.Build.Step,
+    deploy_step: *std.Build.Step,
+) void {
+    // This empty placeholder is installed next to every compressed release.
+    const empty_sha3_sidecar = b.addWriteFiles().add("datachecker.xz.sha3_256", "");
+
     for (targets) |query| {
         const resolved_target: std.Build.ResolvedTarget = b.resolveTargetQuery(query);
         const binary_build:    *std.Build.Step.Compile  = createExecutableForTarget(b, resolved_target, .ReleaseSmall);
 
         const triple: []u8 = query.zigTriple(b.allocator) catch @panic("OOM");
-        const target_output: *std.Build.Step.InstallArtifact = b.addInstallArtifact(binary_build, .{.dest_dir = .{.override = .{.custom = triple }}});
+        // Keep the uncompressed builds available through `zig build all`.
+        const target_output: *std.Build.Step.InstallArtifact = b.addInstallArtifact(binary_build, .{
+            .dest_dir = .{ .override = .{ .custom = triple } },
+        });
+        build_all_step.dependOn(&target_output.step);
 
-        step.dependOn(&target_output.step);
+        // Compress the emitted binary on the build host. Writing to stdout
+        // avoids storing the original executable name in the XZ stream.
+        const xz_cmd: *std.Build.Step.Run = b.addSystemCommand(&.{ "xz", "-9", "-c" });
+        xz_cmd.addFileArg(binary_build.getEmittedBin());
+        const xz_output: std.Build.LazyPath = xz_cmd.captureStdOut(.{
+            .basename = b.fmt("datachecker-{s}.xz", .{triple}),
+        });
+
+        // `-p download` installs these at ./download/<triple>/.
+        const install_xz: *std.Build.Step.InstallFile = b.addInstallFileWithDir(
+            xz_output,
+            .prefix,
+            b.fmt("{s}/datachecker.xz", .{triple}),
+        );
+        deploy_step.dependOn(&install_xz.step);
+
+        // Install the empty SHA3-256 sidecar placeholder next to the archive.
+        const install_sha3_sidecar: *std.Build.Step.InstallFile = b.addInstallFileWithDir(
+            empty_sha3_sidecar,
+            .prefix,
+            b.fmt("{s}/datachecker.xz.sha3_256", .{triple}),
+        );
+        deploy_step.dependOn(&install_sha3_sidecar.step);
     }
 }

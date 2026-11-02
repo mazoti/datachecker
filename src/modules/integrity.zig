@@ -154,6 +154,7 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
             return core.debugPrintError(err);
         };
 
+        globals.clear_cache.store(true, .monotonic);
         return messageSumMutex(print.check_mt, total_items, 1, i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
     }
 
@@ -223,6 +224,8 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
         var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
         try file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower));
         try file_writer.interface.flush();
+
+        globals.clear_cache.store(true, .monotonic);
 
         try print.check(i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
         total_items.* += 1;

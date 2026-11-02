@@ -407,12 +407,8 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(
 
 /// Sets system exit code: 0 (no problems), 1 (errors), 2 (warnings)
 fn exitCode() u8 {
-    const exit_error: bool = globals.exit_error.load(.monotonic);
-    if (exit_error) return 1;
-
-    const exit_warning: bool = globals.exit_warning.load(.monotonic);
-    if (exit_warning) return 2;
-
+    if (globals.exit_error.load(.monotonic))   return 1;
+    if (globals.exit_warning.load(.monotonic)) return 2;
     return 0;
 }
 
@@ -421,7 +417,6 @@ fn createConfig() !void {
     try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
 
     _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
-        globals.exit_error.store(true, .monotonic);
         if (err == error.FileNotFound) {
             const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.io, "config.json", .{});
             defer config_file.close(globals.io);
@@ -437,7 +432,6 @@ fn createConfig() !void {
         return err;
     };
 
-    globals.exit_error.store(true, .monotonic);
     return print.stderr(i18n.ERROR_CONFIG_FILE);
 }
 
@@ -488,8 +482,6 @@ fn commonMain(init: std.process.Init) !void {
     if (args.len == 1) {
         _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
             if (err == error.FileNotFound) return printHelp();
-
-            globals.exit_error.store(true, .monotonic);
             return err;
         };
     }
@@ -499,10 +491,10 @@ fn commonMain(init: std.process.Init) !void {
     }
 
     // Loads configurations from config.json or uses default values
-    const config_message: []const u8 = if (loadLocal(&globals.config_file, &globals.config_parsed, &globals.io, globals.alloc)) i18n.CONFIG_MESSAGE else i18n.CONFIG_MESSAGE_DEFAULT;
-    defer config.deinit(&globals.config_file, &globals.config_parsed, globals.alloc);
+    const must_clean: bool = try loadLocal(&globals.config_file, &globals.config_parsed, &globals.io, globals.alloc);
+    defer config.deinit(&globals.config_file, &globals.config_parsed, globals.alloc, must_clean);
 
-    try print.alignedOk(config_message);
+    if (must_clean) try print.alignedOk(i18n.CONFIG_MESSAGE) else try print.alignedOk(i18n.CONFIG_MESSAGE_DEFAULT);
 
     // CPU count detection for optimal parallelism
     if (globals.config_parsed.value.MAX_JOBS == 0) {
@@ -542,15 +534,15 @@ fn commonMain(init: std.process.Init) !void {
 
     // Checks input directory
     globals.input_directory = if (std.fs.path.isAbsolute(check_directory))
-        std.Io.Dir.openDirAbsolute(globals.io, check_directory, .{ .iterate = true }) catch {
-            globals.exit_error.store(true, .monotonic);
-            return print.errorDirectory(check_directory);
+        std.Io.Dir.openDirAbsolute(globals.io, check_directory, .{ .iterate = true }) catch |err| {
+            try print.errorDirectory(check_directory);
+            return err;
         }
     else
         // Relative paths
-        std.Io.Dir.cwd().openDir(globals.io, check_directory, .{ .iterate = true }) catch {
-            globals.exit_error.store(true, .monotonic);
-            return print.errorDirectory(check_directory);
+        std.Io.Dir.cwd().openDir(globals.io, check_directory, .{ .iterate = true }) catch |err| {
+            try print.errorDirectory(check_directory);
+            return err;
         };
 
     defer globals.input_directory.close(globals.io);
@@ -597,21 +589,25 @@ fn commonMain(init: std.process.Init) !void {
 }
 
 /// Attempts to load configuration from a local "config.json" file in the current working directory
-pub fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io, alloc: *const std.mem.Allocator) bool {
+fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io, alloc: *const std.mem.Allocator) !bool {
     config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
-        core.debugPrintError(err);
-        break :blk "";
+        if (err == error.FileNotFound) break :blk "";
+        return err;
     };
 
     // Parses JSON with enum support, on error sets default values
-    var result: bool = (config_file.*.len > 0);
-    const data: []const u8 = if (result) config_file.* else config.DEFAULT_JSON_CONFIG;
+    const must_clean: bool = (config_file.*.len > 0);
+    const data: []const u8 = if (must_clean) config_file.* else config.DEFAULT_JSON_CONFIG;
 
-    config_parsed.* = parseJSON(data, alloc, config_file, &result) catch {
-        std.debug.panic("\n\n\nPANIC: DEFAULT_JSON_CONFIG IS INVALID AND THIS SHOULD NEVER HAPPEN\n\n\n", .{});
+    config_parsed.* = std.json.parseFromSlice(config.Config, alloc.*, data, .{}) catch |err| {
+        // Invalid config.json
+        if (must_clean) alloc.*.free(config_file.*);
+
+        try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
+        return err;
     };
 
-    return result;
+    return must_clean;
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -619,23 +615,13 @@ pub fn main(init: std.process.Init) !void {
         if (!SetConsoleOutputCP(65001).toBool()) return error.SetConsoleOutputCPFailed;
     }
 
-    try commonMain(init);
-    std.process.exit(exitCode());
-}
-
-fn parseJSON(data: []const u8, alloc: *const std.mem.Allocator, config_file: *[]const u8, result: *bool) !std.json.Parsed(config.Config) {
-    return std.json.parseFromSlice(config.Config, alloc.*, data, .{}) catch |err| {
-        // Invalid config.json
-        result.* = false;
-        alloc.*.free(config_file.*);
-        config_file.* = "";
-
-        core.debugPrintError(err);
-        try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
+    commonMain(init) catch |err| blk:{
         globals.exit_error.store(true, .monotonic);
-
-        return std.json.parseFromSlice(config.Config, alloc.*, config.DEFAULT_JSON_CONFIG, .{});
+        core.debugPrintError(err);
+        break :blk;
     };
+
+    std.process.exit(exitCode());
 }
 
 /// Prints help and exits

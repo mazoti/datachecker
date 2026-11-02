@@ -517,6 +517,8 @@ fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
         return print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
     }
 
+    globals.clear_cache.store(true, .monotonic);
+
     try std.Io.Dir.deleteFileAbsolute(globals.io, filepath);
     return print.removing("\"{s}\"", .{filepath});
 }

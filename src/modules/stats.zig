@@ -120,6 +120,8 @@ pub fn emptyFiles(args: anytype) !bool {
 pub fn emptyRemoveDirectories(args: anytype) !bool {
     if (try countItems(args[0]) != 0) return false;
 
+    globals.clear_cache.store(true, .monotonic);
+
     try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
     return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
 }
@@ -129,6 +131,8 @@ pub fn emptyRemoveFiles(args: anytype) !bool {
     const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.io, args[0], .{});
 
     if (file_stat.size != 0) return false;
+
+    globals.clear_cache.store(true, .monotonic);
 
     try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
     return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
@@ -285,6 +289,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
             total_items.* += 1;
 
             if (remove_entry) {
+                globals.clear_cache.store(true, .monotonic);
                 try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
                 try print.removing("\"{s}\"", .{absolute_path});
                 continue;

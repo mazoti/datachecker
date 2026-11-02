@@ -33,6 +33,9 @@ pub var dir_count: std.StringHashMap(usize) = undefined;
 pub var exit_warning: std.atomic.Value(bool) = .init(false);
 pub var exit_error:   std.atomic.Value(bool) = .init(false);
 
+/// Removes all cache entries after changing any file/folder
+pub var clear_cache:  std.atomic.Value(bool) = .init(false);
+
 /// Terminal I/O operations
 pub var file_writer_stdout:           std.Io.File.Writer = undefined;
 pub var file_writer_stderr:           std.Io.File.Writer = undefined;

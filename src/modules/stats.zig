@@ -5,19 +5,11 @@
 const builtin = @import("builtin");
 const config  = @import("config");
 const core    = @import("core.zig");
+const data    = @import("data.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
 const std     = @import("std");
-
-/// Forbidden filenames of windows system
-const WINDOWS_RESTRICTIONS = std.StaticStringMap([]const u8).initComptime(.{
-    .{ "CON"  , "" }, .{ "PRN"  , "" }, .{ "AUX"  , "" }, .{ "NUL"  , "" },
-    .{ "COM1" , "" }, .{ "COM2" , "" }, .{ "COM3" , "" }, .{ "COM4" , "" }, .{ "COM5" , "" }, .{ "COM6" , "" },
-    .{ "COM7" , "" }, .{ "COM8" , "" }, .{ "COM9" , "" },
-    .{ "LPT1" , "" }, .{ "LPT2" , "" }, .{ "LPT3" , "" }, .{ "LPT4" , "" }, .{ "LPT5" , "" }, .{ "LPT6" , "" },
-    .{ "LPT7" , "" }, .{ "LPT8" , "" }, .{ "LPT9" , "" },
-});
 
 /// Detects files with timestamps in the future
 pub fn checkWrongDates(args: anytype) !bool {
@@ -38,17 +30,17 @@ fn countItems(base_path: []const u8) !u64 {
 
     var result: usize = 0;
 
-    var input_dir: std.Io.Dir = try std.Io.Dir.openDirAbsolute(globals.io, base_path, .{ .iterate = true });
-    defer input_dir.close(globals.io);
+    var input_dir: std.Io.Dir = try std.Io.Dir.openDirAbsolute(globals.init.io, base_path, .{ .iterate = true });
+    defer input_dir.close(globals.init.io);
 
     var iterator: std.Io.Dir.Iterator = input_dir.iterate();
-    while (try iterator.next(globals.io)) |_| { result += 1; }
+    while (try iterator.next(globals.init.io)) |_| { result += 1; }
 
     // Not in cache, store the result
     if (globals.config_parsed.value.ENABLE_CACHE) {
-        const key: []const u8 = try globals.alloc.*.dupe(u8, base_path);
+        const key: []const u8 = try globals.init.arena.allocator().dupe(u8, base_path);
 
-        errdefer globals.alloc.free(key);
+        errdefer globals.init.arena.allocator().free(key);
         try globals.dir_count.put(key, result);
     }
 
@@ -76,7 +68,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
         const path_no_ext: []const u8 = args[0][0..(args[0].len - extension.len)];
 
         if (path_no_ext.len > 1 and path_no_ext[path_no_ext.len - 1] == path_no_ext[path_no_ext.len - 2]) {
-            return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], path_no_ext[path_no_ext.len - 2]});
+            return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0]});
         }
 
         // Checks for duplicated extensions
@@ -84,7 +76,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
         if (args[0].len >= index) {
             const tmp_extension: []const u8 = args[0][(args[0].len - index)..(args[0].len - extension.len)];
             if (std.mem.eql(u8, extension, tmp_extension)) {
-                return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0], extension});
+                return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0]});
             }
         }
     }
@@ -95,7 +87,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
     for (0..args[0].len - 1) |i| {
         if ((args[0][i] == args[0][i + 1]) and (args[0][i] == ' ' or args[0][i] == '-' or
             args[0][i] == '_' or args[0][i] == '.')) {
-            return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0], args[0][i]});
+            return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0]});
         }
     }
 
@@ -122,19 +114,19 @@ pub fn emptyRemoveDirectories(args: anytype) !bool {
 
     globals.clear_cache.store(true, .monotonic);
 
-    try std.Io.Dir.deleteDirAbsolute(globals.io, args[0]);
+    try std.Io.Dir.deleteDirAbsolute(globals.init.io, args[0]);
     return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
 }
 
 /// Removes files with zero bytes
 pub fn emptyRemoveFiles(args: anytype) !bool {
-    const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.io, args[0], .{});
+    const file_stat: std.Io.File.Stat = try std.Io.Dir.cwd().statFile(globals.init.io, args[0], .{});
 
     if (file_stat.size != 0) return false;
 
     globals.clear_cache.store(true, .monotonic);
 
-    try std.Io.Dir.deleteFileAbsolute(globals.io, args[0]);
+    try std.Io.Dir.deleteFileAbsolute(globals.init.io, args[0]);
     return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
 }
 
@@ -209,12 +201,13 @@ pub fn lastAccess(args: anytype) !bool {
 }
 
 /// Removes shortcuts and symlinks
-pub fn linkRemoveShortcuts(total_items: *u64) !void {
-    return linkShortcutsOrRemove(total_items, true);
+pub fn linkRemoveShortcuts(total_items: *u64) !bool {
+    try linkShortcutsOrRemove(total_items, true);
+    return false;
 }
 
 fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
-    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
+    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
     defer walker.deinit();
 
     while (true) {
@@ -236,13 +229,13 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
         if (comptime builtin.os.tag != .windows) {
             if (entry.kind == .sym_link) {
                 if (remove_entry) {
-                    try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
+                    try std.Io.Dir.deleteFileAbsolute(globals.init.io, absolute_path);
                     total_items.* += 1;
                     try print.removing("\"{s}\"", .{absolute_path});
                     continue;
                 }
 
-                const input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, absolute_path,
+                const input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.init.io, absolute_path,
                     .{.mode = .read_only, .lock = .shared})
                 catch |err| {
                     _ = switch (err) {
@@ -251,7 +244,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
                     };
                     continue;
                 };
-                defer input_file.close(globals.io);
+                defer input_file.close(globals.init.io);
             }
         }
 
@@ -269,11 +262,11 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
         }
 
         if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
-            const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, absolute_path,
+            const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.init.io, absolute_path,
                 .{.mode = .read_only, .lock = .shared});
-            defer input_file.close(globals.io);
+            defer input_file.close(globals.init.io);
 
-            var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
+            var file_reader: std.Io.File.Reader = input_file.reader(globals.init.io, globals.buffer);
             const chunk = try file_reader.interface.take(4);
 
             if (chunk.len != 4) {
@@ -290,7 +283,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
 
             if (remove_entry) {
                 globals.clear_cache.store(true, .monotonic);
-                try std.Io.Dir.deleteFileAbsolute(globals.io, absolute_path);
+                try std.Io.Dir.deleteFileAbsolute(globals.init.io, absolute_path);
                 try print.removing("\"{s}\"", .{absolute_path});
                 continue;
             }
@@ -302,8 +295,9 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
 }
 
 /// Detects shortcuts and symlinks and checks if symlinks are pointing to nowhere
-pub fn linkShortcuts(total_items: *u64) !void {
-    return linkShortcutsOrRemove(total_items, false);
+pub fn linkShortcuts(total_items: *u64) !bool {
+    try linkShortcutsOrRemove(total_items, false);
+    return false;
 }
 
 /// Detects directories exceeding configured maximum
@@ -331,7 +325,7 @@ pub fn unportableCharacters(args: anytype) !bool {
     const filename:  []const u8 = basename[0..(basename.len - extension.len)];
 
     // Windows filename restrictions
-    if (WINDOWS_RESTRICTIONS.has(filename)) {
+    if (data.WINDOWS_RESTRICTIONS.has(filename)) {
         globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
     }

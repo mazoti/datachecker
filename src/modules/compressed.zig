@@ -26,10 +26,10 @@ const command_map = std.StaticStringMap(CompressFunction).initComptime(.{
 pub fn check(args: anytype) !bool {
     const lowercase = core.getExtensionLowercase(args[0]) orelse return true;
     const checker: CompressFunction = command_map.get(lowercase) orelse return true;
-    const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, args[0],
+    const input_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.init.io, args[0],
         .{.mode = .read_only, .lock = .shared});
-    defer input_file.close(globals.io);
-    var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer);
+    defer input_file.close(globals.init.io);
+    var file_reader: std.Io.File.Reader = input_file.reader(globals.init.io, globals.buffer);
 
     return checker(args[0], args[1], &file_reader);
 }

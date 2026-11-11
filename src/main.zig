@@ -97,6 +97,15 @@ const COMPTIME_EMPTY_DIRECTORIES = .{
     .{ "EMPTYDIRS"       , &core.emptyDirectories             },
 };
 
+const COMPTIME_END_OF_LINE = .{
+    .{ "--endofline"     , &core.endOfLine                    },
+    .{ "-eol"            , &core.endOfLine                    },
+    .{ "-EOL"            , &core.endOfLine                    },
+    .{ "endofline"       , &core.endOfLine                    },
+    .{ "/EOL"            , &core.endOfLine                    },
+    .{ "ENDOFLINE"       , &core.endOfLine                    },
+};
+
 const COMPTIME_FILES_NEWER_ATIME = .{
     .{ "--fna"           , &core.filesNewerATime              },
     .{ "-fna"            , &core.filesNewerATime              },
@@ -340,6 +349,15 @@ const COMPTIME_TEMPORARY_FILES_REMOVE = .{
     .{ "TEMP_RM"         , &core.temporaryRemoveFiles         },
 };
 
+const COMPTIME_UTF8_ENCODING = .{
+    .{ "--utf8"          , &core.utf8Encoding                 },
+    .{ "-utf8"           , &core.utf8Encoding                 },
+    .{ "-UTF8"           , &core.utf8Encoding                 },
+    .{ "utf8"            , &core.utf8Encoding                 },
+    .{ "/UTF8"           , &core.utf8Encoding                 },
+    .{ "UTF8"            , &core.utf8Encoding                 },
+};
+
 const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
     .{ "--config"        , &createConfig                      },
     .{ "--configure"     , &createConfig                      },
@@ -375,6 +393,7 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(
     (if (config.COMPTIME_DUPLICATE_FILES                ) COMPTIME_DUPLICATE_FILES                 else .{}) ++
     (if (config.COMPTIME_EMPTY_FILES                    ) COMPTIME_EMPTY_FILES                     else .{}) ++
     (if (config.COMPTIME_EMPTY_DIRECTORIES              ) COMPTIME_EMPTY_DIRECTORIES               else .{}) ++
+    (if (config.COMPTIME_END_OF_LINE                    ) COMPTIME_END_OF_LINE                     else .{}) ++
     (if (config.COMPTIME_FILES_NEWER_ATIME              ) COMPTIME_FILES_NEWER_ATIME               else .{}) ++
     (if (config.COMPTIME_FILES_NEWER_CTIME              ) COMPTIME_FILES_NEWER_CTIME               else .{}) ++
     (if (config.COMPTIME_FILES_NEWER_MTIME              ) COMPTIME_FILES_NEWER_MTIME               else .{}) ++
@@ -395,6 +414,7 @@ const command_map = std.StaticStringMap(NoParameterFunc).initComptime(
     (if (config.COMPTIME_ONE_ITEM_DIRECTORY             ) COMPTIME_ONE_ITEM_DIRECTORY              else .{}) ++
     (if (config.COMPTIME_TEMPORARY_FILES                ) COMPTIME_TEMPORARY_FILES                 else .{}) ++
     (if (config.COMPTIME_UNPORTABLE_CHARS               ) COMPTIME_UNPORTABLE_CHARS                else .{}) ++
+    (if (config.COMPTIME_UTF8_ENCODING                  ) COMPTIME_UTF8_ENCODING                   else .{}) ++
     (if (config.COMPTIME_WRONG_DATES                    ) COMPTIME_WRONG_DATES                     else .{}) ++
 
     (if (config.COMPTIME_DUPLICATE_FILES_REMOVE         ) COMPTIME_DUPLICATE_FILES_REMOVE          else .{}) ++
@@ -416,12 +436,12 @@ fn exitCode() u8 {
 fn createConfig() !void {
     try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
 
-    _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
+    _ = std.Io.Dir.cwd().statFile(globals.init.io, "config.json", .{}) catch |err| {
         if (err == error.FileNotFound) {
-            const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.io, "config.json", .{});
-            defer config_file.close(globals.io);
+            const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.init.io, "config.json", .{});
+            defer config_file.close(globals.init.io);
 
-            var file_writer: std.Io.File.Writer = config_file.writer(globals.io, &globals.io_buffer);
+            var file_writer: std.Io.File.Writer = config_file.writer(globals.init.io, &globals.io_buffer);
             try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG);
             try file_writer.interface.flush();
 
@@ -440,36 +460,33 @@ fn commonMain(init: std.process.Init) !void {
     // Accessing command line arguments (arena required):
     var check_directory: []u8 = undefined;
 
-    const arena: std.mem.Allocator = init.arena.allocator();
-    globals.alloc = &arena;
+    globals.init = &init;
 
     const total_memory: u64 = try std.process.totalSystemMemory();
     const half_memory:  u64 = total_memory / 2;
 
     globals.memory_limit = @intCast(@min(half_memory, std.math.maxInt(usize)));
 
-    globals.io = init.io;
-
-    globals.file_writer_stdout = .init(.stdout(), globals.io, &globals.io_buffer);
-    globals.file_writer_stderr = .init(.stderr(), globals.io, &globals.io_buffer);
+    globals.file_writer_stdout = .init(.stdout(), globals.init.io, &globals.io_buffer);
+    globals.file_writer_stderr = .init(.stderr(), globals.init.io, &globals.io_buffer);
 
     globals.file_writer_stdout_interface = globals.file_writer_stdout.interface;
     globals.file_writer_stderr_interface = globals.file_writer_stderr.interface;
 
-    globals.file_stats = globals.FileStatMap.init(globals.alloc.*);
-    globals.dir_count  = std.StringHashMap(usize).init(globals.alloc.*);
+    globals.file_stats = globals.FileStatMap.init(globals.init.arena.allocator());
+    globals.dir_count  = std.StringHashMap(usize).init(globals.init.arena.allocator());
 
-    globals.ignore_path_patterns = try ahocorasick.AhoCorasick.initEmpty(globals.alloc.*);
+    globals.ignore_path_patterns = try ahocorasick.AhoCorasick.initEmpty(globals.init.arena.allocator());
 
     defer {
         globals.ignore_path_patterns.deinit();
 
         var iterator: std.hash_map.HashMapUnmanaged([]const u8, usize, std.hash_map.StringContext, 80).Iterator = globals.dir_count.iterator();
-        while (iterator.next()) |entry| { globals.alloc.*.free(entry.key_ptr.*); }
+        while (iterator.next()) |entry| { globals.init.arena.allocator().free(entry.key_ptr.*); }
         globals.dir_count.deinit();
 
         var iterator2: std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext, 80).Iterator = globals.file_stats.iterator();
-        while (iterator2.next()) |entry| { globals.alloc.*.free(entry.key_ptr.*); }
+        while (iterator2.next()) |entry| { globals.init.arena.allocator().free(entry.key_ptr.*); }
         globals.file_stats.deinit();
     }
 
@@ -477,10 +494,10 @@ fn commonMain(init: std.process.Init) !void {
     try print.stdout(if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&globals.max_path_buffer, "\n🔬\x1b[38;5;255m {s}\x1b[0m\n\n\n", .{i18n.HEADER})
         else try std.fmt.bufPrint(&globals.max_path_buffer, "\n{s}\n\n\n", .{i18n.HEADER}));
 
-    const args: []const [:0]const u8 = try init.minimal.args.toSlice(arena);
+    const args: []const [:0]const u8 = try init.minimal.args.toSlice(globals.init.arena.allocator());
 
     if (args.len == 1) {
-        _ = std.Io.Dir.cwd().statFile(globals.io, "config.json", .{}) catch |err| {
+        _ = std.Io.Dir.cwd().statFile(globals.init.io, "config.json", .{}) catch |err| {
             if (err == error.FileNotFound) return printHelp();
             return err;
         };
@@ -491,8 +508,8 @@ fn commonMain(init: std.process.Init) !void {
     }
 
     // Loads configurations from config.json or uses default values
-    const must_clean: bool = try loadLocal(&globals.config_file, &globals.config_parsed, &globals.io, globals.alloc);
-    defer config.deinit(&globals.config_file, &globals.config_parsed, globals.alloc, must_clean);
+    const must_clean: bool = try loadLocal(&globals.config_file, &globals.config_parsed, globals.init.io, globals.init.arena.allocator());
+    defer config.deinit(&globals.config_file, &globals.config_parsed, globals.init.arena.allocator(), must_clean);
 
     if (must_clean) try print.alignedOk(i18n.CONFIG_MESSAGE) else try print.alignedOk(i18n.CONFIG_MESSAGE_DEFAULT);
 
@@ -503,30 +520,30 @@ fn commonMain(init: std.process.Init) !void {
     }
 
     if (args.len > 1) {
-        check_directory = try globals.alloc.*.dupe(u8, args[args.len - 1]);
+        check_directory = try globals.init.arena.allocator().dupe(u8, args[args.len - 1]);
     } else {
         if (globals.config_parsed.value.INPUT_FOLDER.len == 1) {
-            check_directory = try std.process.currentPathAlloc(globals.io, globals.alloc.*);
+            check_directory = try std.process.currentPathAlloc(globals.init.io, globals.init.arena.allocator());
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 try print.stderr("\n");
 
                 globals.exit_warning.store(true, .monotonic);
                 try print.warning("{s}", .{i18n.CONFIG_MESSAGE_WARNING});
-                check_directory = try std.process.currentPathAlloc(globals.io, globals.alloc.*);
+                check_directory = try std.process.currentPathAlloc(globals.init.io, globals.init.arena.allocator());
             } else {
-                check_directory = try globals.alloc.*.dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
+                check_directory = try globals.init.arena.allocator().dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
             }
         }
     }
 
-    defer globals.alloc.*.free(check_directory);
+    defer globals.init.arena.allocator().free(check_directory);
 
     // Ensures path separator at end
     if (check_directory[check_directory.len - 1] == '"') check_directory[check_directory.len - 1] = std.fs.path.sep;
 
-    globals.buffer = try globals.alloc.*.alloc(u8, globals.config_parsed.value.BUFFER_SIZE);
-    defer globals.alloc.*.free(globals.buffer);
+    globals.buffer = try globals.init.arena.allocator().alloc(u8, globals.config_parsed.value.BUFFER_SIZE);
+    defer globals.init.arena.allocator().free(globals.buffer);
 
     // Prevents bugs with odd sizes of buffer
     globals.buffer_size  = globals.config_parsed.value.BUFFER_SIZE / 2;
@@ -534,27 +551,27 @@ fn commonMain(init: std.process.Init) !void {
 
     // Checks input directory
     globals.input_directory = if (std.fs.path.isAbsolute(check_directory))
-        std.Io.Dir.openDirAbsolute(globals.io, check_directory, .{ .iterate = true }) catch |err| {
+        std.Io.Dir.openDirAbsolute(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
             try print.errorDirectory(check_directory);
             return err;
         }
     else
         // Relative paths
-        std.Io.Dir.cwd().openDir(globals.io, check_directory, .{ .iterate = true }) catch |err| {
+        std.Io.Dir.cwd().openDir(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
             try print.errorDirectory(check_directory);
             return err;
         };
 
-    defer globals.input_directory.close(globals.io);
+    defer globals.input_directory.close(globals.init.io);
 
     // Get absolute path of input directory directory
-    globals.absolute_input_path = try globals.input_directory.realPathFileAlloc(globals.io, ".", arena);
+    globals.absolute_input_path = try globals.input_directory.realPathFileAlloc(globals.init.io, ".", globals.init.arena.allocator());
 
     // TODO: remove in future versions (temporary file for stat)
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.io, "datachecker_empty", .{});
-    file.close(globals.io);
-    globals.now_stat = try std.Io.Dir.cwd().statFile(globals.io, "datachecker_empty", .{});
-    std.Io.Dir.cwd().deleteFile(globals.io, "datachecker_empty") catch {};
+    const file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.init.io, "datachecker_empty", .{});
+    file.close(globals.init.io);
+    globals.now_stat = try std.Io.Dir.cwd().statFile(globals.init.io, "datachecker_empty", .{});
+    std.Io.Dir.cwd().deleteFile(globals.init.io, "datachecker_empty") catch {};
 
     globals.semaphore = std.Io.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
 
@@ -584,24 +601,24 @@ fn commonMain(init: std.process.Init) !void {
 
     // Waits for user input before exiting
     try print.stdout(i18n.QUIT_MESSAGE);
-    var file_reader: std.Io.File.Reader = std.Io.File.stdin().reader(globals.io, globals.buffer);
+    var file_reader: std.Io.File.Reader = std.Io.File.stdin().reader(globals.init.io, globals.buffer);
     _ = try file_reader.interface.take(1);
 }
 
 /// Attempts to load configuration from a local "config.json" file in the current working directory
-fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: *std.Io, alloc: *const std.mem.Allocator) !bool {
-    config_file.* = std.Io.Dir.cwd().readFileAlloc(io.*, "config.json", alloc.*, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
+fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: std.Io, alloc: std.mem.Allocator) !bool {
+    config_file.* = std.Io.Dir.cwd().readFileAlloc(io, "config.json", alloc, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
         if (err == error.FileNotFound) break :blk "";
         return err;
     };
 
     // Parses JSON with enum support, on error sets default values
-    const must_clean: bool = (config_file.*.len > 0);
+    const must_clean: bool = if (config_file.*.len > 0) true else false;
     const data: []const u8 = if (must_clean) config_file.* else config.DEFAULT_JSON_CONFIG;
 
-    config_parsed.* = std.json.parseFromSlice(config.Config, alloc.*, data, .{}) catch |err| {
+    config_parsed.* = std.json.parseFromSlice(config.Config, alloc, data, .{}) catch |err| {
         // Invalid config.json
-        if (must_clean) alloc.*.free(config_file.*);
+        if (must_clean) alloc.free(config_file.*);
 
         try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
         return err;
@@ -631,74 +648,68 @@ fn printHelp() !void { try print.stdout(config.HELP); }
 fn printVersion() !void {}
 
 test "No config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
-    const alloc = &gpa.allocator();
 
     var tmp = std.Io.Threaded.init_single_threaded;
-    var io = tmp.io();
 
     var config_parsed: std.json.Parsed(config.Config) = undefined;
     var config_file: []const u8 = "empty";
 
-    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-    defer config.deinit(&config_file, &config_parsed, alloc);
+    const result: bool = try loadLocal(&config_file, &config_parsed, tmp.io(), gpa.allocator());
+    defer config.deinit(&config_file, &config_parsed, gpa.allocator(), result);
 
     try std.testing.expect(!result);
 }
 
 test "Valid config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
-    const alloc = &gpa.allocator();
 
     var tmp = std.Io.Threaded.init_single_threaded;
-    var io = tmp.io();
     var io_buffer: [65536]u8 = undefined;
 
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
+    const file: std.Io.File = try std.Io.Dir.cwd().createFile(tmp.io(), "config.json", .{});
     defer {
-        file.close(io);
-        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
+        file.close(tmp.io());
+        std.Io.Dir.cwd().deleteFile(tmp.io(), "config.json") catch {};
     }
 
-    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
+    var file_writer: std.Io.File.Writer = file.writer(tmp.io(), &io_buffer);
     try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG);
     try file_writer.interface.flush();
 
     var config_parsed: std.json.Parsed(config.Config) = undefined;
     var config_file: []const u8 = "empty";
 
-    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-    defer config.deinit(&config_file, &config_parsed, alloc);
+    const result: bool = try loadLocal(&config_file, &config_parsed, tmp.io(), gpa.allocator());
+    defer config.deinit(&config_file, &config_parsed, gpa.allocator(), result);
 
     try std.testing.expect(result);
 }
 
 test "Invalid config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
-    const alloc = &gpa.allocator();
 
     var tmp = std.Io.Threaded.init_single_threaded;
-    var io = tmp.io();
     var io_buffer: [65536]u8 = undefined;
 
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(io, "config.json", .{});
+    const file: std.Io.File = try std.Io.Dir.cwd().createFile(tmp.io(), "config.json", .{});
     defer {
-        file.close(io);
-        std.Io.Dir.cwd().deleteFile(io, "config.json") catch {};
+        file.close(tmp.io());
+        std.Io.Dir.cwd().deleteFile(tmp.io(), "config.json") catch {};
     }
 
-    var file_writer: std.Io.File.Writer = file.writer(io, &io_buffer);
+    var file_writer: std.Io.File.Writer = file.writer(tmp.io(), &io_buffer);
     try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG[1..]);
     try file_writer.interface.flush();
 
     var config_parsed: std.json.Parsed(config.Config) = undefined;
     var config_file: []const u8 = "empty";
 
-    const result: bool = loadLocal(&config_file, &config_parsed, &io, alloc);
-    defer config.deinit(&config_file, &config_parsed, alloc);
+    const result: bool = try loadLocal(&config_file, &config_parsed, tmp.io(), gpa.allocator());
+    defer config.deinit(&config_file, &config_parsed, gpa.allocator(), result);
 
     try std.testing.expect(result);
 }

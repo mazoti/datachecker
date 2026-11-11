@@ -5,7 +5,6 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const config  = @import("config");
 const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
@@ -23,7 +22,7 @@ pub fn check(total_items: *u64, remove_duplicate: bool) !void {
 
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
 
-    var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.alloc.*, .{.async_limit = max_jobs_limit,
+    var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.init.arena.allocator(), .{.async_limit = max_jobs_limit,
         .concurrent_limit = max_jobs_limit, .environ = std.process.Environ.empty });
     defer parallel_threaded.deinit();
 
@@ -79,7 +78,7 @@ pub fn check(total_items: *u64, remove_duplicate: bool) !void {
 /// Each worker operates independently until the critical section (map update)
 fn parallelHash(filepath: []const u8, map_hash: *std.AutoArrayHashMapUnmanaged([32]u8, std.ArrayList([]const u8)))
 void {
-    defer globals.semaphore.post(globals.io);
+    defer globals.semaphore.post(globals.init.io);
 
     var file_hash: [32]u8 = undefined;
 
@@ -92,7 +91,7 @@ void {
         return;
     };
 
-    const append_data: []const u8 = globals.alloc.*.dupe(u8, filepath) catch |err| {
+    const append_data: []const u8 = globals.init.arena.allocator().dupe(u8, filepath) catch |err| {
         globals.exit_error.store(true, .monotonic);
         _ = print.err(i18n.ERROR_ALLOC_MEM, .{filepath, err}) catch |err_inside| {
             modules.debugPrintError(err_inside);
@@ -100,18 +99,18 @@ void {
         return;
     };
 
-    errdefer globals.alloc.free(append_data);
+    errdefer globals.init.arena.allocator().free(append_data);
 
-    globals.mutex.lock(globals.io) catch |err| {
+    globals.mutex.lock(globals.init.io) catch |err| {
         globals.exit_error.store(true, .monotonic);
         modules.debugPrintError(err);
         return;
     };
-    defer globals.mutex.unlock(globals.io);
+    defer globals.mutex.unlock(globals.init.io);
 
         // Case 1: Hash already exists - append to existing list (duplicate detected)
         if (map_hash.getPtr(file_hash)) |paths| {
-            paths.append(globals.alloc.*, append_data) catch |err| {
+            paths.append(globals.init.arena.allocator(), append_data) catch |err| {
                 globals.exit_error.store(true, .monotonic);
                 _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                     modules.debugPrintError(err_inside);
@@ -122,7 +121,7 @@ void {
 
         // Case 2: New hash - create entry. This is the first file with this hash value
         var path_list: std.array_list.Aligned([]const u8, null) = std.ArrayList([]const u8).empty;
-        path_list.append(globals.alloc.*, append_data) catch |err| {
+        path_list.append(globals.init.arena.allocator(), append_data) catch |err| {
             globals.exit_error.store(true, .monotonic);
             _ = print.err(i18n.ERROR_APPEND_PATH, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);
@@ -131,7 +130,7 @@ void {
         };
 
         // Insert new hash entry into map - subsequent files with same hash will hit Case 1
-        map_hash.put(globals.alloc.*, file_hash, path_list) catch |err| {
+        map_hash.put(globals.init.arena.allocator(), file_hash, path_list) catch |err| {
             globals.exit_error.store(true, .monotonic);
             _ = print.err(i18n.ERROR_INSERT_HASHMAP, .{err}) catch |err_inside| {
                 modules.debugPrintError(err_inside);

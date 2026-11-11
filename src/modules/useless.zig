@@ -5,349 +5,12 @@
 
 const ahocorasick     = @import("ahocorasick");
 const builtin         = @import("builtin");
-const config          = @import("config");
 const core            = @import("core.zig");
+const data            = @import("data.zig");
 const globals         = @import("globals");
 const i18n            = @import("i18n");
 const print           = @import("print");
 const std             = @import("std");
-
-const StartEndPattern = struct { start: []const u8, end: []const u8 };
-
-/// Array of substrings that indicate temporary files when found anywhere in the path
-/// These patterns identify version control, build artifacts, and system temporary locations
-const CONTAINS = [_][]const u8{
-    "\\$Recycle.bin\\",
-    "\\AppData\\Local\\Temp",
-    "\\Windows\\Temp",
-    "\\AppData\\Local\\Microsoft\\INetCache\\IE",
-    "\\AppData\\Local\\Microsoft\\INetCache\\Content.IE5",
-    ".~lock.",                                     // LibreOffice/OpenOffice lock files prevent concurrent editing
-    ".git/objects/tmp_",                           // Git creates tmp_* during object creation (Unix)
-    ".git\\objects\\tmp_",                         // Git creates tmp_* during object creation (Windows)
-    ".hg/store/journal",                           // Mercurial transaction journal (Unix)
-    ".hg\\store\\journal",                         // Mercurial transaction journal (Windows)
-    ".svn/tmp/",                                   // Subversion working copy temp area (Unix)
-    ".svn\\tmp\\",                                 // Subversion working copy temp area (Windows)
-    ".torrent.",                                   // Torrent metadata/partial files
-    "/tmp/",                                       // Standard Unix temp directory
-    "\\tmp\\",                                     // Windows temp directory
-    "/node_modules/",                              // npm dependencies - massive directory, often excluded (Unix)
-    "\\node_modules\\",                            // npm dependencies
-    "/pycache/",                                   // Python bytecode cache
-    "\\pycache\\",                                 // Python bytecode cache
-    "__pycache__",                                 // Python bytecode cache
-    "/logs/",                                      // Logs directory
-    "\\logs\\",                                    // Logs directory
-    "/.pyre/",                                     // Pyre’s working data
-    "\\.pyre\\",                                   // Pyre’s working data
-    "/.mypy_cache/",                               // mypy's cache results
-    "\\.mypy_cache\\",                             // mypy's cache results
-    "/.pytest_cache/",                             // Python testing framework cache folder
-    "\\.pytest_cache\\",                           // Python testing framework cache folder
-    "/.hypothesis/",                               // Hypothesis testing library folder
-    "\\.hypothesis\\",                             // Hypothesis testing library folder
-    "/.nox/",                                      // Nox automating tests folder
-    "\\.nox\\",                                    // Nox automating tests folder
-    "/.tox/",                                      // Tox automating tests folder
-    "\\.tox\\",                                    // Tox automating tests folder
-    "/htmlcov/",                                   // coverage.py’s HTML report
-    "\\htmlcov\\",                                 // coverage.py’s HTML report
-    "/build/",
-    "\\build\\",
-    "/dist/",
-    "\\dist\\",
-    "/eggs/",
-    "\\eggs\\",
-    "/.eggs/",
-    "\\.eggs\\",
-    "/develop-eggs/",
-    "\\develop-eggs\\",
-    ".egg-info/",
-    ".egg-info\\",
-    "/.ipynb_checkpoints/",
-    "\\.ipynb_checkpoints\\",
-    ".coverage.",
-};
-
-/// Map of exact filenames to their descriptions for system-generated temporary files
-const FULL_NAME = std.StaticStringMap([]const u8).initComptime(.{
-    .{ ".DS_Store"                     , ""                                   },
-    .{ "desktop.ini"                   , ""                                   },
-    .{ "ehthumbs.db"                   , "Windows thumbnail cache (enhanced)" },
-    .{ "hiberfil.sys"                  , ""                                   },
-    .{ "Thumbs.db"                     , "Windows thumbnail cache"            },
-    .{ "THUMBS.DB"                     , "Windows thumbnail cache"            },
-    .{ "distutils.log"                 , ""                                   },
-    .{ "pip-log.txt"                   , ""                                   },
-    .{ "pip-delete-this-directory.txt" , ""                                   },
-    .{ "nosetests.xml"                 , "xUnit test results"                 },
-    .{ "coverage.xml"                  , "Cobertura coverage report"          },
-    .{ ".python-version"               , ""                                   },
-    .{ ".dmypy.json"                   , ""                                   },
-});
-
-/// Map of legacy/obsolete file extensions to their descriptions
-/// Contains formats from older software, operating systems, and file formats
-const LEGACY_EXTENSIONS_DESCRIPTION = std.StaticStringMap([]const u8).initComptime(.{
-    .{ ".123"                 , "Lotus 1-2-3"                          },
-    .{ ".669"                 , "Composer 669"                         },
-    .{ ".8svx"                , "Amiga 8-bit sound"                    },
-    .{ ".adf"                 , "Amiga Disk File"                      },
-    .{ ".aiff"                , "Audio Interchange File Format"        },
-    .{ ".arc"                 , "ARC archive"                          },
-    .{ ".arj"                 , "ARJ compressed archive"               },
-    .{ ".asf"                 , "Advanced Systems Format"              },
-    .{ ".au"                  , "Sun Audio file"                       },
-    .{ ".b64"                 , "Base64 encoded"                       },
-    .{ ".bas"                 , "BASIC source code"                    },
-    .{ ".bat"                 , "Batch file"                           },
-    .{ ".binhex"              , "BinHex encoded"                       },
-    .{ ".bmp"                 , "Bitmap"                               },
-    .{ ".cgm"                 , "Computer Graphics Metafile"           },
-    .{ ".cmf"                 , "Creative Music File"                  },
-    .{ ".com"                 , "DOS executable"                       },
-    .{ ".cut"                 , "Dr. Halo"                             },
-    .{ ".cwk"                 , "ClarisWorks document"                 },
-    .{ ".d64"                 , "Commodore 64 disk"                    },
-    .{ ".dbf"                 , "dBASE database file"                  },
-    .{ ".dif"                 , "Data Interchange Format"              },
-    .{ ".dl"                  , "DL Animation"                         },
-    .{ ".doc"                 , "Microsoft Word 97-2003"               },
-    .{ ".dsk"                 , "Disk image"                           },
-    .{ ".dxf"                 , "AutoCAD exchange"                     },
-    .{ ".ez"                  , "Andrew Toolkit Document"              },
-    .{ ".far"                 , "Farandole Composer"                   },
-    .{ ".fdi"                 , "Formatted Disk Image"                 },
-    .{ ".fla"                 , "Adobe Flash source"                   },
-    .{ ".flc"                 , "Autodesk Animator"                    },
-    .{ ".fli"                 , "Autodesk Animator"                    },
-    .{ ".fon"                 , "Font file"                            },
-    .{ ".frm"                 , "FoxPro form"                          },
-    .{ ".gem"                 , "GEM Metafile"                         },
-    .{ ".gl"                  , "Grasp GL"                             },
-    .{ ".grp"                 , "Program Group"                        },
-    .{ ".hqx"                 , "BinHex - Mac"                         },
-    .{ ".iff"                 , "Interchange File Format - Amiga"      },
-    .{ ".ima"                 , "Disk image"                           },
-    .{ ".it"                  , "Impulse Tracker"                      },
-    .{ ".jpeg"                , "Joint Photographic Experts Group"     },
-    .{ ".jpg"                 , "Joint Photographic Experts Group"     },
-    .{ ".lbm"                 , "Deluxe Paint"                         },
-    .{ ".lha"                 , "LHArc"                                },
-    .{ ".lzh"                 , "LZH compressed archive"               },
-    .{ ".manuscript"          , "WriteNow"                             },
-    .{ ".mcw"                 , "MacWrite"                             },
-    .{ ".mdb"                 , "Microsoft Access Database"            },
-    .{ ".mdx"                 , "Multiple index"                       },
-    .{ ".mid"                 , "Musical Instrument Digital Interface" },
-    .{ ".midi"                , "Musical Instrument Digital Interface" },
-    .{ ".mime"                , "MIME encoded"                         },
-    .{ ".mov"                 , "QuickTime movie"                      },
-    .{ ".msp"                 , "Microsoft Paint"                      },
-    .{ ".mtm"                 , "MultiTracker"                         },
-    .{ ".nb"                  , "Nota Bene"                            },
-    .{ ".ndx"                 , "dBASE index"                          },
-    .{ ".ntx"                 , "Clipper index"                        },
-    .{ ".nuv"                 , "NuppelVideo"                          },
-    .{ ".ovl"                 , "Overlay file"                         },
-    .{ ".pak"                 , "PAK archive"                          },
-    .{ ".pas"                 , "Pascal source code"                   },
-    .{ ".pct"                 , "PICT image"                           },
-    .{ ".pcx"                 , "PC Paintbrush image"                  },
-    .{ ".pfr"                 , "Portable Font Resource"               },
-    .{ ".pic"                 , "PC Paint/Pictor"                      },
-    .{ ".pif"                 , "Program Information File"             },
-    .{ ".pit"                 , "PackIt archive - Mac"                 },
-    .{ ".plt"                 , "HPGL plotter"                         },
-    .{ ".prg"                 , "dBASE program"                        },
-    .{ ".psw"                 , "Pocket Word"                          },
-    .{ ".pwl"                 , "Password List"                        },
-    .{ ".pxl"                 , "Pocket Excel"                         },
-    .{ ".qpd"                 , "Quattro Pro"                          },
-    .{ ".ra"                  , "RealAudio"                            },
-    .{ ".rm"                  , "RealMedia file"                       },
-    .{ ".rol"                 , "AdLib ROL file"                       },
-    .{ ".rtf"                 , "Rich Text Format"                     },
-    .{ ".s3m"                 , "ScreamTracker 3"                      },
-    .{ ".sam"                 , "Samna Word"                           },
-    .{ ".scr"                 , "Screen saver"                         },
-    .{ ".scx"                 , "FoxPro screen"                        },
-    .{ ".sdw"                 , "StarOffice Writer document"           },
-    .{ ".sgi"                 , "Silicon Graphics Image"               },
-    .{ ".sit"                 , "StuffIt archive"                      },
-    .{ ".snd"                 , "Sound file"                           },
-    .{ ".sqz"                 , "Squeeze"                              },
-    .{ ".sun"                 , "Sun Raster"                           },
-    .{ ".sylk"                , "Symbolic Link"                        },
-    .{ ".targa"               , "TARGA image"                          },
-    .{ ".td0"                 , "Teledisk"                             },
-    .{ ".tga"                 , "TARGA image"                          },
-    .{ ".tiff"                , "Tagged Image File Format"             },
-    .{ ".tsr"                 , "Terminate and Stay Resident"          },
-    .{ ".ult"                 , "Ultra Tracker"                        },
-    .{ ".uue"                 , "UUEncoded"                            },
-    .{ ".voc"                 , "Creative Voice File"                  },
-    .{ ".wav"                 , "Waveform Audio File Format"           },
-    .{ ".wk1"                 , "Lotus 1-2-3 spreadsheet"              },
-    .{ ".wk3"                 , "Lotus 1-2-3 spreadsheet"              },
-    .{ ".wk4"                 , "Lotus 1-2-3 spreadsheet"              },
-    .{ ".wks"                 , "Microsoft Works spreadsheet"          },
-    .{ ".wmf"                 , "Windows Metafile"                     },
-    .{ ".wmv"                 , "Windows Media Video"                  },
-    .{ ".wpd"                 , "WordPerfect Document"                 },
-    .{ ".wpg"                 , "WordPerfect Graphics"                 },
-    .{ ".wps"                 , "Microsoft Works Word Processor"       },
-    .{ ".wri"                 , "Windows Write"                        },
-    .{ ".xls"                 , "Microsoft Excel 97-2003"              },
-    .{ ".xm"                  , "FastTracker 2"                        },
-    .{ ".xy"                  , "XyWrite"                              },
-    .{ ".yuv"                 , "Raw YUV video"                        },
-    .{ ".zoo"                 , "ZOO compressed archive"               },
-});
-
-/// Dual-condition pattern matcher for filename prefix/suffix combinations
-/// Allows matching files like "~*.docx" (temp Word files) or "*~" (backup files)
-/// Empty string means "no constraint" - enabling prefix-only or suffix-only matching
-const START_END = [_]StartEndPattern{
-    .{ .start = "."            , .end = ""                             }, // Unix hidden files
-    .{ .start = ".#"           , .end = ""                             }, // Emacs lock files (#.#filename)
-    .{ .start = ".$"           , .end = ""                             }, // Temp file marker
-    .{ .start = ".fuse_hidden" , .end = ""                             }, // FUSE kernel filesystem hidden files
-    .{ .start = ".nfs"         , .end = ""                             }, // Network File System temp files (prevent deletion while open)
-    .{ .start = ".z"           , .end = ""                             }, // Compressed temp files
-    .{ .start = ""             , .end = "~"                            }, // *~ backup files (emacs, vim, gedit)
-    .{ .start = "#"            , .end = "#"                            }, // #file# Emacs auto-save pattern
-    .{ .start = "~"            , .end = ""                             }, // ~file backup files
-    .{ .start = "~"            , .end = ".docx"                        }, // ~file.docx Word temporary
-    .{ .start = "~$."          , .end = ""                             }, // ~$.file Office owner files
-    .{ .start = "~$"           , .end = ".pptx"                        }, // ~$presentation.pptx PowerPoint temp
-    .{ .start = "temp"         , .end = ""                             }, // temp* naming convention
-    .{ .start = "tmp"          , .end = ""                             }, // tmp* naming convention
-};
-
-/// Map of file extensions to descriptions for temporary and cache files
-/// Covers a wide range of temporary files from various applications and systems
-const TEMPORARY_EXTENSIONS = std.StaticStringMap([]const u8).initComptime(.{
-    // System metadata and cache
-    .{ "._.ds_store"          , "MacOS directory metadata"             },
-    .{ ".~tmp"                , ""                                     },
-    .{ ".$$$"                 , ""                                     },
-    .{ ".$$tmp"               , ""                                     },
-    .{ ".autosave"            , "Auto-saved documents"                 },
-    .{ ".cache"               , "Cached data files"                    },
-    .{ ".chk"                 , "Disk check fragments"                 },
-    .{ ".dmp"                 , "Memory dump files"                    },
-    .{ ".ds_store"            , "MacOS directory metadata"             },
-    .{ ".ffs_tmp"             , "FreeFileSync"                         },
-    .{ ".frm"                 , "MySQL table format"                   },
-    .{ ".fseventsd"           , "MacOS file system events"             },
-    .{ ".ftg"                 , "Help full-text search"                },
-    .{ ".gid"                 , "Help index"                           },
-    .{ ".gvfs"                , "GNOME Virtual File System"            },
-    .{ ".iceauthority"        , "X11 ICE authentication"               },
-    .{ ".localized"           , "MacOS folder localization"            },
-    .{ ".mdmp"                , "Crash dumps"                          },
-    .{ ".myd"                 , "MySQL temp"                           },
-    .{ ".myi"                 , "MySQL index files"                    },
-    .{ ".ncb"                 , "Visual C++ IntelliSense"              },
-    .{ ".old"                 , "Old versions of files"                },
-    .{ ".orig"                , "Merge conflict originals"             },
-    .{ ".peak"                , "Audio waveform cache"                 },
-    .{ ".pf"                  , "Windows prefetch files"               },
-    .{ ".pid"                 , "Process ID files"                     },
-    .{ ".recently-used"       , "GTK recent files list"                },
-    .{ ".recovery"            , "Firefox"                              },
-    .{ ".rej"                 , "Patch reject files"                   },
-    .{ ".sample"              , "GitHub example"                       },
-    .{ ".scc"                 , "Scene cache"                          },
-    .{ ".spotlight-v100"      , "MacOS Spotlight index"                },
-    .{ ".suo"                 , "Visual Studio user options"           },
-    .{ ".swap"                , ""                                     },
-    .{ ".swo"                 , "Vim editor swap files"                },
-    .{ ".swp"                 , ""                                     },
-    .{ ".t"                   , ""                                     },
-    .{ ".t$m"                 , ""                                     },
-    .{ ".temp"                , ""                                     },
-    .{ ".temporary"           , ""                                     },
-    .{ ".temporaryitems"      , ""                                     },
-    .{ ".tmp"                 , ""                                     },
-    .{ ".tpm"                 , ""                                     },
-    .{ ".trashes"             , "MacOS trash metadata"                 },
-    .{ ".user"                , "User-specific settings"               },
-    .{ ".vmsn"                , "VMware snapshot"                      },
-    .{ ".vmss"                , "VMware suspend state"                 },
-    .{ ".xauthority"          , "X11 authentication"                   },
-    .{ ".xsession-errors"     , "X session error log"                  },
-
-    // Downloads
-    .{ ".!ut"                 , "uTorrent incomplete"                  },
-    .{ ".crdownload"          , "Chrome partial download"              },
-    .{ ".download"            , "Safari download"                      },
-    .{ ".downloading"         , "Download in progress"                 },
-    .{ ".filepart"            , "Partial download file"                },
-    .{ ".opdownload"          , "Opera partial download"               },
-    .{ ".part"                , "Firefox partial download"             },
-    .{ ".partial"             , "Incomplete download"                  },
-
-    // Logs
-    .{ ".blf"                 , "Windows registry transaction logs"    },
-    .{ ".etl"                 , "Windows event trace logs"             },
-    .{ ".jsonl"               , "JSON log"                             },
-    .{ ".ldf"                 , "SQL Server log"                       },
-    .{ ".log"                 , "Log files"                            },
-    .{ ".plg"                 , "Visual Studio build log"              },
-    .{ ".regtrans-ms"         , "Windows registry transaction logs"    },
-    .{ ".tlog"                , "Build log files"                      },
-
-    // Development files
-    .{ ".a"                   , "Static library"                       },
-    .{ ".aps"                 , "Visual Studio resource cache"         },
-    .{ ".cmi"                 , "OCaml compiled interface"             },
-    .{ ".cmo"                 , "OCaml compiled object"                },
-    .{ ".cover"               , "Extension for annotated source files" },
-    .{ ".coverage"            , "coverage.py raw data"                 },
-    .{ ".db-journal"          , "SQLite rollback journal"              },
-    .{ ".dylib"               , "Dynamic library"                      },
-    .{ ".egg"                 , "Python package created by setuptools" },
-    .{ ".elc"                 , "Emacs Lisp compiled"                  },
-    .{ ".exp"                 , "Export file"                          },
-    .{ ".fasl"                , "Lisp compiled file"                   },
-    .{ ".gch"                 , "GCC precompiled headers"              },
-    .{ ".hi"                  , "Haskell interface"                    },
-    .{ ".idb"                 , "Intermediate database files"          },
-    .{ ".ilk"                 , "Incremental link files"               },
-    .{ ".lastbuildstate"      , "MSBuild state tracking"               },
-    .{ ".lib"                 , "Static library (Windows)"             },
-    .{ ".map"                 , "Linker map files"                     },
-    .{ ".mdf-journal"         , "SQLite journal"                       },
-    .{ ".o"                   , "Object file (ELF/Mach-O)"             },
-    .{ ".obj"                 , "Object file (COFF/PE)"                },
-    .{ ".opt"                 , "Visual Studio workspace options"      },
-    .{ ".pdb"                 , "Program database files"               },
-    .{ ".pyc"                 , "Python compiled"                      },
-    .{ ".pyd"                 , "Python dynamic module"                },
-    .{ ".pyo"                 , "Python optimized"                     },
-    .{ ".rbc"                 , "Ruby bytecode"                        },
-    .{ ".res"                 , "Compiled resources"                   },
-    .{ ".sassc"               , "Sass cache"                           },
-    .{ ".scratch"             , "Scratch programming temporary"        },
-    .{ ".sqlite-shm"          , "Browser databases"                    },
-    .{ ".sqlite-wal"          , "Browser databases"                    },
-    .{ ".unsuccessfulbuild"   , ""                                     },
-
-    // Thumbnails files
-    .{ ".thumbnails"          , "Thumbnail cache directory"            },
-    .{ ".thumbs"              , "Thumbnail cache"                      },
-
-    // Backup files
-    .{ ".bak"                 , "Backup files"                         },
-
-    // Lock files
-    .{ ".lck"                 , "VMware lock files"                    },
-    .{ ".lock"                , ""                                     },
-    .{ ".lok"                 , ""                                     },
-});
 
 fn checkTempFiles(args: anytype, remove_file: bool) !void {
     // Extract and normalize extension for case-insensitive matching
@@ -355,20 +18,20 @@ fn checkTempFiles(args: anytype, remove_file: bool) !void {
 
     if (core.getExtensionLowercase(args[0])) |lowercase| {
         // Checks if the file extension is in the temporary extensions map
-        if (TEMPORARY_EXTENSIONS.has(lowercase)) {
+        if (data.TEMPORARY_EXTENSIONS.has(lowercase)) {
             args[1].* += args[2].size;
             return warnRemoveFile(args[0], remove_file);
         }
     }
 
     // Checks if the full filename matches exactly
-    if (FULL_NAME.has(filename)) {
+    if (data.FULL_NAME.has(filename)) {
         args[1].* += args[2].size;
         return warnRemoveFile(args[0], remove_file);
     }
 
     // Checks if filename matches start/end patterns
-    for (START_END) |pattern| {
+    for (data.START_END) |pattern| {
         if ((pattern.start.len > 0 and !std.mem.startsWith(u8, filename, pattern.start)) or
             (pattern.end.len   > 0 and !std.mem.endsWith(  u8, filename, pattern.end))) continue;
 
@@ -385,15 +48,15 @@ fn checkTempFiles(args: anytype, remove_file: bool) !void {
 
 /// Scans a directory tree for legacy file formats
 pub fn debugInfo(args: anytype) !bool {
-    var input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, args[0],
+    var input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.init.io, args[0],
         .{.mode = .read_only, .lock = .shared}) catch |err| {
             core.debugPrintError(err);
             globals.exit_error.store(true, .monotonic);
             return false;
         };
-    defer input_file.close(globals.io);
+    defer input_file.close(globals.init.io);
 
-    var file_reader: std.Io.File.Reader = input_file.reader(globals.io, globals.buffer[0..4]);
+    var file_reader: std.Io.File.Reader = input_file.reader(globals.init.io, globals.buffer[0..4]);
 
     const chunk_tmp: ?[]const u8 = core.readExactChunk(&file_reader, 4, args[0], args[1]) catch |err| {
         core.debugPrintError(err);
@@ -405,8 +68,8 @@ pub fn debugInfo(args: anytype) !bool {
 
     // ELF executable
     if (std.mem.eql(u8, chunk[0..4], "\x7F\x45\x4C\x46")) {
-        var elf_file = try std.debug.ElfFile.load(globals.alloc.*, globals.io, input_file, &.{}, &std.debug.ElfFile.DebugInfoSearchPaths.none);
-        defer elf_file.deinit(globals.alloc.*);
+        var elf_file = try std.debug.ElfFile.load(globals.init.arena.allocator(), globals.init.io, input_file, &.{}, &std.debug.ElfFile.DebugInfoSearchPaths.none);
+        defer elf_file.deinit(globals.init.arena.allocator());
 
         if (elf_file.dwarf != null or elf_file.symtab != null) {
             args[1].* += 1;
@@ -423,10 +86,10 @@ pub fn debugInfo(args: anytype) !bool {
 
         try file_reader.seekTo(0);
 
-        const data = try file_reader.interface.allocRemaining(globals.alloc.*, std.Io.Limit.limited64(globals.memory_limit));
-        defer globals.alloc.*.free(data);
+        const file_contents = try file_reader.interface.allocRemaining(globals.init.arena.allocator(), std.Io.Limit.limited64(globals.memory_limit));
+        defer globals.init.arena.allocator().free(file_contents);
 
-        var coff = try std.coff.Coff.init(data, false);
+        var coff = try std.coff.Coff.init(file_contents, false);
 
         const pdb_path = coff.getPdbPath() catch blk: { break :blk null; };
 
@@ -456,11 +119,11 @@ pub fn debugInfo(args: anytype) !bool {
         std.mem.eql(u8, chunk[0..4], "\xCA\xFE\xBA\xBF") or std.mem.eql(u8, chunk[0..4], "\xBF\xBA\xFE\xCA")) {
 
             for ([_]std.Target.Cpu.Arch{ .x86_64, .aarch64 }) |arch| {
-                var macho_file = std.debug.MachOFile.load(globals.alloc.*, globals.io, args[0], arch) catch continue;
-                defer macho_file.deinit(globals.alloc.*);
+                var macho_file = std.debug.MachOFile.load(globals.init.arena.allocator(), globals.init.io, args[0], arch) catch continue;
+                defer macho_file.deinit(globals.init.arena.allocator());
 
                 for (macho_file.symbols) |sym| {
-                    _ = macho_file.getDwarfForAddress(globals.alloc.*, globals.io, sym.addr) catch continue;
+                    _ = macho_file.getDwarfForAddress(globals.init.arena.allocator(), globals.init.io, sym.addr) catch continue;
 
                     args[1].* += 1;
                     globals.exit_warning.store(true, .monotonic);
@@ -475,7 +138,7 @@ pub fn debugInfo(args: anytype) !bool {
 /// Scans a directory tree for legacy file formats
 pub fn legacyFiles(args: anytype) !bool {
     const lowercase   = core.getExtensionLowercase(args[0])          orelse return false;
-    const description = LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
+    const description = data.LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
 
     globals.exit_warning.store(true, .monotonic);
     try print.warning(i18n.LEGACY_FILES_WARNING, .{ args[0], description });
@@ -484,31 +147,35 @@ pub fn legacyFiles(args: anytype) !bool {
 }
 
 /// Scans a directory tree for temporary files
-pub fn temporaryFiles(total_items: *u64) !void {
+pub fn temporaryFiles(total_items: *u64) !bool {
     // Initializes Aho-Corasick trie
-    var ac = try ahocorasick.AhoCorasick.init(globals.alloc.*, &CONTAINS);
+    var ac = try ahocorasick.AhoCorasick.init(globals.init.arena.allocator(), &data.CONTAINS);
     defer ac.deinit();
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
         try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, false);
     }
+
+    return false;
 }
 
 /// Scans a directory tree and removes temporary files
-pub fn temporaryRemoveFiles(total_items: *u64) !void {
+pub fn temporaryRemoveFiles(total_items: *u64) !bool {
     // Initializes Aho-Corasick trie
-    var ac = try ahocorasick.AhoCorasick.init(globals.alloc.*, &CONTAINS);
+    var ac = try ahocorasick.AhoCorasick.init(globals.init.arena.allocator(), &data.CONTAINS);
     defer ac.deinit();
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
         try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, true);
     }
+
+    return false;
 }
 
 fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
@@ -519,6 +186,6 @@ fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
 
     globals.clear_cache.store(true, .monotonic);
 
-    try std.Io.Dir.deleteFileAbsolute(globals.io, filepath);
+    try std.Io.Dir.deleteFileAbsolute(globals.init.io, filepath);
     return print.removing("\"{s}\"", .{filepath});
 }

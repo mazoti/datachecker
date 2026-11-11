@@ -63,13 +63,13 @@ fn parseStreamTooLongError(args: anytype, err: anytype) !bool {
 
 /// Parses a JSON file and returns false if no errors were found
 fn parseJSON(args: anytype) !bool {
-    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.init.io, args[0], globals.init.arena.allocator(),
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
         };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
-    var parsed: std.json.Parsed(std.json.Value) = std.json.parseFromSlice(std.json.Value, globals.alloc.*,
+    var parsed: std.json.Parsed(std.json.Value) = std.json.parseFromSlice(std.json.Value, globals.init.arena.allocator(),
     file_contents, .{}) catch |err| {
         return parseError(args, err);
     };
@@ -80,11 +80,11 @@ fn parseJSON(args: anytype) !bool {
 
 /// Parses a TAR file and returns false if no errors were found
 fn parseTAR(args: anytype) !bool {
-    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.init.io, args[0], globals.init.arena.allocator(),
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
         };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     return parseTarRAM(args, file_contents);
 }
@@ -113,11 +113,11 @@ fn parseTarRAM(args: anytype, file_contents: []const u8) !bool {
 
 /// Decompress a .tar.gz file and returns false if no errors were found
 fn decompressTARGZ(args: anytype) !bool {
-    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.init.io, args[0], globals.init.arena.allocator(),
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
         };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     // Create a reader over the compressed data
     var reader = std.Io.Reader.fixed(file_contents);
@@ -127,21 +127,21 @@ fn decompressTARGZ(args: anytype) !bool {
     var decompressor: std.compress.flate.Decompress = .init(&reader, .gzip, &window);
 
     // Decompress into an allocated RAM buffer.
-    const data = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const data = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(data);
+    defer globals.init.arena.allocator().free(data);
 
     return parseTarRAM(args, data);
 }
 
 /// Decompress a GZ file and returns false if no errors were found
 fn decompressGZ(args: anytype) !bool {
-    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.init.io, args[0], globals.init.arena.allocator(),
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
         };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     // Create a reader over the compressed data.
     var reader = std.Io.Reader.fixed(file_contents);
@@ -151,116 +151,116 @@ fn decompressGZ(args: anytype) !bool {
     var decompressor: std.compress.flate.Decompress = .init(&reader, .gzip, &window);
 
     // Decompress into an allocated RAM buffer.
-    const data = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const data = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(data);
+    defer globals.init.arena.allocator().free(data);
 
     return false;
 }
 
 /// Decompress a .tar.lzma file and returns false if no errors were found
 fn decompressTARLZMA(args: anytype) !bool {
-    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
-    defer file.close(globals.io);
+    const file = try std.Io.Dir.cwd().openFile(globals.init.io, args[0], .{});
+    defer file.close(globals.init.io);
 
-    var stream = file.reader(globals.io, &globals.io_buffer);
+    var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Initialize the LZMA decompressor.
-    var decompressor = std.compress.lzma.Decompress.initOptions(&stream.interface, globals.alloc.*, &.{}, .{}, globals.memory_limit) catch |err| {
+    var decompressor = std.compress.lzma.Decompress.initOptions(&stream.interface, globals.init.arena.allocator(), &.{}, .{}, globals.memory_limit) catch |err| {
         return parseError(args, err);
     };
     defer decompressor.deinit();
 
     // Decompress into an allocated RAM buffer
-    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     return parseTarRAM(args, file_contents);
 }
 
 /// Decompress a LZMA file and returns false if no errors were found
 fn decompressLZMA(args: anytype) !bool {
-    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
-    defer file.close(globals.io);
+    const file = try std.Io.Dir.cwd().openFile(globals.init.io, args[0], .{});
+    defer file.close(globals.init.io);
 
-    var stream = file.reader(globals.io, &globals.io_buffer);
+    var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Initialize the LZMA decompressor.
-    var decompressor = std.compress.lzma.Decompress.initOptions(&stream.interface, globals.alloc.*, &.{}, .{}, globals.memory_limit) catch |err| {
+    var decompressor = std.compress.lzma.Decompress.initOptions(&stream.interface, globals.init.arena.allocator(), &.{}, .{}, globals.memory_limit) catch |err| {
         return parseError(args, err);
     };
     defer decompressor.deinit();
 
     // Decompress into an allocated RAM buffer
-    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     return false;
 }
 
 /// Decompress a .tar.xz file and returns false if no errors were found
 fn decompressTARXZ(args: anytype) !bool {
-    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.init.io, args[0], globals.init.arena.allocator(),
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
         };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     // Create a reader over the compressed data.
     var reader = std.Io.Reader.fixed(file_contents);
 
     // Initialize the standard-library XZ decompressor.
-    var decompressor = std.compress.xz.Decompress.init(&reader, globals.alloc.*, &.{}) catch |err| {
+    var decompressor = std.compress.xz.Decompress.init(&reader, globals.init.arena.allocator(), &.{}) catch |err| {
         return parseError(args, err);
     };
     defer decompressor.deinit();
 
     // Decompress everything into a RAM buffer.
-    const data = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const data = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(data);
+    defer globals.init.arena.allocator().free(data);
 
     return parseTarRAM(args, data);
 }
 
 /// Decompress a XZ file and returns false if no errors were found
 fn decompressXZ(args: anytype) !bool {
-    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.io, args[0], globals.alloc.*,
+    const file_contents: []u8 = std.Io.Dir.cwd().readFileAlloc(globals.init.io, args[0], globals.init.arena.allocator(),
         std.Io.Limit.limited64(globals.memory_limit)) catch |err| {
             return parseStreamTooLongError(args, err);
         };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     // Create a reader over the compressed data.
     var reader = std.Io.Reader.fixed(file_contents);
 
     // Initialize the standard-library XZ decompressor.
-    var decompressor = std.compress.xz.Decompress.init(&reader, globals.alloc.*, &.{}) catch |err| {
+    var decompressor = std.compress.xz.Decompress.init(&reader, globals.init.arena.allocator(), &.{}) catch |err| {
         return parseError(args, err);
     };
     defer decompressor.deinit();
 
     // Decompress everything into a RAM buffer.
-    const data = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const data = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(data);
+    defer globals.init.arena.allocator().free(data);
 
     return false;
 }
 
 /// Decompress a ZIP file and returns false if no errors were found
 fn decompressZIP(args: anytype) !bool {
-    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
-    defer file.close(globals.io);
+    const file = try std.Io.Dir.cwd().openFile(globals.init.io, args[0], .{});
+    defer file.close(globals.init.io);
 
-    var stream = file.reader(globals.io, &globals.io_buffer);
+    var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     var iterator = std.zip.Iterator.init(&stream) catch |err| {
         return parseError(args, err);
@@ -273,8 +273,8 @@ fn decompressZIP(args: anytype) !bool {
 
         const size: usize = @intCast(entry.uncompressed_size);
 
-        const output = try globals.alloc.*.alloc(u8, size);
-        defer globals.alloc.*.free(output);
+        const output = try globals.init.arena.allocator().alloc(u8, size);
+        defer globals.init.arena.allocator().free(output);
 
         // Read the local file header.
         try stream.seekTo(entry.file_offset);
@@ -319,10 +319,10 @@ fn decompressZIP(args: anytype) !bool {
 
 /// Decompress a ZLIB file and returns false if no errors were found
 fn decompressZLIB(args: anytype) !bool {
-    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
-    defer file.close(globals.io);
+    const file = try std.Io.Dir.cwd().openFile(globals.init.io, args[0], .{});
+    defer file.close(globals.init.io);
 
-    var stream = file.reader(globals.io, &globals.io_buffer);
+    var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Allocate the DEFLATE history window.
     var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
@@ -331,23 +331,23 @@ fn decompressZLIB(args: anytype) !bool {
     var decompressor = std.compress.flate.Decompress.init(&stream.interface, .zlib, &decompress_buffer);
 
     // Decompress into RAM
-    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.alloc.*, .limited(globals.memory_limit)) catch |err| {
+    const file_contents: []u8 = decompressor.reader.allocRemaining(globals.init.arena.allocator(), .limited(globals.memory_limit)) catch |err| {
         return parseError(args, err);
     };
-    defer globals.alloc.*.free(file_contents);
+    defer globals.init.arena.allocator().free(file_contents);
 
     return false;
 }
 
 /// Decompress a .tar.zst file and returns false if no errors were found
 fn decompressTARZST(args: anytype) !bool {
-    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
-    defer file.close(globals.io);
+    const file = try std.Io.Dir.cwd().openFile(globals.init.io, args[0], .{});
+    defer file.close(globals.init.io);
 
-    var stream = file.reader(globals.io, &globals.io_buffer);
+    var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Accumulate decompressed data in RAM
-    var output: std.Io.Writer.Allocating = .init(globals.alloc.*);
+    var output: std.Io.Writer.Allocating = .init(globals.init.arena.allocator());
     defer output.deinit();
 
     var decompressor = std.compress.zstd.Decompress.init(&stream.interface, &.{}, .{});
@@ -362,13 +362,13 @@ fn decompressTARZST(args: anytype) !bool {
 
 /// Decompress a ZST file and returns false if no errors were found
 fn decompressZST(args: anytype) !bool {
-    const file = try std.Io.Dir.cwd().openFile(globals.io, args[0], .{});
-    defer file.close(globals.io);
+    const file = try std.Io.Dir.cwd().openFile(globals.init.io, args[0], .{});
+    defer file.close(globals.init.io);
 
-    var stream = file.reader(globals.io, &globals.io_buffer);
+    var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Accumulate decompressed data in RAM
-    var output: std.Io.Writer.Allocating = .init(globals.alloc.*);
+    var output: std.Io.Writer.Allocating = .init(globals.init.arena.allocator());
     defer output.deinit();
 
     var decompressor = std.compress.zstd.Decompress.init(&stream.interface, &.{}, .{});

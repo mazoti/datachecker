@@ -20,6 +20,7 @@ pub const COMPTIME_DUPLICATE_CHARS_FILES:             bool = true;
 pub const COMPTIME_DUPLICATE_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_DUPLICATE_FILES:                   bool = true;
 pub const COMPTIME_EMPTY_FILES:                       bool = true;
+pub const COMPTIME_END_OF_LINE:                       bool = true;
 pub const COMPTIME_EMPTY_DIRECTORIES:                 bool = true;
 pub const COMPTIME_FILES_NEWER_ATIME:                 bool = true;
 pub const COMPTIME_FILES_NEWER_CTIME:                 bool = true;
@@ -41,6 +42,7 @@ pub const COMPTIME_NO_EXTENSION:                      bool = true;
 pub const COMPTIME_ONE_ITEM_DIRECTORY:                bool = true;
 pub const COMPTIME_TEMPORARY_FILES:                   bool = true;
 pub const COMPTIME_UNPORTABLE_CHARS:                  bool = true;
+pub const COMPTIME_UTF8_ENCODING:                     bool = true;
 pub const COMPTIME_WRONG_DATES:                       bool = true;
 
 pub const COMPTIME_DUPLICATE_FILES_REMOVE:            bool = true;
@@ -65,6 +67,7 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_EMPTY_FILES)                     i18n.COMPTIME_EMPTY_FILES                     else "")
     ++ (if (COMPTIME_EMPTY_DIRECTORIES_REMOVE)        i18n.COMPTIME_EMPTY_DIRECTORIES_REMOVE        else "")
     ++ (if (COMPTIME_EMPTY_DIRECTORIES)               i18n.COMPTIME_EMPTY_DIRECTORIES               else "")
+    ++ (if (COMPTIME_END_OF_LINE)                     i18n.COMPTIME_END_OF_LINE                     else "")
     ++ (if (COMPTIME_FILES_NEWER_ATIME)               i18n.COMPTIME_FILES_NEWER_ATIME               else "")
     ++ (if (COMPTIME_FILES_NEWER_CTIME)               i18n.COMPTIME_FILES_NEWER_CTIME               else "")
     ++ (if (COMPTIME_FILES_NEWER_MTIME)               i18n.COMPTIME_FILES_NEWER_MTIME               else "")
@@ -87,6 +90,7 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_TEMPORARY_FILES_REMOVE)          i18n.COMPTIME_TEMPORARY_FILES_REMOVE          else "")
     ++ (if (COMPTIME_TEMPORARY_FILES)                 i18n.COMPTIME_TEMPORARY_FILES                 else "")
     ++ (if (COMPTIME_UNPORTABLE_CHARS)                i18n.COMPTIME_UNPORTABLE_CHARS                else "")
+    ++ (if (COMPTIME_UTF8_ENCODING)                   i18n.COMPTIME_UTF8_ENCODING                   else "")
     ++ (if (COMPTIME_WRONG_DATES)                     i18n.COMPTIME_WRONG_DATES                     else "")
 ;
 
@@ -111,6 +115,8 @@ pub const Config = struct {
     DUPLICATE_FILES:            bool         = false,
     EMPTY_FILES:                bool         = true,
     EMPTY_DIRECTORIES:          bool         = true,
+    END_OF_LINE:                bool         = true,
+        EOL_CHARS:              []const u8   = "\n",
     FILES_NEWER_ATIME:          bool         = true,
     FILES_NEWER_CTIME:          bool         = true,
     FILES_NEWER_MTIME:          bool         = true,
@@ -138,6 +144,7 @@ pub const Config = struct {
     ONE_ITEM_DIRECTORY:         bool         = true, // Detects unnecessary directory nesting
     TEMPORARY_FILES:            bool         = true, // Looks for for .tmp, .temp, ~ and .swp
     UNPORTABLE_CHARS:           bool         = true,
+    UTF8_ENCODING:              bool         = true,
     WRONG_DATES:                bool         = true,
 };
 
@@ -234,6 +241,8 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "DUPLICATE_FILES":                 false,
     \\    "EMPTY_FILES":                     true,
     \\    "EMPTY_DIRECTORIES":               true,
+    \\    "END_OF_LINE":                     true,
+    \\        "EOL_CHARS":                   "\n",
     \\    "FILES_NEWER_ATIME":               true,
     \\    "FILES_NEWER_CTIME":               true,
     \\    "FILES_NEWER_MTIME":               true,
@@ -261,12 +270,13 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "PARSE_FILES":                     true,
     \\    "TEMPORARY_FILES":                 true,
     \\    "UNPORTABLE_CHARS":                true,
+    \\    "UTF8_ENCODING":                   true,
     \\    "WRONG_DATES":                     true
     \\}
     \\
 ;
 
-pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: *const std.mem.Allocator, must_clean: bool) void {
+pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config), alloc: std.mem.Allocator, must_clean: bool) void {
     config_parsed.*.deinit();
-    if (must_clean) alloc.*.free(config_file.*);
+    if (must_clean) alloc.free(config_file.*);
 }

@@ -44,6 +44,9 @@ pub fn alignedOk(message: []const u8) !void {
 pub fn check(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
+    if (try cleanPath(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args)) return;
+    if (try cleanPath2Strings(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args)) return;
+
     return core(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args);
 }
 
@@ -86,7 +89,7 @@ pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8)), rem
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
     for (duplicates.items) |results_list| {
-        const stat: std.Io.File.Stat = globals.file_stats.get(results_list.items[0]) orelse try std.Io.Dir.cwd().statFile(globals.io, results_list.items[0], .{});
+        const stat: std.Io.File.Stat = globals.file_stats.get(results_list.items[0]) orelse try std.Io.Dir.cwd().statFile(globals.init.io, results_list.items[0], .{});
 
         const plural: []const u8 = if (stat.size == 1) "byte:" else "bytes:";
 
@@ -121,6 +124,8 @@ pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8)), rem
 pub fn err(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
+    if (try cleanPath(fmt, "\x1b[31m", i18n.ERROR_MESSAGE, args)) return;
+
     return core(fmt, "\x1b[31m", i18n.ERROR_MESSAGE, args);
 }
 
@@ -142,7 +147,7 @@ pub fn errorDirectory(directory_path: []const u8) !void {
     }
 }
 
-/// Prints message with a
+///
 pub fn found(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
@@ -215,5 +220,47 @@ fn total(comptime fmt: []const u8, args: anytype) !void {
 pub fn warning(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT_STDERR) return;
 
+    if (try cleanPath(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
+
     return core(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args);
+}
+
+
+
+
+
+
+fn cleanPath(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !bool {
+    if (args.len == 1 and @TypeOf(args[0]) == []const u8) {
+       // Index of the last EOL character (0 if there is none; then nothing is dropped).
+       var i: usize = 0;
+       for (args[0]) |c| {
+           if (c == '\n' or c == '\r') continue;
+           globals.buffer[i] = c;
+           i += 1;
+       }
+
+       try core_mt(fmt, ansi_color, print_message, .{globals.buffer[0..i]});
+       return true;
+    }
+
+    return false;
+}
+
+
+fn cleanPath2Strings(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !bool {
+    if (args.len == 2 and @TypeOf(args[0]) == []const u8 and @TypeOf(args[1]) == []const u8) {
+
+        var i: usize = 0;
+        for (args[0]) |c| {
+            if (c == '\n' or c == '\r') continue;
+            globals.buffer[i] = c;
+            i += 1;
+        }
+
+        try core_mt(fmt, ansi_color, print_message, .{globals.buffer[0..i], args[1]});
+        return true;
+    }
+
+    return false;
 }

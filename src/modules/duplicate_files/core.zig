@@ -11,14 +11,20 @@ const modules      = @import("../core.zig");
 const print        = @import("print");
 const std          = @import("std");
 
-pub fn check          (total_items: *u64) !void { return dup_single.check(total_items,   false); }
+pub fn check(total_items: *u64) !bool {
+    try dup_single.check(total_items, false);
+    return false;
+}
 
-pub fn check_parallel (total_items: *u64) !void { return dup_parallel.check(total_items, false); }
+pub fn check_parallel(total_items: *u64) !bool {
+    try dup_parallel.check(total_items, false);
+    return false;
+}
 
 /// Cleans up an array list and free all its memory
 pub fn cleanArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) void {
     for (array_list.items) |*value| { cleanList(std.ArrayList([]u8), value); }
-    array_list.deinit(globals.alloc.*);
+    array_list.deinit(globals.init.arena.allocator());
 }
 
 /// Cleans up and removes a specific entry from the map
@@ -35,20 +41,20 @@ pub fn cleanHashMap(
 ) void {
     var iter = map.iterator();
     while (iter.next()) |entry| { cleanList(std.ArrayList([]const u8), entry.value_ptr); }
-    map.deinit(globals.alloc.*);
+    map.deinit(globals.init.arena.allocator());
 }
 
 /// Free all strings in a list and deinitialize the list
 fn cleanList(comptime T: type, list: *T) void {
-    for (list.items) |value| { globals.alloc.*.free(value); }
-    list.deinit(globals.alloc.*);
+    for (list.items) |value| { globals.init.arena.allocator().free(value); }
+    list.deinit(globals.init.arena.allocator());
 }
 
 /// Groups files by their size into a hash map
 /// Uses cache-first strategy to avoid redundant filesystem stat calls
 pub fn groupFileBySize(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
     var total_items: u64 = 0;
-    var file_iterator: modules.FileIterator = try modules.FileIterator.init(globals.alloc.*);
+    var file_iterator: modules.FileIterator = try modules.FileIterator.init(globals.init.arena.allocator());
     defer file_iterator.deinit();
 
     while (try file_iterator.next(&total_items)) |entry| {
@@ -60,15 +66,15 @@ fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMap
     // Ignore empty files
     if (stat.size == 0) return;
 
-    const gop: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)).GetOrPutResult = try map.getOrPut(globals.alloc.*, @intCast(stat.size));
+    const gop: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)).GetOrPutResult = try map.getOrPut(globals.init.arena.allocator(), @intCast(stat.size));
 
     //if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
     if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8).empty;
 
-    const data: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
+    const data: []const u8 = try globals.init.arena.allocator().dupe(u8, absolute_path);
 
-    errdefer globals.alloc.free(data);
-    try gop.value_ptr.append(globals.alloc.*, data);
+    errdefer globals.init.arena.allocator().free(data);
+    try gop.value_ptr.append(globals.init.arena.allocator(), data);
 }
 
 /// Groups files that have identical content into lists
@@ -82,15 +88,15 @@ pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.Arr
     outer: for (paths.items) |path| {
         for (results.items) |*result| {
             if (try sameFile(path, result.items[0])) {
-                const data: []u8 = try globals.alloc.*.dupe(u8, path);
+                const data: []u8 = try globals.init.arena.allocator().dupe(u8, path);
 
-                errdefer globals.alloc.free(data);
-                try result.append(globals.alloc.*, data);
+                errdefer globals.init.arena.allocator().free(data);
+                try result.append(globals.init.arena.allocator(), data);
 
-                const stat = try std.Io.Dir.cwd().statFile(globals.io, path, .{});
+                const stat = try std.Io.Dir.cwd().statFile(globals.init.io, path, .{});
                 total_bytes.* += stat.size;
 
-                if (remove_duplicate) try std.Io.Dir.deleteFileAbsolute(globals.io, path);
+                if (remove_duplicate) try std.Io.Dir.deleteFileAbsolute(globals.init.io, path);
 
                 continue :outer;
             }
@@ -99,19 +105,25 @@ pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.Arr
         // Different from all other files, add another result
         var path_list: std.array_list.Aligned([]u8, null) = std.ArrayList([]u8).empty;
 
-        const data: []u8 = try globals.alloc.*.dupe(u8, path);
+        const data: []u8 = try globals.init.arena.allocator().dupe(u8, path);
 
-        errdefer globals.alloc.free(data);
-        try path_list.append(globals.alloc.*, data);
+        errdefer globals.init.arena.allocator().free(data);
+        try path_list.append(globals.init.arena.allocator(), data);
 
         errdefer cleanList(std.ArrayList([]u8), &path_list);
-        try results.append(globals.alloc.*, path_list);
+        try results.append(globals.init.arena.allocator(), path_list);
     }
 }
 
-pub fn remove         (total_items: *u64) !void { return dup_single.check(total_items,   true);  }
+pub fn remove(total_items: *u64) !bool {
+    try dup_single.check(total_items, true);
+    return false;
+}
 
-pub fn remove_parallel(total_items: *u64) !void { return dup_parallel.check(total_items, true);  }
+pub fn remove_parallel(total_items: *u64) !bool {
+    try dup_parallel.check(total_items, true);
+    return false;
+}
 
 /// Removes files with unique sizes to reduce memory and processing
 pub fn removeUniques(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
@@ -144,14 +156,14 @@ pub fn removeUniquesArrayList(array_list: *std.ArrayList(std.ArrayList([]u8))) v
 /// PERFORMANCE: Uses chunked reading to handle large files without loading into memory
 /// CORRECTNESS: Compares byte-for-byte, not just hashes - eliminates hash collision risk
 fn sameFile(filepath1: []const u8, filepath2: []const u8) !bool {
-    const file1: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, filepath1, .{ .mode = .read_only, .lock = .shared });
-    defer file1.close(globals.io);
+    const file1: std.Io.File = try std.Io.Dir.cwd().openFile(globals.init.io, filepath1, .{ .mode = .read_only, .lock = .shared });
+    defer file1.close(globals.init.io);
 
-    const file2: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, filepath2, .{ .mode = .read_only, .lock = .shared });
-    defer file2.close(globals.io);
+    const file2: std.Io.File = try std.Io.Dir.cwd().openFile(globals.init.io, filepath2, .{ .mode = .read_only, .lock = .shared });
+    defer file2.close(globals.init.io);
 
-    var file_reader1: std.Io.File.Reader = file1.reader(globals.io, globals.buffer[0..globals.buffer_size]);
-    var file_reader2: std.Io.File.Reader = file2.reader(globals.io, globals.buffer[globals.buffer_size..globals.buffer_total]);
+    var file_reader1: std.Io.File.Reader = file1.reader(globals.init.io, globals.buffer[0..globals.buffer_size]);
+    var file_reader2: std.Io.File.Reader = file2.reader(globals.init.io, globals.buffer[globals.buffer_size..globals.buffer_total]);
 
     // Compare files in chunks to handle large files efficiently
     while (true) {

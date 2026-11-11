@@ -1,0 +1,4 @@
+Latin-1 test file (this file is NOT valid UTF-8)
+
+ASCII:           Hello, world!
+Accented Latin:  café, ação, São Paulo, Zürich, niño

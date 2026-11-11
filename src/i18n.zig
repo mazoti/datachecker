@@ -115,6 +115,13 @@ pub const COMPTIME_EMPTY_DIRECTORIES =
     \\
 ;
 
+pub const COMPTIME_END_OF_LINE =
+    \\    --endofline, -eol, -EOL, endofline, /EOL, ENDOFLINE
+    \\        Search for wrong line terminator in text files
+    \\        (create config.json to customize terminator)
+    \\
+;
+
 pub const COMPTIME_FILES_NEWER_ATIME =
     \\    --fna, -fna, -FNA, fna, /FNA, FNA
     \\        Search for files with newer access time
@@ -279,6 +286,13 @@ pub const COMPTIME_UNPORTABLE_CHARS =
     \\
 ;
 
+pub const COMPTIME_UTF8_ENCODING =
+    \\    --utf8, -utf8, -UTF8, utf8, /UTF8, UTF8
+    \\        Search for non-UTF8 encoded text files
+    \\
+    \\
+;
+
 pub const COMPTIME_WRONG_DATES =
     \\    --wrong, -w, -W, wrong, /W, WRONG
     \\        Search for files with timestamps in the future
@@ -312,8 +326,8 @@ pub const DIR_FILE_NAME_SIZE_WARNING      = "\"{s}\" is larger than {d} characte
 pub const DIRECTORIES_TOTAL               = "{d} directory\n";
 pub const DIRECTORIES_TOTALS              = "{d} directories\n";
 
-pub const DUPLICATE_CHARS_FILES_CHECK     = "\"{s}\" has a duplicate character \"{c}\"";
-pub const DUPLICATE_CHARS_FILES_CHECK_EXT = "\"{s}\" has a duplicate extension \"{s}\"";
+pub const DUPLICATE_CHARS_FILES_CHECK     = "\"{s}\" has a duplicate character";
+pub const DUPLICATE_CHARS_FILES_CHECK_EXT = "\"{s}\" has a duplicate extension";
 pub const DUPLICATE_CHARS_FILES_HEADER    = "\n\tLooking for duplicate characters...\n";
 pub const DUPLICATE_CHARS_FILES_TOTAL     = "{d} item with duplicate characters\n";
 pub const DUPLICATE_CHARS_FILES_TOTALS    = "{d} items with duplicate characters\n";
@@ -346,6 +360,10 @@ pub const EMPTY_DIRECTORIES_WARNING       = "\"{s}\" is empty";
 
 pub const EMPTY_FILES_HEADER              = "\n\tLooking for empty files...\n";
 pub const EMPTY_FILES_WARNING             = "\"{s}\" is empty";
+
+pub const END_OF_LINE_HEADER              = "\n\tLooking for wrong terminator in text files...\n";
+pub const END_OF_LINE_ERROR               = "Invalid line terminator in configuration";
+pub const END_OF_LINE_WARNING             = "\"{s}\" has an invalid end of line terminator";
 
 pub const FULL_PATH_SIZE_HEADER           = "\n\tLooking for large paths...\n";
 pub const FULL_PATH_SIZE_TOTAL            = "{d} path found\n";
@@ -395,6 +413,9 @@ pub const UNPORTABLE_CHARS_HEADER         = "\n\tLooking for unportable characte
 pub const UNPORTABLE_CHARS_TOTAL          = "{d} item with unportable characters\n";
 pub const UNPORTABLE_CHARS_TOTALS         = "{d} items with unportable characters\n";
 
+pub const UTF8_ENCODING_HEADER            = "\n\tLooking for non-UTF8 encoded text files...\n";
+pub const UTF8_ENCODING_WARNING           = "\"{s}\" is not encoded in UTF-8";
+
 pub const WRONG_DATES_HEADER              = "\n\tLooking for wrong date files...\n";
 pub const WRONG_DATES_WARNING             = "File \"{s}\" has a date in the future";
 
@@ -421,4 +442,6 @@ pub const ERROR_HASH_FILE                 = "Failed to hash file \"{s}\": {}\n";
 pub const ERROR_INPUT_DIRECTORY           = "Can't read input directory";
 pub const ERROR_INSERT_HASHMAP            = "Failed to insert into hash map: \"{}\"\n";
 pub const ERROR_READING_FILE              = "\"{s}\" is unreadable";
+pub const ERROR_READ_ONLY_FS              = "\"{s}\" is on a read-only filesystem";
 pub const ERROR_STREAM_TOO_LONG           = "\"{s}\" is bigger than buffer";
+pub const ERROR_UNEXPECTED_FILE           = "Unexpected error processing file \"{s}\"";

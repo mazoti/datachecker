@@ -12,9 +12,6 @@ pub const FileStatMap: type = std.StringHashMap(std.Io.File.Stat);
 /// The full path string of the processed input directory
 pub var absolute_input_path: []const u8 = undefined;
 
-/// Address of the allocator used
-pub var alloc: *const std.mem.Allocator = undefined;
-
 /// The buffer with size specified by user
 pub var buffer: []u8 = undefined;
 
@@ -51,9 +48,6 @@ pub var ignore_path_patterns: ahocorasick.AhoCorasick = undefined;
 /// The processed input directory
 pub var input_directory: std.Io.Dir = undefined;
 
-/// IO used to read and write data to files and stdout/stderr
-pub var io: std.Io = undefined;
-
 /// The buffer with size specified by config.zig
 pub var io_buffer: [config.COMPTIME_IO_BUFFER_SIZE]u8 = undefined;
 
@@ -70,3 +64,5 @@ pub var group:     std.Io.Group     = undefined;
 
 /// Nanoseconds since 1970
 pub var now_stat: std.Io.File.Stat = undefined;
+
+pub var init: *const std.process.Init = undefined;

@@ -50,10 +50,10 @@ const HashFunctions = struct {
     }
 };
 
-pub fn checkParallel(total_items: *u64) !void {
+pub fn checkParallel(total_items: *u64) !bool {
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
 
-    var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.alloc.*, .{.async_limit = max_jobs_limit,
+    var parallel_threaded: std.Io.Threaded = std.Io.Threaded.init(globals.init.arena.allocator(), .{.async_limit = max_jobs_limit,
         .concurrent_limit = max_jobs_limit, .environ = std.process.Environ.empty });
     defer parallel_threaded.deinit();
 
@@ -62,7 +62,7 @@ pub fn checkParallel(total_items: *u64) !void {
     globals.group = std.Io.Group.init;
     defer globals.group.cancel(io);
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
@@ -77,7 +77,7 @@ pub fn checkParallel(total_items: *u64) !void {
         } else {
             if (core.getExtensionLowercase(entry.path)) |lowercase| {
                 if (hash_functions_map.get(lowercase)) |func| {
-                    const entry_path: []const u8 = try globals.alloc.*.dupe(u8, entry.path);
+                    const entry_path: []const u8 = try globals.init.arena.allocator().dupe(u8, entry.path);
                     try globals.semaphore.wait(io);
                     globals.group.async(io, hashParallel, .{entry_path, total_items, true, func.parallel});
                 }
@@ -86,15 +86,27 @@ pub fn checkParallel(total_items: *u64) !void {
     }
 
     try globals.group.await(io);
+    return false;
 }
 
-pub fn checkSingle(total_items: *u64) !void {
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.alloc.*);
+pub fn checkSingle(total_items: *u64) !bool {
+    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
     defer file_iterator.deinit();
 
     while (try file_iterator.next(total_items)) |entry| {
-        _ = try hashSingle(entry.path, total_items);
+        _ = hashSingle(entry.path, total_items) catch |err| switch (err) {
+            error.ReadOnlyFileSystem => {
+                try core.exitCodeFn(total_items, print.err, i18n.ERROR_READ_ONLY_FS, .{entry.path});
+                return true;
+            },
+            else => {
+                globals.exit_error.store(true, .monotonic);
+                return err;
+            },
+        };
     }
+
+    return false;
 }
 
 fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) struct { []const u8, HashFunctions } {
@@ -104,8 +116,8 @@ fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) stru
 fn hashParallel(absolute_path: []const u8, total_items: *u64, defer_clean: bool, func: *const fn ([]const u8, *u64)
 void) void {
     defer {
-        globals.semaphore.post(globals.io);
-        if (defer_clean) globals.alloc.*.free(absolute_path);
+        globals.semaphore.post(globals.init.io);
+        if (defer_clean) globals.init.arena.allocator().free(absolute_path);
     }
 
     _ = func(absolute_path, total_items);
@@ -118,14 +130,14 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
     var calc_hash:              [algorithm.digest_length]u8 = undefined;
     var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
 
-    const hash_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write})
+    const hash_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.init.io, hash_file_path, .{.mode = .read_write})
         catch |err| {
             globals.exit_error.store(true, .monotonic);
             return core.debugPrintError(err);
         };
-    defer hash_file.close(globals.io);
+    defer hash_file.close(globals.init.io);
 
-    var file_reader: std.Io.File.Reader = hash_file.reader(globals.io, hash_code[0..hex_size]);
+    var file_reader: std.Io.File.Reader = hash_file.reader(globals.init.io, hash_code[0..hex_size]);
     const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
         error.EndOfStream => break :blk "",
         else => {
@@ -144,7 +156,7 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
     };
 
     if (chunk.len == 0) {
-        var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
+        var file_writer: std.Io.File.Writer = hash_file.writer(globals.init.io, &globals.io_buffer);
         file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower)) catch |err| {
             globals.exit_error.store(true, .monotonic);
             return core.debugPrintError(err);
@@ -196,10 +208,10 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     var calc_hash:              [algorithm.digest_length]u8 = undefined;
     var hash_code_bytes_buffer: [algorithm.digest_length]u8 = undefined;
 
-    const hash_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.io, hash_file_path, .{.mode = .read_write});
-    defer hash_file.close(globals.io);
+    const hash_file: std.Io.File = try std.Io.Dir.cwd().openFile(globals.init.io, hash_file_path, .{.mode = .read_write});
+    defer hash_file.close(globals.init.io);
 
-    var file_reader: std.Io.File.Reader = hash_file.reader(globals.io, hash_code[0..hex_size]);
+    var file_reader: std.Io.File.Reader = hash_file.reader(globals.init.io, hash_code[0..hex_size]);
     const chunk: []u8 = file_reader.interface.take(hex_size) catch |err| blk: switch (err) {
         error.EndOfStream => break :blk "",
         else => {
@@ -221,7 +233,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     };
 
     if (chunk.len == 0) {
-        var file_writer: std.Io.File.Writer = hash_file.writer(globals.io, &globals.io_buffer);
+        var file_writer: std.Io.File.Writer = hash_file.writer(globals.init.io, &globals.io_buffer);
         try file_writer.interface.writeAll(&std.fmt.bytesToHex(calc_hash, .lower));
         try file_writer.interface.flush();
 
@@ -282,8 +294,8 @@ fn messageSumMutex(
     comptime fmt:   []const u8,
     args:           anytype
 ) void {
-    globals.mutex.lock(globals.io) catch |err| { return core.debugPrintError(err); };
-    defer globals.mutex.unlock(globals.io);
+    globals.mutex.lock(globals.init.io) catch |err| { return core.debugPrintError(err); };
+    defer globals.mutex.unlock(globals.init.io);
         total_items.* += sum_value;
         print_function(fmt, args) catch |err| { return core.debugPrintError(err); };
 }

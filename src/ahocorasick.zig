@@ -126,7 +126,7 @@ pub const AhoCorasick = struct {
 };
 
 test "Pattern matching" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "He", "Hers", "His", "She" });
@@ -141,7 +141,7 @@ test "Pattern matching" {
 }
 
 test "Overlapping patterns" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "he", "she", "his", "hers" });
@@ -152,7 +152,7 @@ test "Overlapping patterns" {
 }
 
 test "Start and end" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{"abc"});
@@ -165,7 +165,7 @@ test "Start and end" {
 }
 
 test "Single character patterns" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "a", "b", "c" });
@@ -177,7 +177,7 @@ test "Single character patterns" {
 }
 
 test "No matches" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "foo", "bar" });
@@ -187,7 +187,7 @@ test "No matches" {
 }
 
 test "Empty pattern list" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{});
@@ -197,7 +197,7 @@ test "Empty pattern list" {
 }
 
 test "Suffix patterns" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     // "ers" is a suffix of "hers"
@@ -210,7 +210,7 @@ test "Suffix patterns" {
 }
 
 test "Nested overlaps" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "a", "aa", "aaa" });
@@ -221,7 +221,7 @@ test "Nested overlaps" {
 }
 
 test "Suffix match mid-stream" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     // "he" is a suffix of "she" — the failure link from 's'->'h'->'e'
@@ -235,7 +235,7 @@ test "Suffix match mid-stream" {
 }
 
 test "Contains does not disturb streaming state" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var ac = try AhoCorasick.init(gpa.allocator(), &[_][]const u8{ "he", "she" });

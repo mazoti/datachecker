@@ -15,6 +15,7 @@ const parser        = @import("parser.zig");
 const print         = @import("print");
 const stats         = @import("stats.zig");
 const std           = @import("std");
+const txt           = @import("text.zig");
 const useless       = @import("useless.zig");
 
 const Filter        = enum { Files, Directories, Both };
@@ -120,6 +121,11 @@ pub fn emptyFiles() !void {
 /// Enables empty directories check
 pub fn emptyDirectories() !void {
     try decorate(config.COMPTIME_EMPTY_DIRECTORIES, true, true, Filter.Directories, stats.emptyDirectories, i18n.EMPTY_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
+}
+
+/// Enables end of line check
+pub fn endOfLine() !void {
+    try decorateWalker(config.COMPTIME_END_OF_LINE, true, txt.endOfLine, i18n.END_OF_LINE_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
 }
 
 /// Enables file search with newer access time
@@ -261,7 +267,7 @@ pub fn emptyRemoveDirectories() !void {
     while (folder_removed) {
         folder_removed = false;
 
-        var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
+        var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
         defer walker.deinit();
 
         while (true) {
@@ -296,7 +302,7 @@ pub fn emptyRemoveFiles() !void {
     try print.stdout(i18n.EMPTY_FILES_HEADER);
 
     var total_items: u64 = 0;
-    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
+    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
     defer walker.deinit();
 
     // No cached stats, walk the directory tree
@@ -331,6 +337,11 @@ pub fn temporaryRemoveFiles() !void {
     try decorateWalker(config.COMPTIME_TEMPORARY_FILES_REMOVE, true, useless.temporaryRemoveFiles, i18n.TEMPORARY_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
+/// Enables file search with non-UTF8 encoding
+pub fn utf8Encoding() !void {
+    try decorate(config.COMPTIME_UTF8_ENCODING, true, false, Filter.Files, txt.utf8Encoding, i18n.UTF8_ENCODING_HEADER, i18n.FILES_TOTAL, i18n.FILES_TOTALS);
+}
+
 /// Executes all file/directory check modules based on configurations
 pub fn run() !void {
     try decorate      (config.COMPTIME_COMPRESSED_FILES,         globals.config_parsed.value.COMPRESSED_FILES,         false,                          Filter.Files,                    compressed.check,               i18n.COMPRESSED_FILES_HEADER,       i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
@@ -347,6 +358,7 @@ pub fn run() !void {
 
     try decorate      (config.COMPTIME_EMPTY_FILES,              globals.config_parsed.value.EMPTY_FILES,              false,                          Filter.Files,                    stats.emptyFiles,               i18n.EMPTY_FILES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_EMPTY_DIRECTORIES,        globals.config_parsed.value.EMPTY_DIRECTORIES,        true,                           Filter.Directories,              stats.emptyDirectories,         i18n.EMPTY_DIRECTORIES_HEADER,      i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
+    try decorateWalker(config.COMPTIME_END_OF_LINE,              globals.config_parsed.value.END_OF_LINE,              txt.endOfLine,                  i18n.END_OF_LINE_HEADER,         i18n.FILES_TOTAL,               i18n.FILES_TOTALS);
     try decorate      (config.COMPTIME_FILES_NEWER_ATIME,        globals.config_parsed.value.FILES_NEWER_ATIME,        true,                           Filter.Files,                    stats.filesNewerATime,          i18n.FILES_NEWER_ATIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_FILES_NEWER_CTIME,        globals.config_parsed.value.FILES_NEWER_CTIME,        true,                           Filter.Files,                    stats.filesNewerCTime,          i18n.FILES_NEWER_CTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_FILES_NEWER_MTIME,        globals.config_parsed.value.FILES_NEWER_MTIME,        true,                           Filter.Files,                    stats.filesNewerMTime,          i18n.FILES_NEWER_MTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
@@ -355,7 +367,7 @@ pub fn run() !void {
     try decorate      (config.COMPTIME_FILES_OLDER_MTIME,        globals.config_parsed.value.FILES_OLDER_MTIME,        true,                           Filter.Files,                    stats.filesOlderMTime,          i18n.FILES_OLDER_MTIME_HEADER,      i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_FULL_PATH_SIZE,           globals.config_parsed.value.FULL_PATH_SIZE,           true,                           Filter.Both,                     stats.fullPathSize,             i18n.FULL_PATH_SIZE_HEADER,         i18n.FULL_PATH_SIZE_TOTAL,        i18n.FULL_PATH_SIZE_TOTALS       );
 
-    if(globals.config_parsed.value.INTEGRITY_FILES_PARALLEL == true) {
+    if (globals.config_parsed.value.INTEGRITY_FILES_PARALLEL == true) {
         try decorateWalker(config.COMPTIME_INTEGRITY_FILES_PARALLEL, globals.config_parsed.value.INTEGRITY_FILES_PARALLEL, integrity.checkParallel,        i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
     } else {
         try decorateWalker(config.COMPTIME_INTEGRITY_FILES,          globals.config_parsed.value.INTEGRITY_FILES,          integrity.checkSingle,          i18n.INTEGRITY_FILES_HEADER,     i18n.INTEGRITY_FILES_TOTAL,     i18n.INTEGRITY_FILES_TOTALS                                                                            );
@@ -371,6 +383,7 @@ pub fn run() !void {
     try decorate      (config.COMPTIME_ONE_ITEM_DIRECTORY,       globals.config_parsed.value.ONE_ITEM_DIRECTORY,       true,                           Filter.Directories,              stats.oneItemDirectory,         i18n.ONE_ITEM_DIRECTORIES_HEADER,   i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
     try decorateWalker(config.COMPTIME_TEMPORARY_FILES,          globals.config_parsed.value.TEMPORARY_FILES,          useless.temporaryFiles,         i18n.TEMPORARY_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
     try decorate      (config.COMPTIME_UNPORTABLE_CHARS,         globals.config_parsed.value.UNPORTABLE_CHARS,         true,                           Filter.Both,                     stats.unportableCharacters,     i18n.UNPORTABLE_CHARS_HEADER,       i18n.UNPORTABLE_CHARS_TOTAL,      i18n.UNPORTABLE_CHARS_TOTALS     );
+    try decorate      (config.COMPTIME_UTF8_ENCODING,            globals.config_parsed.value.UTF8_ENCODING,            false,                          Filter.Files,                    txt.utf8Encoding,               i18n.UTF8_ENCODING_HEADER,          i18n.FILES_TOTAL,                 i18n.FILES_TOTALS);
     try decorate      (config.COMPTIME_WRONG_DATES,              globals.config_parsed.value.WRONG_DATES,              false,                          Filter.Files,                    stats.checkWrongDates,          i18n.WRONG_DATES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
 }
 
@@ -444,7 +457,7 @@ fn decorate(
         return print.results(total_items, header, total, totals);
     }
 
-    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.alloc.*);
+    var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
     defer walker.deinit();
 
     // If no cached stats, walk the directory tree
@@ -476,7 +489,7 @@ fn decorate(
 fn decorateWalker(
     comptime comptime_flag: bool,
     runtime_flag:           bool,
-    process_fn:             *const fn (total_items: *u64) anyerror!void,
+    process_fn:             anytype,
     comptime header:        []const u8,
     comptime total:         []const u8,
     comptime totals:        []const u8,
@@ -486,10 +499,11 @@ fn decorateWalker(
 
     var total_items: u64 = 0;
     _ = try print.stdout(header);
-    try process_fn(&total_items);
+    if (try process_fn(&total_items)) {
+        return clearCache();
+    }
 
     _ = try print.results(total_items, header, total, totals);
-
     clearCache();
 }
 
@@ -507,8 +521,8 @@ fn fetchAdd(absolute_path: []const u8) !std.Io.File.Stat {
 
     // Not in cache, fetch and store
     if (globals.config_parsed.value.ENABLE_CACHE) {
-        const key: []const u8 = try globals.alloc.*.dupe(u8, absolute_path);
-        errdefer globals.alloc.free(key);
+        const key: []const u8 = try globals.init.arena.allocator().dupe(u8, absolute_path);
+        errdefer globals.init.arena.allocator().free(key);
 
         try globals.file_stats.put(key, stat);
     }
@@ -546,7 +560,7 @@ pub fn getExtensionLowercase(filepath: []const u8) ?[]const u8 {
 
 /// Compute cryptographic hash of file by processesing file in chunks
 pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.digest_length]u8) !void {
-    const file: std.Io.File = std.Io.Dir.cwd().openFile(globals.io, filepath, .{ .mode = .read_only, .lock = .shared }) catch |err| switch (err) {
+    const file: std.Io.File = std.Io.Dir.cwd().openFile(globals.init.io, filepath, .{ .mode = .read_only, .lock = .shared }) catch |err| switch (err) {
         error.AccessDenied => {
             globals.exit_error.store(true, .monotonic);
             return print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{filepath});
@@ -560,13 +574,13 @@ pub fn hashFile(comptime Hash: type, filepath: []const u8, final_hash: *[Hash.di
             return err;
         },
     };
-    defer file.close(globals.io);
+    defer file.close(globals.init.io);
 
-    const local_buffer: []u8 = try globals.alloc.*.alloc(u8, globals.config_parsed.value.BUFFER_SIZE);
-    defer globals.alloc.*.free(local_buffer);
+    const local_buffer: []u8 = try globals.init.arena.allocator().alloc(u8, globals.config_parsed.value.BUFFER_SIZE);
+    defer globals.init.arena.allocator().free(local_buffer);
 
     var hasher: Hash = Hash.init(.{});
-    var file_reader: std.Io.File.Reader = file.reader(globals.io, local_buffer);
+    var file_reader: std.Io.File.Reader = file.reader(globals.init.io, local_buffer);
 
     while (true) {
         const chunk: []const u8 = file_reader.interface.take(globals.config_parsed.value.BUFFER_SIZE) catch |err| switch (err) {
@@ -594,10 +608,15 @@ fn ignorePath(filepath: []const u8) !bool {
 
 /// Gets the next entry or ignores AccessDenied error
 pub fn nextEntry(walker: *std.Io.Dir.Walker, total_items: *u64, entry: *?std.Io.Dir.Walker.Entry) !bool {
-    entry.* = walker.next(globals.io) catch |err| switch (err) {
+    entry.* = walker.next(globals.init.io) catch |err| switch (err) {
         error.AccessDenied => {
             const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}", .{ globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items });
             try exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{absolute_path});
+            return true; // Signal to continue
+        },
+        error.Unexpected => {
+            const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}{c}{s}", .{ globals.absolute_input_path, std.fs.path.sep, walker.inner.name_buffer.items });
+            try exitCodeFn(total_items, print.err, i18n.ERROR_UNEXPECTED_FILE, .{absolute_path});
             return true; // Signal to continue
         },
         else => {
@@ -631,7 +650,7 @@ pub fn readExactChunk(reader: *std.Io.File.Reader, size: usize, filepath: []cons
 
 /// Helper function to stat a file or directory
 fn statFileOrDirectory(path: []const u8) !std.Io.File.Stat {
-    return std.Io.Dir.cwd().statFile(globals.io, path, .{}) catch |err| {
+    return std.Io.Dir.cwd().statFile(globals.init.io, path, .{}) catch |err| {
         globals.exit_error.store(true, .monotonic);
         if (err == error.IsDir) {
             var dir_stat: std.Io.File.Stat = std.mem.zeroes(std.Io.File.Stat);

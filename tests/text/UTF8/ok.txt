@@ -1,0 +1,7 @@
+UTF-8 test file (this file IS valid UTF-8)
+
+1 byte per character (ASCII):  Hello, world!
+2 bytes (accented Latin):      café, ação, São Paulo, Zürich, niño
+2 bytes (Greek and Cyrillic):  αβγδ, Привет, мир
+3 bytes (symbols and CJK):     € ™ → ✓ ∑ 日本語 中文 한국어
+4 bytes (emoji):               😀 🚀 🎉

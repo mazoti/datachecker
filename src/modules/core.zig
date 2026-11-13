@@ -247,7 +247,7 @@ pub fn duplicateRemoveFiles() !void {
 pub fn emptyRemoveDirectories() !void {
     if (!config.COMPTIME_EMPTY_DIRECTORIES_REMOVE) return;
 
-    try print.stdout(i18n.EMPTY_DIRECTORIES_HEADER);
+    try print.header(i18n.EMPTY_DIRECTORIES_HEADER);
 
     var total_items: u64 = 0;
 
@@ -299,7 +299,7 @@ pub fn emptyRemoveDirectories() !void {
 pub fn emptyRemoveFiles() !void {
     if (!config.COMPTIME_EMPTY_FILES_REMOVE) return;
 
-    try print.stdout(i18n.EMPTY_FILES_HEADER);
+    try print.header(i18n.EMPTY_FILES_HEADER);
 
     var total_items: u64 = 0;
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
@@ -417,7 +417,7 @@ fn decorate(
     if (!comptime comptime_flag) return;
     if (!runtime_flag)           return print.alignedDisabled(header);
 
-    try print.stdout(header);
+    try print.header(header);
 
     var total_items: u64 = 0;
 
@@ -498,7 +498,8 @@ fn decorateWalker(
     if (!runtime_flag)           return print.alignedDisabled(header);
 
     var total_items: u64 = 0;
-    _ = try print.stdout(header);
+    _ = try print.header(header);
+
     if (try process_fn(&total_items)) {
         return clearCache();
     }

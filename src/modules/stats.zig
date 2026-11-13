@@ -98,14 +98,14 @@ pub fn duplicateCharacters(args: anytype) !bool {
 pub fn emptyDirectories(args: anytype) !bool {
     if (try countItems(args[0]) != 0) return false;
     globals.exit_warning.store(true, .monotonic);
-    return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_DIRECTORIES_WARNING, .{args[0]});
+    return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_WARNING, .{args[0]});
 }
 
 /// Detects files with zero bytes
 pub fn emptyFiles(args: anytype) !bool {
     if (args[2].size != 0) return false;
     globals.exit_warning.store(true, .monotonic);
-    return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_FILES_WARNING, .{args[0]});
+    return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_WARNING, .{args[0]});
 }
 
 /// Removes empty directories
@@ -136,7 +136,7 @@ fn filesCheck(newer: bool, time_ns: i96, args: anytype) !bool {
 
     if ((newer == true  and time_ns > globals.config_parsed.value.FILE_TIME) or
         (newer == false and time_ns < globals.config_parsed.value.FILE_TIME)) {
-        return print.messageSumReturn(false, args[1], print.found, i18n.FILES_TIME_FOUND, .{args[0]});
+        return print.messageSumReturn(false, args[1], print.found, "\"{s}\"", .{args[0]});
     }
 
     return false;

@@ -31,7 +31,7 @@ pub const COMPTIME_FILES_OLDER_MTIME:                 bool = true;
 pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_INTEGRITY_FILES:                   bool = true;
-pub const COMPTIME_PARSE_FILES:                       bool = true;
+pub const COMPTIME_JSON_OUTPUT:                       bool = true;
 pub const COMPTIME_LARGE_FILES:                       bool = true;
 pub const COMPTIME_LAST_ACCESS_FILES:                 bool = true;
 pub const COMPTIME_LEGACY_FILES:                      bool = true;
@@ -40,6 +40,7 @@ pub const COMPTIME_MAGIC_NUMBERS:                     bool = true;
 pub const COMPTIME_MANY_ITEMS_DIRECTORY:              bool = true;
 pub const COMPTIME_NO_EXTENSION:                      bool = true;
 pub const COMPTIME_ONE_ITEM_DIRECTORY:                bool = true;
+pub const COMPTIME_PARSE_FILES:                       bool = true;
 pub const COMPTIME_TEMPORARY_FILES:                   bool = true;
 pub const COMPTIME_UNPORTABLE_CHARS:                  bool = true;
 pub const COMPTIME_UTF8_ENCODING:                     bool = true;
@@ -97,6 +98,7 @@ pub const HELP = i18n.USAGE
 /// Configuration structure that holds runtime-configurable parameters
 pub const Config = struct {
     INPUT_FOLDER:               []const u8   = "",
+    OUTPUT_FILE:                []const u8   = "",
     BUFFER_SIZE:                usize        = 65536,
     ENABLE_CACHE:               bool         = true,
     ENTER_TO_QUIT:              bool         = false,
@@ -151,6 +153,7 @@ pub const Config = struct {
 pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\{
     \\    "INPUT_FOLDER":                    ".",
+    \\    "OUTPUT_FILE":                     "",
     \\    "BUFFER_SIZE":                     65536,
     \\    "ENABLE_CACHE":                    true,
     \\    "ENTER_TO_QUIT":                   false,

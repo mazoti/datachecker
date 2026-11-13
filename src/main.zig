@@ -434,7 +434,9 @@ fn exitCode() u8 {
 
 /// Creates a config.json with default values in the same directory of the system
 fn createConfig() !void {
+    try print.stdout("\t\t");
     try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
+    try print.stdout("\x1b[2K\r");
 
     _ = std.Io.Dir.cwd().statFile(globals.init.io, "config.json", .{}) catch |err| {
         if (err == error.FileNotFound) {
@@ -446,13 +448,18 @@ fn createConfig() !void {
             try file_writer.interface.flush();
 
             try print.alignedOk(i18n.CONFIG_MESSAGE_CREATE);
-            return print.stdout("\n");
+            return print.stdout("\x1b[1B\r\x1b[2K\n");
         }
 
         return err;
     };
 
-    return print.stderr(i18n.ERROR_CONFIG_FILE);
+    try print.stdout("\x1b[1A\r\t");
+    if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[31m");
+    try print.stdout(i18n.ERROR_MESSAGE);
+    if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[0m");
+    try print.stdout(i18n.ERROR_CONFIG_FILE);
+    return print.stdout("\n\n");
 }
 
 /// Common main for all operating systems
@@ -511,7 +518,7 @@ fn commonMain(init: std.process.Init) !void {
     const must_clean: bool = try loadLocal(&globals.config_file, &globals.config_parsed, globals.init.io, globals.init.arena.allocator());
     defer config.deinit(&globals.config_file, &globals.config_parsed, globals.init.arena.allocator(), must_clean);
 
-    if (must_clean) try print.alignedOk(i18n.CONFIG_MESSAGE) else try print.alignedOk(i18n.CONFIG_MESSAGE_DEFAULT);
+    if (must_clean) try print.alignedOk(i18n.CONFIG_MESSAGE_HEADER) else try print.alignedOk(i18n.CONFIG_MESSAGE_HEADER_DEFAULT);
 
     // CPU count detection for optimal parallelism
     if (globals.config_parsed.value.MAX_JOBS == 0) {
@@ -526,14 +533,17 @@ fn commonMain(init: std.process.Init) !void {
             check_directory = try std.process.currentPathAlloc(globals.init.io, globals.init.arena.allocator());
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
-                try print.stderr("\n");
+                globals.exit_error.store(true, .monotonic);
 
-                globals.exit_warning.store(true, .monotonic);
-                try print.warning("{s}", .{i18n.CONFIG_MESSAGE_WARNING});
-                check_directory = try std.process.currentPathAlloc(globals.init.io, globals.init.arena.allocator());
-            } else {
-                check_directory = try globals.init.arena.allocator().dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
+                try print.stdout("\x1b[2K\r\t");
+                if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[31m");
+                try print.stdout(i18n.ERROR_MESSAGE);
+                if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[0m");
+                try print.stdout(i18n.ERROR_EMPTY_PATH);
+                return print.stdout("\n\n");
             }
+
+            check_directory = try globals.init.arena.allocator().dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
         }
     }
 
@@ -588,7 +598,7 @@ fn commonMain(init: std.process.Init) !void {
             globals.config_parsed.value.ENABLE_CACHE = false;
             try func();
         } else {
-            try print.stderr("\n");
+            try print.stderr("\x1b[2K\r\t");
             try print.err(i18n.ERROR_COMMAND_NOT_FOUND, .{args[1]});
             globals.exit_error.store(true, .monotonic);
         }
@@ -600,6 +610,7 @@ fn commonMain(init: std.process.Init) !void {
     if (!globals.config_parsed.value.ENTER_TO_QUIT) return print.stdout("\n\n");
 
     // Waits for user input before exiting
+    try print.stdout("\n\n");
     try print.stdout(i18n.QUIT_MESSAGE);
     var file_reader: std.Io.File.Reader = std.Io.File.stdin().reader(globals.init.io, globals.buffer);
     _ = try file_reader.interface.take(1);
@@ -620,7 +631,13 @@ fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Co
         // Invalid config.json
         if (must_clean) alloc.free(config_file.*);
 
-        try print.stderr(i18n.ERROR_CONFIG_FILE_PARSE);
+        try print.stdout("\x1b[1A\r\t");
+        if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[31m");
+        try print.stdout(i18n.ERROR_MESSAGE);
+        if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[0m");
+        try print.stdout(i18n.ERROR_CONFIG_FILE_PARSE);
+        try print.stdout("\n\n");
+
         return err;
     };
 
@@ -647,19 +664,63 @@ fn printHelp() !void { try print.stdout(config.HELP); }
 /// Do nothing: version already is on system header
 fn printVersion() !void {}
 
-test "No config file" {
+test "No config file loads default configuration" {
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    defer _ = gpa.deinit();
+
+    var threaded = std.Io.Threaded.init_single_threaded;
+
+    var config_parsed: std.json.Parsed(config.Config) = undefined;
+    var config_file: []const u8 = "";
+
+    const loaded = try loadLocal(
+        &config_file,
+        &config_parsed,
+        threaded.io(),
+        gpa.allocator(),
+    );
+
+    defer config_parsed.deinit();
+
+    try std.testing.expect(!loaded);
+    try std.testing.expectEqualStrings("", config_file);
+}
+
+test "Invalid config file" {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
     var tmp = std.Io.Threaded.init_single_threaded;
+    var io_buffer: [65536]u8 = undefined;
+
+    const cwd = std.Io.Dir.cwd();
+
+    const file = try cwd.createFile(tmp.io(), "config.json", .{});
+    defer {
+        file.close(tmp.io());
+        cwd.deleteFile(tmp.io(), "config.json") catch {};
+    }
+
+    var file_writer = file.writer(tmp.io(), &io_buffer);
+
+    try file_writer.interface.writeAll("[]");
+    try file_writer.interface.flush();
 
     var config_parsed: std.json.Parsed(config.Config) = undefined;
-    var config_file: []const u8 = "empty";
+    var config_file: []const u8 = "";
 
-    const result: bool = try loadLocal(&config_file, &config_parsed, tmp.io(), gpa.allocator());
-    defer config.deinit(&config_file, &config_parsed, gpa.allocator(), result);
+    globals.file_writer_stderr = .init(.stderr(), tmp.io(), &io_buffer);
+    globals.file_writer_stderr_interface = globals.file_writer_stderr.interface;
 
-    try std.testing.expect(!result);
+    try std.testing.expectError(
+        error.UnexpectedToken,
+        loadLocal(
+            &config_file,
+            &config_parsed,
+            tmp.io(),
+            gpa.allocator(),
+        ),
+    );
 }
 
 test "Valid config file" {
@@ -677,32 +738,6 @@ test "Valid config file" {
 
     var file_writer: std.Io.File.Writer = file.writer(tmp.io(), &io_buffer);
     try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG);
-    try file_writer.interface.flush();
-
-    var config_parsed: std.json.Parsed(config.Config) = undefined;
-    var config_file: []const u8 = "empty";
-
-    const result: bool = try loadLocal(&config_file, &config_parsed, tmp.io(), gpa.allocator());
-    defer config.deinit(&config_file, &config_parsed, gpa.allocator(), result);
-
-    try std.testing.expect(result);
-}
-
-test "Invalid config file" {
-    var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer _ = gpa.deinit();
-
-    var tmp = std.Io.Threaded.init_single_threaded;
-    var io_buffer: [65536]u8 = undefined;
-
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(tmp.io(), "config.json", .{});
-    defer {
-        file.close(tmp.io());
-        std.Io.Dir.cwd().deleteFile(tmp.io(), "config.json") catch {};
-    }
-
-    var file_writer: std.Io.File.Writer = file.writer(tmp.io(), &io_buffer);
-    try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG[1..]);
     try file_writer.interface.flush();
 
     var config_parsed: std.json.Parsed(config.Config) = undefined;

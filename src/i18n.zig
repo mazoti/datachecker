@@ -1,21 +1,21 @@
-//! UTF-8 strings for english language
+//! UTF-8 strings for English language
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
 /// Spacing constant for alignment - matches the largest header string size in output
-pub const ALIGNED_SPACES: u32 = 49;
+pub const ALIGNED_SPACES: u32 = 52;
 
-pub const HEADER = "DataChecker v2.9 by Marcos Mazoti - https://mazoti.github.io/datachecker";
+pub const HEADER = "DataChecker v3.0 by Marcos Mazoti - https://mazoti.github.io/datachecker";
 
 pub const USAGE =
     \\Usage:
     \\
     \\    datachecker <folder>
     \\              or
-    \\    datachecker <command> <directory>
+    \\    datachecker <command> <folder>
     \\              or
     \\    datachecker config
-    \\        Creates config.json file with default configuration
+    \\        Create a config.json file with the default configuration
     \\
     \\Commands/Aliases:
     \\
@@ -103,7 +103,7 @@ pub const COMPTIME_EMPTY_FILES =
 
 pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE =
     \\    --emptydirs_rm, -erm, -ERM, emptydirs_rm, /ERM, EMPTYDIRS_RM
-    \\       Remove empty directories
+    \\        Remove empty directories
     \\
     \\
 ;
@@ -119,6 +119,7 @@ pub const COMPTIME_END_OF_LINE =
     \\    --endofline, -eol, -EOL, endofline, /EOL, ENDOFLINE
     \\        Search for wrong line terminator in text files
     \\        (create config.json to customize terminator)
+    \\
     \\
 ;
 
@@ -238,7 +239,7 @@ pub const COMPTIME_MAGIC_NUMBERS =
 
 pub const COMPTIME_MANY_ITEMS_DIRECTORY =
     \\    --manyitems, -mi, -MI, manyitems, /MI, MANYITEMS
-    \\        Search for directories with excessive items
+    \\        Search for directories with an excessive number of items
     \\        (create config.json to customize item threshold)
     \\
     \\
@@ -300,148 +301,136 @@ pub const COMPTIME_WRONG_DATES =
     \\
 ;
 
-pub const BYTES_TOTAL                     = "{d} byte\n";
-pub const BYTES_TOTALS                    = "{d} bytes\n";
+pub const CONFIG_MESSAGE_CREATE           = "Creating config.json...";
 
-pub const CONFIG_MESSAGE                  = "\n\tLoading config.json...\n";
-pub const CONFIG_MESSAGE_CREATE           = "\n\tCreating config.json...\n";
-pub const CONFIG_MESSAGE_DEFAULT          = "\n\tLoading default configuration...\n";
-pub const CONFIG_MESSAGE_WARNING          = "\"config.json\" could not be parsed, using default values\n";
+// Summary messages
+pub const BYTES_TOTAL                     = "byte";
+pub const BYTES_TOTALS                    = "bytes";
 
-pub const COMPRESSED_FILES_CHECK          = "\"{s}\" has an uncommon compression method";
-pub const COMPRESSED_FILES_HEADER         = "\n\tLooking for compressed files...\n";
+pub const DIRECTORIES_TOTAL               = "directory";
+pub const DIRECTORIES_TOTALS              = "directories";
+
+pub const FILES_TOTAL                     = "file";
+pub const FILES_TOTALS                    = "files";
+
+pub const DIR_FILE_NAME_SIZE_TOTAL        = "file or directory";
+pub const DIR_FILE_NAME_SIZE_TOTALS       = "files or directories";
+
+pub const DUPLICATE_CHARS_FILES_TOTAL     = "item with duplicate characters";
+pub const DUPLICATE_CHARS_FILES_TOTALS    = "items with duplicate characters";
+
+pub const LINKS_SHORTCUTS_TOTAL           = "link/shortcut";
+pub const LINKS_SHORTCUTS_TOTALS          = "links/shortcuts";
+
+pub const FULL_PATH_SIZE_TOTAL            = "path found";
+pub const FULL_PATH_SIZE_TOTALS           = "paths found";
+
+pub const INTEGRITY_FILES_TOTAL           = "hash processed";
+pub const INTEGRITY_FILES_TOTALS          = "hashes processed";
+
+pub const PARSE_FILES_TOTAL               = "error found";
+pub const PARSE_FILES_TOTALS              = "errors found";
+
+pub const UNPORTABLE_CHARS_TOTAL          = "item with non-portable characters";
+pub const UNPORTABLE_CHARS_TOTALS         = "items with non-portable characters";
+
+// Header messages
+pub const CONFIG_MESSAGE_HEADER           = "Loading config.json...";
+pub const CONFIG_MESSAGE_HEADER_DEFAULT   = "Loading default configuration...";
+pub const COMPRESSED_FILES_HEADER         = "Looking for compressed files...";
+pub const CONFIDENTIAL_FILES_HEADER       = "Looking for confidential files...";
+pub const DEBUG_INFO_HEADER               = "Looking for debug info in binary files...";
+pub const DIR_FILE_NAME_SIZE_HEADER       = "Looking for long names...";
+pub const DUPLICATE_CHARS_FILES_HEADER    = "Looking for duplicate characters...";
+pub const DUPLICATE_FILES_HEADER          = "Looking for duplicate files...";
+pub const FILES_NEWER_ATIME_HEADER        = "Looking for files with newer access time...";
+pub const FILES_NEWER_CTIME_HEADER        = "Looking for files with newer change time...";
+pub const FILES_NEWER_MTIME_HEADER        = "Looking for files with newer modified time...";
+pub const FILES_OLDER_ATIME_HEADER        = "Looking for files with older access time...";
+pub const FILES_OLDER_CTIME_HEADER        = "Looking for files with older change time...";
+pub const FILES_OLDER_MTIME_HEADER        = "Looking for files with older modified time...";
+pub const LINKS_SHORTCUTS_HEADER          = "Looking for links and shortcuts...";
+pub const EMPTY_DIRECTORIES_HEADER        = "Looking for empty directories...";
+pub const EMPTY_FILES_HEADER              = "Looking for empty files...";
+pub const END_OF_LINE_HEADER              = "Looking for wrong line terminators in text files...";
+pub const INTEGRITY_FILES_HEADER          = "Checking file integrity...";
+pub const FULL_PATH_SIZE_HEADER           = "Looking for long paths...";
+pub const LARGE_FILES_HEADER              = "Looking for large files...";
+pub const LAST_ACCESS_HEADER              = "Looking for files accessed a long time ago...";
+pub const LEGACY_FILES_HEADER             = "Looking for legacy files...";
+pub const MAGIC_NUMBERS_HEADER            = "Looking for files with wrong magic numbers...";
+pub const MANY_ITEMS_DIRECTORIES_HEADER   = "Looking for directories with many items...";
+pub const NO_EXTENSION_HEADER             = "Looking for files with no extension...";
+pub const ONE_ITEM_DIRECTORIES_HEADER     = "Looking for directories with one item...";
+pub const PARSE_FILES_HEADER              = "Looking for errors while parsing files...";
+pub const TEMPORARY_FILES_HEADER          = "Looking for temporary files...";
+pub const UNPORTABLE_CHARS_HEADER         = "Looking for non-portable characters...";
+pub const UTF8_ENCODING_HEADER            = "Looking for text files not encoded in UTF-8...";
+pub const WRONG_DATES_HEADER              = "Looking for files with wrong dates...";
+
+// Warning messages
 pub const COMPRESSED_FILES_WARNING        = "\"{s}\" compression could be improved";
-
-pub const CONFIDENTIAL_FILES_HEADER       = "\n\tLooking for confidential files...\n";
 pub const CONFIDENTIAL_FILES_WARNING      = "\"{s}\" has confidential data";
-
-pub const DEBUG_INFO_HEADER               = "\n\tLooking for debug info in binary files...\n";
 pub const DEBUG_INFO_WARNING              = "\"{s}\" has debug/symbol information";
-
-pub const DIR_FILE_NAME_SIZE_HEADER       = "\n\tLooking for large names...\n";
-pub const DIR_FILE_NAME_SIZE_TOTAL        = "{d} file or directory\n";
-pub const DIR_FILE_NAME_SIZE_TOTALS       = "{d} files or directories\n";
-pub const DIR_FILE_NAME_SIZE_WARNING      = "\"{s}\" is larger than {d} characters";
-
-pub const DIRECTORIES_TOTAL               = "{d} directory\n";
-pub const DIRECTORIES_TOTALS              = "{d} directories\n";
-
-pub const DUPLICATE_CHARS_FILES_CHECK     = "\"{s}\" has a duplicate character";
-pub const DUPLICATE_CHARS_FILES_CHECK_EXT = "\"{s}\" has a duplicate extension";
-pub const DUPLICATE_CHARS_FILES_HEADER    = "\n\tLooking for duplicate characters...\n";
-pub const DUPLICATE_CHARS_FILES_TOTAL     = "{d} item with duplicate characters\n";
-pub const DUPLICATE_CHARS_FILES_TOTALS    = "{d} items with duplicate characters\n";
-
-pub const DUPLICATE_FILES_HEADER          = "\n\tLooking for duplicate files...\n";
-
-pub const DUPLICATE_REMOVE_FILES          = "Removing";
-
-pub const FILES_NEWER_ATIME_HEADER        = "\n\tLooking for files with newer access time...\n";
-pub const FILES_NEWER_CTIME_HEADER        = "\n\tLooking for files with newer change time...\n";
-pub const FILES_NEWER_MTIME_HEADER        = "\n\tLooking for files with newer modified time...\n";
-
-pub const FILES_OLDER_ATIME_HEADER        = "\n\tLooking for files with older access time...\n";
-pub const FILES_OLDER_CTIME_HEADER        = "\n\tLooking for files with older change time...\n";
-pub const FILES_OLDER_MTIME_HEADER        = "\n\tLooking for files with older modified time...\n";
-
-pub const FILES_TIME_FOUND                = "\"{s}\"";
-
-pub const FILES_TOTAL                     = "{d} file\n";
-pub const FILES_TOTALS                    = "{d} files\n";
-
-pub const LINKS_SHORTCUTS_HEADER          = "\n\tLooking for links and shortcuts...\n";
-pub const LINKS_SHORTCUTS_TOTAL           = "{d} link/shortcut\n";
-pub const LINKS_SHORTCUTS_TOTALS          = "{d} links/shortcuts\n";
+pub const DIR_FILE_NAME_SIZE_WARNING      = "\"{s}\" is longer than {d} characters";
+pub const EMPTY_WARNING                   = "\"{s}\" is empty";
+pub const END_OF_LINE_WARNING             = "\"{s}\" has an invalid end-of-line terminator";
+pub const FULL_PATH_SIZE_WARNING          = "Path \"{s}\" is longer than {d} characters";
 pub const LINKS_SHORTCUTS_WARNING         = "\"{s}\" is not portable";
-pub const LINKS_SHORTCUTS_ERROR           = "\"{s}\" target not found";
-
-pub const EMPTY_DIRECTORIES_HEADER        = "\n\tLooking for empty directories...\n";
-pub const EMPTY_DIRECTORIES_WARNING       = "\"{s}\" is empty";
-
-pub const EMPTY_FILES_HEADER              = "\n\tLooking for empty files...\n";
-pub const EMPTY_FILES_WARNING             = "\"{s}\" is empty";
-
-pub const END_OF_LINE_HEADER              = "\n\tLooking for wrong terminator in text files...\n";
-pub const END_OF_LINE_ERROR               = "Invalid line terminator in configuration";
-pub const END_OF_LINE_WARNING             = "\"{s}\" has an invalid end of line terminator";
-
-pub const FULL_PATH_SIZE_HEADER           = "\n\tLooking for large paths...\n";
-pub const FULL_PATH_SIZE_TOTAL            = "{d} path found\n";
-pub const FULL_PATH_SIZE_TOTALS           = "{d} paths found\n";
-pub const FULL_PATH_SIZE_WARNING          = "Path \"{s}\" is larger than {d} characters";
-
-pub const INTEGRITY_FILES_HEADER          = "\n\tChecking files integrity...\n";
-pub const INTEGRITY_FILES_TOTAL           = "{d} hash processed\n";
-pub const INTEGRITY_FILES_TOTALS          = "{d} hashes processed\n";
-pub const INTEGRITY_FILES_ERROR           = "\"{s}\" has a different {s} hash";
-pub const INTEGRITY_FILES_ERROR_CHAR      = "\"{s}\" has a invalid character in hash";
-pub const INTEGRITY_FILES_OK              = "\"{s}\" {s} verified";
-pub const INTEGRITY_FILES_CHECK           = "\"{s}\" {s} hash created";
-
-pub const LARGE_FILES_HEADER              = "\n\tLooking for large files...\n";
 pub const LARGE_FILES_WARNING             = "File \"{s}\" is larger than {d} bytes";
-
-pub const LAST_ACCESS_HEADER              = "\n\tLooking for files accessed a long time ago...\n";
 pub const LAST_ACCESS_WARNING             = "\"{s}\" last access was {d} ns ago";
-
-pub const LEGACY_FILES_HEADER             = "\n\tLooking for legacy files...\n";
 pub const LEGACY_FILES_WARNING            = "\"{s}\" has a legacy format \"{s}\"";
-
-pub const MAGIC_NUMBERS_ERROR             = "\"{s}\" has a wrong magic number";
-pub const MAGIC_NUMBERS_HEADER            = "\n\tLooking for files with wrong magic numbers...\n";
-
-pub const MANY_ITEMS_DIRECTORIES_HEADER   = "\n\tLooking for many items directories...\n";
 pub const MANY_ITEMS_DIRECTORIES_WARNING  = "\"{s}\" has more than {d} items";
-
-pub const NO_EXTENSION_CHECK              = "Format of \"{s}\" could be \"{s}\"";
-pub const NO_EXTENSION_HEADER             = "\n\tLooking for files with no extension...\n";
-pub const NO_EXTENSION_WARNING            = "Format of \"{s}\" not found";
-
-pub const ONE_ITEM_DIRECTORIES_HEADER     = "\n\tLooking for one item directories...\n";
+pub const NO_EXTENSION_WARNING            = "Format of \"{s}\" was not found";
 pub const ONE_ITEM_DIRECTORIES_WARNING    = "\"{s}\" has one item";
-
-pub const PARSE_FILES_ERROR               = "Can't parse \"{s}\"";
-pub const PARSE_FILES_HEADER              = "\n\tLooking for errors in parsed files...\n";
-pub const PARSE_FILES_TOTAL               = "{d} error found\n";
-pub const PARSE_FILES_TOTALS              = "{d} errors found\n";
-
-pub const TEMPORARY_FILES_HEADER          = "\n\tLooking for temporary files...\n";
 pub const TEMPORARY_FILES_WARNING         = "\"{s}\" is a temporary file";
-
-pub const UNPORTABLE_CHARS_WARNING        = "\"{s}\" has an unportable character";
-pub const UNPORTABLE_CHARS_HEADER         = "\n\tLooking for unportable characters...\n";
-pub const UNPORTABLE_CHARS_TOTAL          = "{d} item with unportable characters\n";
-pub const UNPORTABLE_CHARS_TOTALS         = "{d} items with unportable characters\n";
-
-pub const UTF8_ENCODING_HEADER            = "\n\tLooking for non-UTF8 encoded text files...\n";
+pub const UNPORTABLE_CHARS_WARNING        = "\"{s}\" has an non-portable character";
 pub const UTF8_ENCODING_WARNING           = "\"{s}\" is not encoded in UTF-8";
-
-pub const WRONG_DATES_HEADER              = "\n\tLooking for wrong date files...\n";
 pub const WRONG_DATES_WARNING             = "File \"{s}\" has a date in the future";
 
-/// System messages
-pub const CHECK_MESSAGE                   = "\n\t\t CHECK  ";
-pub const DISABLED_MESSAGE                = "DISABLED";
-pub const ERROR_MESSAGE                   = "\n\t\t ERROR  ";
-pub const FOUND_MESSAGE                   = "\n\t\t FOUND  ";
-pub const OK_MESSAGE                      = "OK";
-pub const OK_MESSAGE_FILE                 = "\n\t\t   OK   ";
-pub const QUIT_MESSAGE                    = "\n\nPress enter to quit";
-pub const REMOVING_MESSAGE                = "\n\t\tREMOVING ";
-pub const TOTAL_MESSAGE                   = "\n\n\t\t Total:\n\t\t\t";
-pub const WARNING_MESSAGE                 = "\n\t\tWARNING ";
+// Check messages
+pub const COMPRESSED_FILES_CHECK          = "\"{s}\" has an uncommon compression method";
+pub const DUPLICATE_CHARS_FILES_CHECK     = "\"{s}\" has a duplicate character";
+pub const DUPLICATE_CHARS_FILES_CHECK_EXT = "\"{s}\" has a duplicate extension";
+pub const INTEGRITY_FILES_CHECK           = "\"{s}\" {s} hash created";
+pub const NO_EXTENSION_CHECK              = "Format of \"{s}\" could be \"{s}\"";
 
+/// Error messages
+pub const LINKS_SHORTCUTS_ERROR           = "\"{s}\" target was not found";
+pub const END_OF_LINE_ERROR               = "Invalid line terminator in configuration";
+pub const INTEGRITY_FILES_ERROR           = "\"{s}\" has a different {s} hash";
+pub const INTEGRITY_FILES_ERROR_CHAR      = "\"{s}\" has an invalid character in its hash";
+pub const MAGIC_NUMBERS_ERROR             = "\"{s}\" has a wrong magic number";
+pub const PARSE_FILES_ERROR               = "Can't parse \"{s}\"";
+
+pub const INTEGRITY_FILES_OK              = "\"{s}\" {s} verified";
+
+/// System messages
+pub const OK_MESSAGE                      = "OK";
+pub const DISABLED_MESSAGE                = "DISABLED";
+pub const QUIT_MESSAGE                    = "Press Enter to quit";
+pub const TOTAL_MESSAGE                   = " Total:";
+
+pub const CHECK_MESSAGE                   = " CHECK  ";
+pub const ERROR_MESSAGE                   = " ERROR  ";
+pub const FOUND_MESSAGE                   = " FOUND  ";
+pub const OK_MESSAGE_FILE                 = "   OK   ";
+pub const REMOVING_MESSAGE                = "REMOVING ";
+pub const WARNING_MESSAGE                 = "WARNING ";
+
+/// System error messages
 pub const ERROR_ACCESS_DENIED_PATH        = "\"{s}\": access denied";
-pub const ERROR_ALLOC_MEM                 = "Failed to allocate memory for path \"{s}\": {}\n";
-pub const ERROR_APPEND_PATH               = "Failed to append path to list: \"{}\"\n";
-pub const ERROR_COMMAND_NOT_FOUND         = "Command \"{s}\" not found\n";
-pub const ERROR_CONFIG_FILE               = "\n\tERROR: config.json already exists\n\n";
-pub const ERROR_CONFIG_FILE_PARSE         = "\t\tFailed to parse config.json\n\n\n";
+pub const ERROR_ALLOC_MEM                 = "Failed to allocate memory for path \"{s}\": {}";
+pub const ERROR_APPEND_PATH               = "Failed to append path to list: \"{}\"";
+pub const ERROR_COMMAND_NOT_FOUND         = "Command \"{s}\" not found";
+pub const ERROR_CONFIG_FILE               = "config.json already exists";
+pub const ERROR_CONFIG_FILE_PARSE         = "Can't parse config.json";
+pub const ERROR_EMPTY_PATH                = "Input folder is empty in config.json";
 pub const ERROR_FILE_BUSY                 = "\"{s}\" is busy";
-pub const ERROR_HASH_FILE                 = "Failed to hash file \"{s}\": {}\n";
+pub const ERROR_HASH_FILE                 = "Failed to hash file \"{s}\": {}";
 pub const ERROR_INPUT_DIRECTORY           = "Can't read input directory";
-pub const ERROR_INSERT_HASHMAP            = "Failed to insert into hash map: \"{}\"\n";
+pub const ERROR_INSERT_HASHMAP            = "Failed to insert into hash map: \"{}\"";
 pub const ERROR_READING_FILE              = "\"{s}\" is unreadable";
 pub const ERROR_READ_ONLY_FS              = "\"{s}\" is on a read-only filesystem";
-pub const ERROR_STREAM_TOO_LONG           = "\"{s}\" is bigger than buffer";
+pub const ERROR_STREAM_TOO_LONG           = "\"{s}\" is larger than the buffer";
 pub const ERROR_UNEXPECTED_FILE           = "Unexpected error processing file \"{s}\"";

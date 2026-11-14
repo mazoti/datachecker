@@ -225,7 +225,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
         if (err == error.FileNotFound) {
             try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{input_file});
-            try print.stderr("\n");
+            try print.stdout("\n");
             return true;
         }
 
@@ -247,7 +247,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
 
     if (chunk.len != hex_size) {
         try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{hash_file_path});
-        try print.stderr("\n");
+        try print.stdout("\n");
         return true;
     }
 

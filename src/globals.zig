@@ -35,9 +35,7 @@ pub var clear_cache:  std.atomic.Value(bool) = .init(false);
 
 /// Terminal I/O operations
 pub var file_writer_stdout:           std.Io.File.Writer = undefined;
-pub var file_writer_stderr:           std.Io.File.Writer = undefined;
 pub var file_writer_stdout_interface: std.Io.Writer      = undefined;
-pub var file_writer_stderr_interface: std.Io.Writer      = undefined;
 
 /// Global hash map instance for caching file stats
 pub var file_stats: FileStatMap = undefined;
@@ -63,6 +61,6 @@ pub var semaphore: std.Io.Semaphore = undefined;
 pub var group:     std.Io.Group     = undefined;
 
 /// Nanoseconds since 1970
-pub var now_stat: std.Io.File.Stat = undefined;
+pub var now: std.Io.Timestamp = .{ .nanoseconds = 0 }; // substitui now_stat
 
 pub var init: *const std.process.Init = undefined;

@@ -10,7 +10,7 @@ pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 16384;
 
 pub const COMPTIME_EMOJI_COLOR:                       bool = true;
 pub const COMPTIME_IGNORE_PATH_PATTERNS:              bool = true;
-pub const COMPTIME_STDOUT_STDERR:                     bool = true;
+pub const COMPTIME_STDOUT:                            bool = true;
 
 pub const COMPTIME_COMPRESSED_FILES:                  bool = true;
 pub const COMPTIME_CONFIDENTIAL_FILES:                bool = true;

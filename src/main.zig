@@ -454,12 +454,7 @@ fn createConfig() !void {
         return err;
     };
 
-    try print.stdout("\x1b[1A\r\t");
-    if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[31m");
-    try print.stdout(i18n.ERROR_MESSAGE);
-    if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[0m");
-    try print.stdout(i18n.ERROR_CONFIG_FILE);
-    return print.stdout("\n\n");
+    return print.stopError(i18n.ERROR_CONFIG_FILE);
 }
 
 /// Common main for all operating systems
@@ -475,10 +470,7 @@ fn commonMain(init: std.process.Init) !void {
     globals.memory_limit = @intCast(@min(half_memory, std.math.maxInt(usize)));
 
     globals.file_writer_stdout = .init(.stdout(), globals.init.io, &globals.io_buffer);
-    globals.file_writer_stderr = .init(.stderr(), globals.init.io, &globals.io_buffer);
-
     globals.file_writer_stdout_interface = globals.file_writer_stdout.interface;
-    globals.file_writer_stderr_interface = globals.file_writer_stderr.interface;
 
     globals.file_stats = globals.FileStatMap.init(globals.init.arena.allocator());
     globals.dir_count  = std.StringHashMap(usize).init(globals.init.arena.allocator());
@@ -534,13 +526,8 @@ fn commonMain(init: std.process.Init) !void {
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 globals.exit_error.store(true, .monotonic);
-
-                try print.stdout("\x1b[2K\r\t");
-                if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[31m");
-                try print.stdout(i18n.ERROR_MESSAGE);
-                if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[0m");
-                try print.stdout(i18n.ERROR_EMPTY_PATH);
-                return print.stdout("\n\n");
+                try print.stdout("\n");
+                return print.stopError(i18n.ERROR_EMPTY_PATH);
             }
 
             check_directory = try globals.init.arena.allocator().dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
@@ -562,13 +549,15 @@ fn commonMain(init: std.process.Init) !void {
     // Checks input directory
     globals.input_directory = if (std.fs.path.isAbsolute(check_directory))
         std.Io.Dir.openDirAbsolute(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
-            try print.errorDirectory(check_directory);
+            try print.stdout("\n");
+            try print.stopError(i18n.ERROR_INPUT_DIRECTORY);
             return err;
         }
     else
         // Relative paths
         std.Io.Dir.cwd().openDir(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
-            try print.errorDirectory(check_directory);
+            try print.stdout("\n");
+            try print.stopError(i18n.ERROR_INPUT_DIRECTORY);
             return err;
         };
 
@@ -577,11 +566,7 @@ fn commonMain(init: std.process.Init) !void {
     // Get absolute path of input directory directory
     globals.absolute_input_path = try globals.input_directory.realPathFileAlloc(globals.init.io, ".", globals.init.arena.allocator());
 
-    // TODO: remove in future versions (temporary file for stat)
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.init.io, "datachecker_empty", .{});
-    file.close(globals.init.io);
-    globals.now_stat = try std.Io.Dir.cwd().statFile(globals.init.io, "datachecker_empty", .{});
-    std.Io.Dir.cwd().deleteFile(globals.init.io, "datachecker_empty") catch {};
+    globals.now = std.Io.Clock.real.now(globals.init.io); // campo now: std.Io.Timestamp
 
     globals.semaphore = std.Io.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
 
@@ -598,7 +583,7 @@ fn commonMain(init: std.process.Init) !void {
             globals.config_parsed.value.ENABLE_CACHE = false;
             try func();
         } else {
-            try print.stderr("\x1b[2K\r\t");
+            try print.stdout("\x1b[2K\r\t");
             try print.err(i18n.ERROR_COMMAND_NOT_FOUND, .{args[1]});
             globals.exit_error.store(true, .monotonic);
         }
@@ -631,13 +616,7 @@ fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Co
         // Invalid config.json
         if (must_clean) alloc.free(config_file.*);
 
-        try print.stdout("\x1b[1A\r\t");
-        if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[31m");
-        try print.stdout(i18n.ERROR_MESSAGE);
-        if (config.COMPTIME_EMOJI_COLOR)  try print.stdout("\x1b[0m");
-        try print.stdout(i18n.ERROR_CONFIG_FILE_PARSE);
-        try print.stdout("\n\n");
-
+        try print.stopError(i18n.ERROR_CONFIG_FILE_PARSE);
         return err;
     };
 

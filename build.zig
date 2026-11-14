@@ -1,17 +1,14 @@
-//! Creates the binary, runs in debug mode and unit tests
+//! Build, test, run, and package datachecker.
+//!
+//! Commands:
+//!     zig build
+//!     zig build run -- folder
+//!     zig build test
+//!     zig build all
+//!     zig build deploy -p download
+//!     zig build run -- -i download
 //!
 //! Copyright © 2025-present Marcos Mazoti
-
-/// Commands available:
-///     zig build
-///     zig build run -- folder
-///     zig build test
-///     zig build all
-
-/// To deploy
-///     zig build deploy -p download
-///     zig build run -- -i download
-
 
 const std = @import("std");
 
@@ -25,10 +22,10 @@ fn createExecutableForTarget(b: *std.Build, resolved_target: std.Build.ResolvedT
     const icon_mod: *std.Build.Module  = b.createModule(.{ .root_source_file = b.path("src/empty.zig"), .target = resolved_target });
 
     const print_mod: *std.Build.Module = b.createModule(.{ .root_source_file = b.path("src/print.zig"), .target = resolved_target, .imports = &.{
-        .{ .name = "config"  , .module = config_mod  },
-        .{ .name = "globals" , .module = globals_mod },
-        .{ .name = "i18n"    , .module = i18n_mod    },
-    } });
+        .{ .name = "config"      , .module = config_mod      },
+        .{ .name = "globals"     , .module = globals_mod     },
+        .{ .name = "i18n"        , .module = i18n_mod        },
+    }});
 
     const core_mod: *std.Build.Module  = b.createModule(.{ .root_source_file = b.path("src/modules/core.zig"), .target = resolved_target, .imports = &.{
         .{ .name = "ahocorasick" , .module = ahocorasick_mod },

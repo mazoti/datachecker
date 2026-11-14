@@ -13,9 +13,9 @@ const std     = @import("std");
 
 /// Detects files with timestamps in the future
 pub fn checkWrongDates(args: anytype) !bool {
-    if ((args[2].*.atime.?.nanoseconds > globals.now_stat.atime.?.nanoseconds) or
-        (args[2].*.ctime.nanoseconds   > globals.now_stat.ctime.nanoseconds)   or
-        (args[2].*.mtime.nanoseconds   > globals.now_stat.mtime.nanoseconds)) {
+    if ((args[2].*.atime.?.nanoseconds > globals.now.nanoseconds) or
+        (args[2].*.ctime.nanoseconds   > globals.now.nanoseconds)   or
+        (args[2].*.mtime.nanoseconds   > globals.now.nanoseconds)) {
 
         globals.exit_warning.store(true, .monotonic);
         return print.messageSumReturn(true, args[1], print.warning, i18n.WRONG_DATES_WARNING, .{args[0]});
@@ -190,7 +190,7 @@ pub fn largeFiles(args: anytype) !bool {
 
 /// Identifies files that haven't been accessed within the configured time threshold
 pub fn lastAccess(args: anytype) !bool {
-    const last_access: i96 = globals.now_stat.atime.?.nanoseconds - args[2].atime.?.nanoseconds;
+    const last_access: i96 = globals.now.nanoseconds - args[2].atime.?.nanoseconds;
 
     if (last_access <= globals.config_parsed.value.LAST_ACCESS_TIME) return false;
 

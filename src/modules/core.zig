@@ -389,7 +389,7 @@ pub fn run() !void {
 
 // Prints error, file and line in debug mode
 pub inline fn debugPrintError(err: anyerror) void {
-    if (!config.COMPTIME_STDOUT_STDERR) return;
+    if (!config.COMPTIME_STDOUT) return;
 
     if (builtin.mode == .debug) {
         std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });

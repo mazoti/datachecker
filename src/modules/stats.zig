@@ -5,7 +5,7 @@
 const builtin = @import("builtin");
 const config  = @import("config");
 const core    = @import("core.zig");
-const data    = @import("data.zig");
+const data    = @import("data");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const print   = @import("print");
@@ -318,8 +318,8 @@ pub fn oneItemDirectory(args: anytype) !bool {
     return false;
 }
 
-/// Checks for unportable characters and names
-pub fn unportableCharacters(args: anytype) !bool {
+/// Checks for non-portable characters and names
+pub fn nonPortableCharacters(args: anytype) !bool {
     const extension: []const u8 = std.fs.path.extension(args[0]);
     const basename:  []const u8 = std.fs.path.basename(args[0]);
     const filename:  []const u8 = basename[0..(basename.len - extension.len)];
@@ -327,32 +327,20 @@ pub fn unportableCharacters(args: anytype) !bool {
     // Windows filename restrictions
     if (data.WINDOWS_RESTRICTIONS.has(filename)) {
         globals.exit_warning.store(true, .monotonic);
-        return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+        return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
     }
 
     // Windows silently strips trailing dots and spaces
     if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ') {
         globals.exit_warning.store(true, .monotonic);
-        return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+        return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
     }
 
     // < > : " | ? * and chars below ASCII 32
     for (0..args[0].len) |i| {
-        if (args[0][i] < 32) {
+        if (data.NONPORTABLE_BYTES[args[0][i]]) {
             globals.exit_warning.store(true, .monotonic);
-            return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-        }
-
-        if (args[0][i] == '<' or args[0][i] == '>' or args[0][i] == '"' or args[0][i] == '|' or args[0][i] == '?' or args[0][i] == '*') {
-            globals.exit_warning.store(true, .monotonic);
-            return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
-        }
-
-        // Special handling for colon (allowed only in Windows drive letters)
-        if (args[0][i] == ':') {
-            if (i < (args[0].len - 1) and (args[0][i + 1] == '\\' or args[0][i + 1] == '/')) continue;
-            globals.exit_warning.store(true, .monotonic);
-            return print.messageSumReturn(false, args[1], print.warning, i18n.UNPORTABLE_CHARS_WARNING, .{args[0]});
+            return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
         }
     }
     return false;

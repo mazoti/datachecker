@@ -5,7 +5,19 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std = @import("std");
+const config = @import("config");
+const std    = @import("std");
+
+/// Bytes that are not allowed in a portable path: < > " | ? * and everything below ASCII 32
+/// (the colon is handled apart: it is only allowed in the drive letter of Windows)
+pub const NONPORTABLE_BYTES: [256]bool = blk: {
+    var table: [256]bool = @splat(false);
+
+    for (0..32) |i| { table[i] = true; }
+    for ("<>\"|?*") |byte| { table[byte] = true; }
+
+    break :blk table;
+};
 
 /// Array of substrings that indicate temporary files when found anywhere in the path
 /// These patterns identify version control, build artifacts, and system temporary locations

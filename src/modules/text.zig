@@ -5,7 +5,7 @@
 
 const ahocorasick = @import("ahocorasick");
 const core        = @import("core.zig");
-const data        = @import("data.zig");
+const data        = @import("data");
 const globals     = @import("globals");
 const i18n        = @import("i18n");
 const print       = @import("print");

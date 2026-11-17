@@ -319,7 +319,28 @@ pub fn stopError(comptime print_message: []const u8) !void {
     try stdout(i18n.ERROR_MESSAGE);
 
     if (config.COMPTIME_EMOJI_COLOR)  try stdout("\x1b[0m");
-    try stdout(print_message);
+    return stdout(print_message);
+}
 
-    return stdout("\n\n");
+/// Prints help and exits
+pub fn printHelp() !void {
+    try stdout("\x1b[1A");
+    try stdout(config.HELP);
+    try stdout("\x1b[1A\x1b[1A");
+}
+
+/// Do nothing: version already is on system header
+pub fn printVersion() !void {}
+
+/// Keeps a console that was opened just for this run (double-click) from closing before the output was read
+pub fn waitForEnter() !void {
+    try stdout("\n\n");
+    if (!globals.config_parsed.value.ENTER_TO_QUIT) return;
+
+    try stdout(i18n.QUIT_MESSAGE);
+
+    var stdin = std.Io.File.stdin().reader(globals.init.io, globals.buffer);
+
+    // A closed stdin (pipe, cron, CI) only means that nobody can press Enter: not an error
+    _ = stdin.interface.take(1) catch return;
 }

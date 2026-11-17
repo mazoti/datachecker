@@ -9,47 +9,6 @@ const i18n    = @import("i18n");
 const print   = @import("print");
 const std     = @import("std");
 
-const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
-    H(".ascon256"  ,  "ASCON256"  ,  std.crypto.hash.ascon.AsconHash256),
-    H(".blake2b128",  "BLAKE2B128",  std.crypto.hash.blake2.Blake2b128 ),
-    H(".blake2b160",  "BLAKE2B160",  std.crypto.hash.blake2.Blake2b160 ),
-    H(".blake2b256",  "BLAKE2B256",  std.crypto.hash.blake2.Blake2b256 ),
-    H(".blake2b384",  "BLAKE2B384",  std.crypto.hash.blake2.Blake2b384 ),
-    H(".blake2b512",  "BLAKE2B512",  std.crypto.hash.blake2.Blake2b512 ),
-    H(".blake2s128",  "BLAKE2S128",  std.crypto.hash.blake2.Blake2s128 ),
-    H(".blake2s160",  "BLAKE2S160",  std.crypto.hash.blake2.Blake2s160 ),
-    H(".blake2s224",  "BLAKE2S224",  std.crypto.hash.blake2.Blake2s224 ),
-    H(".blake2s256",  "BLAKE2S256",  std.crypto.hash.blake2.Blake2s256 ),
-    H(".blake3"    ,  "BLAKE3"    ,  std.crypto.hash.Blake3            ),
-    H(".md5"       ,  "MD5"       ,  std.crypto.hash.Md5               ),
-    H(".sha1"      ,  "SHA1"      ,  std.crypto.hash.Sha1              ),
-    H(".sha224"    ,  "SHA224"    ,  std.crypto.hash.sha2.Sha224       ),
-    H(".sha256"    ,  "SHA256"    ,  std.crypto.hash.sha2.Sha256       ),
-    H(".sha256t192",  "SHA256T192",  std.crypto.hash.sha2.Sha256T192   ),
-    H(".sha384"    ,  "SHA384"    ,  std.crypto.hash.sha2.Sha384       ),
-    H(".sha512"    ,  "SHA512"    ,  std.crypto.hash.sha2.Sha512       ),
-    H(".sha512_224",  "SHA512_224",  std.crypto.hash.sha2.Sha512_224   ),
-    H(".sha512t224",  "SHA512T224",  std.crypto.hash.sha2.Sha512T224   ),
-    H(".sha512_256",  "SHA512_256",  std.crypto.hash.sha2.Sha512_256   ),
-    H(".sha512t256",  "SHA512T256",  std.crypto.hash.sha2.Sha512T256   ),
-    H(".sha3_224"  ,  "SHA3_224"  ,  std.crypto.hash.sha3.Sha3_224     ),
-    H(".sha3_256"  ,  "SHA3_256"  ,  std.crypto.hash.sha3.Sha3_256     ),
-    H(".sha3_384"  ,  "SHA3_384"  ,  std.crypto.hash.sha3.Sha3_384     ),
-    H(".sha3_512"  ,  "SHA3_512"  ,  std.crypto.hash.sha3.Sha3_512     ),
-});
-
-const HashFunctions = struct {
-    single:   *const fn ([]const u8, *u64) anyerror!bool,
-    parallel: *const fn ([]const u8, *u64) void,
-
-    fn init(comptime name: []const u8, comptime HashType: type) HashFunctions {
-        return .{
-            .single   = makeHashFunction  (name, HashType),
-            .parallel = makeHashFunctionMt(name, HashType),
-        };
-    }
-};
-
 pub fn checkParallel(total_items: *u64) !bool {
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
 
@@ -107,10 +66,6 @@ pub fn checkSingle(total_items: *u64) !bool {
     }
 
     return false;
-}
-
-fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) struct { []const u8, HashFunctions } {
-    return .{ ext, HashFunctions.init(name, T) };
 }
 
 fn hashParallel(absolute_path: []const u8, total_items: *u64, defer_clean: bool, func: *const fn ([]const u8, *u64)
@@ -287,6 +242,51 @@ fn makeHashFunctionMt(comptime name: []const u8, comptime HashType: type) *const
         }
     }.hash;
 }
+
+fn H(comptime ext: []const u8, comptime name: []const u8, comptime T: type) struct { []const u8, HashFunctions } {
+    return .{ ext, HashFunctions.init(name, T) };
+}
+
+const HashFunctions = struct {
+    single:   *const fn ([]const u8, *u64) anyerror!bool,
+    parallel: *const fn ([]const u8, *u64) void,
+
+    fn init(comptime name: []const u8, comptime HashType: type) HashFunctions {
+        return .{
+            .single   = makeHashFunction  (name, HashType),
+            .parallel = makeHashFunctionMt(name, HashType),
+        };
+    }
+};
+
+const hash_functions_map = std.StaticStringMap(HashFunctions).initComptime(.{
+    H(".ascon256"  ,  "ASCON256"  ,  std.crypto.hash.ascon.AsconHash256),
+    H(".blake2b128",  "BLAKE2B128",  std.crypto.hash.blake2.Blake2b128 ),
+    H(".blake2b160",  "BLAKE2B160",  std.crypto.hash.blake2.Blake2b160 ),
+    H(".blake2b256",  "BLAKE2B256",  std.crypto.hash.blake2.Blake2b256 ),
+    H(".blake2b384",  "BLAKE2B384",  std.crypto.hash.blake2.Blake2b384 ),
+    H(".blake2b512",  "BLAKE2B512",  std.crypto.hash.blake2.Blake2b512 ),
+    H(".blake2s128",  "BLAKE2S128",  std.crypto.hash.blake2.Blake2s128 ),
+    H(".blake2s160",  "BLAKE2S160",  std.crypto.hash.blake2.Blake2s160 ),
+    H(".blake2s224",  "BLAKE2S224",  std.crypto.hash.blake2.Blake2s224 ),
+    H(".blake2s256",  "BLAKE2S256",  std.crypto.hash.blake2.Blake2s256 ),
+    H(".blake3"    ,  "BLAKE3"    ,  std.crypto.hash.Blake3            ),
+    H(".md5"       ,  "MD5"       ,  std.crypto.hash.Md5               ),
+    H(".sha1"      ,  "SHA1"      ,  std.crypto.hash.Sha1              ),
+    H(".sha224"    ,  "SHA224"    ,  std.crypto.hash.sha2.Sha224       ),
+    H(".sha256"    ,  "SHA256"    ,  std.crypto.hash.sha2.Sha256       ),
+    H(".sha256t192",  "SHA256T192",  std.crypto.hash.sha2.Sha256T192   ),
+    H(".sha384"    ,  "SHA384"    ,  std.crypto.hash.sha2.Sha384       ),
+    H(".sha512"    ,  "SHA512"    ,  std.crypto.hash.sha2.Sha512       ),
+    H(".sha512_224",  "SHA512_224",  std.crypto.hash.sha2.Sha512_224   ),
+    H(".sha512t224",  "SHA512T224",  std.crypto.hash.sha2.Sha512T224   ),
+    H(".sha512_256",  "SHA512_256",  std.crypto.hash.sha2.Sha512_256   ),
+    H(".sha512t256",  "SHA512T256",  std.crypto.hash.sha2.Sha512T256   ),
+    H(".sha3_224"  ,  "SHA3_224"  ,  std.crypto.hash.sha3.Sha3_224     ),
+    H(".sha3_256"  ,  "SHA3_256"  ,  std.crypto.hash.sha3.Sha3_256     ),
+    H(".sha3_384"  ,  "SHA3_384"  ,  std.crypto.hash.sha3.Sha3_384     ),
+    H(".sha3_512"  ,  "SHA3_512"  ,  std.crypto.hash.sha3.Sha3_512     ),
+});
 
 /// Helper to print message and accumulate totals with mutex
 fn messageSumMutex(

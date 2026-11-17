@@ -11,458 +11,122 @@ const i18n            = @import("i18n");
 const print           = @import("print");
 const std             = @import("std");
 
-const NoParameterFunc = *const fn () anyerror!void;
-
 /// Changes terminal codepage on Windows
 extern "kernel32" fn SetConsoleOutputCP(wCodePageID: std.os.windows.UINT) callconv(.winapi) std.os.windows.BOOL;
 
-const COMPTIME_COMPRESSED_FILES = .{
-    .{ "--compressed"    , &core.compressedFiles              },
-    .{ "-c"              , &core.compressedFiles              },
-    .{ "-C"              , &core.compressedFiles              },
-    .{ "compressed"      , &core.compressedFiles              },
-    .{ "/C"              , &core.compressedFiles              },
-    .{ "COMPRESSED"      , &core.compressedFiles              },
+const NoParameterFunc = *const fn () anyerror!void;
+
+/// Command-line spelling -> handler, matched without regard to letter case
+const FlagMap = std.StaticStringMapWithEql(NoParameterFunc, std.static_string_map.eqlAsciiIgnoreCase);
+
+/// A command selectable on the command line, followed by the directory to scan.
+///
+/// Accepted spellings (any letter case): `--name`, `-short`, `name` and `/short`,
+/// e.g. `--compressed`, `-c`, `compressed` and `/c`.
+const Command = struct {
+    name: []const u8,
+    short: []const u8,
+    /// `null` when the feature is compiled out (config.COMPTIME_*). Written as
+    /// `if (flag) &core.handler else null`, so a disabled handler is never analysed.
+    run: ?NoParameterFunc,
 };
 
-const COMPTIME_CONFIDENTIAL_FILES = .{
-    .{ "--conf"          , &core.confidentialFiles            },
-    .{ "-cf"             , &core.confidentialFiles            },
-    .{ "-CF"             , &core.confidentialFiles            },
-    .{ "conf"            , &core.confidentialFiles            },
-    .{ "/CF"             , &core.confidentialFiles            },
-    .{ "CONF"            , &core.confidentialFiles            },
+const commands = [_]Command{
+    // Checks
+    .{ .name = "compressed"        , .short = "c"    , .run = if (config.COMPTIME_COMPRESSED_FILES)                &core.compressedFiles              else null },
+    .{ .name = "confidential"      , .short = "conf" , .run = if (config.COMPTIME_CONFIDENTIAL_FILES)              &core.confidentialFiles            else null },
+    .{ .name = "debuginfo"         , .short = "di"   , .run = if (config.COMPTIME_DEBUG_INFO)                      &core.debugInfo                    else null },
+    .{ .name = "dirsize"           , .short = "ds"   , .run = if (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE)        &core.dirFileNameSize              else null },
+    .{ .name = "dupchars"          , .short = "dc"   , .run = if (config.COMPTIME_DUPLICATE_CHARS_FILES)           &core.duplicateChars               else null },
+    .{ .name = "duplicate"         , .short = "d"    , .run = if (config.COMPTIME_DUPLICATE_FILES)                 &core.duplicateFiles               else null },
+    .{ .name = "duplicate_mt"      , .short = "dmt"  , .run = if (config.COMPTIME_DUPLICATE_FILES_PARALLEL)        &core.duplicateFilesParallel       else null },
+    .{ .name = "empty_files"       , .short = "ef"   , .run = if (config.COMPTIME_EMPTY_FILES)                     &core.emptyFiles                   else null },
+    .{ .name = "empty_dirs"        , .short = "ed"   , .run = if (config.COMPTIME_EMPTY_DIRECTORIES)               &core.emptyDirectories             else null },
+    .{ .name = "end_of_line"       , .short = "eol"  , .run = if (config.COMPTIME_END_OF_LINE)                     &core.endOfLine                    else null },
+    .{ .name = "files_newer_atime" , .short = "fna"  , .run = if (config.COMPTIME_FILES_NEWER_ATIME)               &core.filesNewerATime              else null },
+    .{ .name = "files_newer_ctime" , .short = "fnc"  , .run = if (config.COMPTIME_FILES_NEWER_CTIME)               &core.filesNewerCTime              else null },
+    .{ .name = "files_newer_mtime" , .short = "fnm"  , .run = if (config.COMPTIME_FILES_NEWER_MTIME)               &core.filesNewerMTime              else null },
+    .{ .name = "files_older_atime" , .short = "foa"  , .run = if (config.COMPTIME_FILES_OLDER_ATIME)               &core.filesOlderATime              else null },
+    .{ .name = "files_older_ctime" , .short = "foc"  , .run = if (config.COMPTIME_FILES_OLDER_CTIME)               &core.filesOlderCTime              else null },
+    .{ .name = "files_older_mtime" , .short = "fom"  , .run = if (config.COMPTIME_FILES_OLDER_MTIME)               &core.filesOlderMTime              else null },
+    .{ .name = "full_path_size"    , .short = "fps"  , .run = if (config.COMPTIME_FULL_PATH_SIZE)                  &core.fullPathSize                 else null },
+    .{ .name = "integrity"         , .short = "i"    , .run = if (config.COMPTIME_INTEGRITY_FILES)                 &core.integrityFiles               else null },
+    .{ .name = "integrity_mt"      , .short = "imt"  , .run = if (config.COMPTIME_INTEGRITY_FILES_PARALLEL)        &core.integrityFilesParallel       else null },
+    .{ .name = "large_files"       , .short = "lf"   , .run = if (config.COMPTIME_LARGE_FILES)                     &core.largeFiles                   else null },
+    .{ .name = "last_access"       , .short = "la"   , .run = if (config.COMPTIME_LAST_ACCESS_FILES)               &core.lastAccess                   else null },
+    .{ .name = "legacy_files"      , .short = "lef"  , .run = if (config.COMPTIME_LEGACY_FILES)                    &core.legacyFiles                  else null },
+    .{ .name = "links"             , .short = "l"    , .run = if (config.COMPTIME_LINKS_SHORTCUTS)                 &core.linksShortcuts               else null },
+    .{ .name = "magic_numbers"     , .short = "mn"   , .run = if (config.COMPTIME_MAGIC_NUMBERS)                   &core.magicNumbers                 else null },
+    .{ .name = "many_items"        , .short = "mi"   , .run = if (config.COMPTIME_MANY_ITEMS_DIRECTORY)            &core.manyItemsDirectories         else null },
+    .{ .name = "no_extension"      , .short = "ne"   , .run = if (config.COMPTIME_NO_EXTENSION)                    &core.noExtension                  else null },
+    .{ .name = "nonportable_chars" , .short = "nc"   , .run = if (config.COMPTIME_NONPORTABLE_CHARS)               &core.nonPortableChars             else null },
+    .{ .name = "one_item_dir"      , .short = "oid"  , .run = if (config.COMPTIME_ONE_ITEM_DIRECTORY)              &core.oneItemDirectories           else null },
+    .{ .name = "parse_files"       , .short = "pf"   , .run = if (config.COMPTIME_PARSE_FILES)                     &core.parseFiles                   else null },
+    .{ .name = "temp_files"        , .short = "tf"   , .run = if (config.COMPTIME_TEMPORARY_FILES)                 &core.temporaryFiles               else null },
+    .{ .name = "utf8"              , .short = "u"    , .run = if (config.COMPTIME_UTF8_ENCODING)                   &core.utf8Encoding                 else null },
+    .{ .name = "wrong_dates"       , .short = "wd"   , .run = if (config.COMPTIME_WRONG_DATES)                     &core.wrongDates                   else null },
+
+    // Removals
+    .{ .name = "duplicate_rm"      , .short = "drm"  , .run = if (config.COMPTIME_DUPLICATE_FILES_REMOVE)          &core.duplicateRemoveFiles         else null },
+    .{ .name = "duplicate_rmp"     , .short = "drmp" , .run = if (config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) &core.duplicateRemoveFilesParallel else null },
+    .{ .name = "empty_rm"          , .short = "efrm" , .run = if (config.COMPTIME_EMPTY_FILES_REMOVE)              &core.emptyRemoveFiles             else null },
+    .{ .name = "empty_dirs_rm"     , .short = "edrm" , .run = if (config.COMPTIME_EMPTY_DIRECTORIES_REMOVE)        &core.emptyRemoveDirectories       else null },
+    .{ .name = "links_rm"          , .short = "lrm " , .run = if (config.COMPTIME_LINKS_SHORTCUTS_REMOVE)          &core.linksRemoveShortcuts         else null },
+    .{ .name = "temp_rm"           , .short = "trm"  , .run = if (config.COMPTIME_TEMPORARY_FILES_REMOVE)          &core.temporaryRemoveFiles         else null },
 };
 
-const COMPTIME_DEBUG_INFO = .{
-    .{ "--debuginfo"     , &core.debugInfo                    },
-    .{ "-di"             , &core.debugInfo                    },
-    .{ "-DI"             , &core.debugInfo                    },
-    .{ "debuginfo"       , &core.debugInfo                    },
-    .{ "/DI"             , &core.debugInfo                    },
-    .{ "DEBUGINFO"       , &core.debugInfo                    },
+/// Enabled commands, four spellings each
+pub const command_map = blk: {
+    const Entry = struct { []const u8, NoParameterFunc };
+
+    var entries: [commands.len * 4]Entry = undefined;
+    var count: usize = 0;
+
+    for (commands) |command| {
+        const run = command.run orelse continue;
+
+        for ([_][]const u8{ "--" ++ command.name, "-" ++ command.short, command.name, "/" ++ command.short }) |spelling| {
+            entries[count] = .{ spelling, run };
+            count += 1;
+        }
+    }
+
+    break :blk FlagMap.initComptime(entries[0..count].*);
 };
 
-const COMPTIME_DIRECTORY_FILE_NAME_SIZE = .{
-    .{ "--dirsize"       , &core.dirFileNameSize              },
-    .{ "-ds"             , &core.dirFileNameSize              },
-    .{ "-DS"             , &core.dirFileNameSize              },
-    .{ "dirsize"         , &core.dirFileNameSize              },
-    .{ "/DS"             , &core.dirFileNameSize              },
-    .{ "DIRSIZE"         , &core.dirFileNameSize              },
-};
+/// Stand-alone commands: used when they are the only argument
+pub const help_version_map = FlagMap.initComptime(.{
+    .{ "--config"    , &core.createConfig },
+    .{ "--configure" , &core.createConfig },
+    .{ "config"      , &core.createConfig },
+    .{ "configure"   , &core.createConfig },
 
-const COMPTIME_DUPLICATE_CHARS_FILES = .{
-    .{ "--dupchars"      , &core.duplicateChars               },
-    .{ "-dc"             , &core.duplicateChars               },
-    .{ "-DC"             , &core.duplicateChars               },
-    .{ "dupchars"        , &core.duplicateChars               },
-    .{ "/DC"             , &core.duplicateChars               },
-    .{ "DUPCHARS"        , &core.duplicateChars               },
-};
+    .{ "--help"      , &print.printHelp    },
+    .{ "-?"          , &print.printHelp    },
+    .{ "-h"          , &print.printHelp    },
+    .{ "/?"          , &print.printHelp    },
+    .{ "/h"          , &print.printHelp    },
+    .{ "help"        , &print.printHelp    },
 
-const COMPTIME_DUPLICATE_FILES_PARALLEL = .{
-    .{ "--duplicate_mt"  , &core.duplicateFilesParallel       },
-    .{ "-dmt"            , &core.duplicateFilesParallel       },
-    .{ "-DMT"            , &core.duplicateFilesParallel       },
-    .{ "duplicate_mt"    , &core.duplicateFilesParallel       },
-    .{ "/DMT"            , &core.duplicateFilesParallel       },
-    .{ "DUPLICATE_MT"    , &core.duplicateFilesParallel       },
-};
-
-const COMPTIME_DUPLICATE_FILES = .{
-    .{ "--duplicate"     , &core.duplicateFiles               },
-    .{ "-d"              , &core.duplicateFiles               },
-    .{ "-D"              , &core.duplicateFiles               },
-    .{ "duplicate"       , &core.duplicateFiles               },
-    .{ "/D"              , &core.duplicateFiles               },
-    .{ "DUPLICATE"       , &core.duplicateFiles               },
-};
-
-const COMPTIME_EMPTY_FILES = .{
-    .{ "--empty"         , &core.emptyFiles                   },
-    .{ "-ef"             , &core.emptyFiles                   },
-    .{ "-EF"             , &core.emptyFiles                   },
-    .{ "empty"           , &core.emptyFiles                   },
-    .{ "/EF"             , &core.emptyFiles                   },
-    .{ "EMPTY"           , &core.emptyFiles                   },
-};
-
-const COMPTIME_EMPTY_DIRECTORIES = .{
-    .{ "--emptydirs"     , &core.emptyDirectories             },
-    .{ "-e"              , &core.emptyDirectories             },
-    .{ "-E"              , &core.emptyDirectories             },
-    .{ "emptydirs"       , &core.emptyDirectories             },
-    .{ "/E"              , &core.emptyDirectories             },
-    .{ "EMPTYDIRS"       , &core.emptyDirectories             },
-};
-
-const COMPTIME_END_OF_LINE = .{
-    .{ "--endofline"     , &core.endOfLine                    },
-    .{ "-eol"            , &core.endOfLine                    },
-    .{ "-EOL"            , &core.endOfLine                    },
-    .{ "endofline"       , &core.endOfLine                    },
-    .{ "/EOL"            , &core.endOfLine                    },
-    .{ "ENDOFLINE"       , &core.endOfLine                    },
-};
-
-const COMPTIME_FILES_NEWER_ATIME = .{
-    .{ "--fna"           , &core.filesNewerATime              },
-    .{ "-fna"            , &core.filesNewerATime              },
-    .{ "-FNA"            , &core.filesNewerATime              },
-    .{ "fna"             , &core.filesNewerATime              },
-    .{ "/FNA"            , &core.filesNewerATime              },
-    .{ "FNA"             , &core.filesNewerATime              },
-};
-
-const COMPTIME_FILES_NEWER_CTIME = .{
-    .{ "--fnc"           , &core.filesNewerCTime              },
-    .{ "-fnc"            , &core.filesNewerCTime              },
-    .{ "-FNC"            , &core.filesNewerCTime              },
-    .{ "fnc"             , &core.filesNewerCTime              },
-    .{ "/FNC"            , &core.filesNewerCTime              },
-    .{ "FNC"             , &core.filesNewerCTime              },
-};
-
-const COMPTIME_FILES_NEWER_MTIME = .{
-    .{ "--fnm"           , &core.filesNewerMTime              },
-    .{ "-fnm"            , &core.filesNewerMTime              },
-    .{ "-FNM"            , &core.filesNewerMTime              },
-    .{ "fnm"             , &core.filesNewerMTime              },
-    .{ "/FNM"            , &core.filesNewerMTime              },
-    .{ "FNM"             , &core.filesNewerMTime              },
-};
-
-const COMPTIME_FILES_OLDER_ATIME = .{
-    .{ "--foa"           , &core.filesOlderATime              },
-    .{ "-foa"            , &core.filesOlderATime              },
-    .{ "-FOA"            , &core.filesOlderATime              },
-    .{ "foa"             , &core.filesOlderATime              },
-    .{ "/FOA"            , &core.filesOlderATime              },
-    .{ "FOA"             , &core.filesOlderATime              },
-};
-
-const COMPTIME_FILES_OLDER_CTIME = .{
-    .{ "--foc"           , &core.filesOlderCTime              },
-    .{ "-foc"            , &core.filesOlderCTime              },
-    .{ "-FOC"            , &core.filesOlderCTime              },
-    .{ "foc"             , &core.filesOlderCTime              },
-    .{ "/FOC"            , &core.filesOlderCTime              },
-    .{ "FOC"             , &core.filesOlderCTime              },
-};
-
-const COMPTIME_FILES_OLDER_MTIME = .{
-    .{ "--fom"           , &core.filesOlderMTime              },
-    .{ "-fom"            , &core.filesOlderMTime              },
-    .{ "-FOM"            , &core.filesOlderMTime              },
-    .{ "fom"             , &core.filesOlderMTime              },
-    .{ "/FOM"            , &core.filesOlderMTime              },
-    .{ "FOM"             , &core.filesOlderMTime              },
-};
-
-const COMPTIME_FULL_PATH_SIZE = .{
-    .{ "--fullpathsize"  , &core.fullPathSize                 },
-    .{ "-f"              , &core.fullPathSize                 },
-    .{ "-F"              , &core.fullPathSize                 },
-    .{ "fullpathsize"    , &core.fullPathSize                 },
-    .{ "/F"              , &core.fullPathSize                 },
-    .{ "FULLPATHSIZE"    , &core.fullPathSize                 },
-};
-
-const COMPTIME_INTEGRITY_FILES_PARALLEL = .{
-    .{ "--integrity_mt"  , &core.integrityFilesParallel       },
-    .{ "-imt"            , &core.integrityFilesParallel       },
-    .{ "-IMT"            , &core.integrityFilesParallel       },
-    .{ "integrity_mt"    , &core.integrityFilesParallel       },
-    .{ "/IMT"            , &core.integrityFilesParallel       },
-    .{ "INTEGRITY_MT"    , &core.integrityFilesParallel       },
-};
-
-const COMPTIME_INTEGRITY_FILES = .{
-    .{ "--integrity"     , &core.integrityFiles               },
-    .{ "-i"              , &core.integrityFiles               },
-    .{ "-I"              , &core.integrityFiles               },
-    .{ "integrity"       , &core.integrityFiles               },
-    .{ "/I"              , &core.integrityFiles               },
-    .{ "INTEGRITY"       , &core.integrityFiles               },
-};
-
-const COMPTIME_PARSE_FILES = .{
-    .{ "--parse"         , &core.parseFiles                   },
-    .{ "-p"              , &core.parseFiles                   },
-    .{ "-P"              , &core.parseFiles                   },
-    .{ "parse"           , &core.parseFiles                   },
-    .{ "/P"              , &core.parseFiles                   },
-    .{ "PARSE"           , &core.parseFiles                   },
-};
-
-const COMPTIME_LARGE_FILES = .{
-    .{ "--large"         , &core.largeFiles                   },
-    .{ "-lf"             , &core.largeFiles                   },
-    .{ "-LF"             , &core.largeFiles                   },
-    .{ "large"           , &core.largeFiles                   },
-    .{ "/LF"             , &core.largeFiles                   },
-    .{ "LARGE"           , &core.largeFiles                   },
-};
-
-const COMPTIME_LAST_ACCESS_FILES = .{
-    .{ "--last"          , &core.lastAccess                   },
-    .{ "-l"              , &core.lastAccess                   },
-    .{ "-L"              , &core.lastAccess                   },
-    .{ "last"            , &core.lastAccess                   },
-    .{ "/L"              , &core.lastAccess                   },
-    .{ "LAST"            , &core.lastAccess                   },
-};
-
-const COMPTIME_LEGACY_FILES = .{
-    .{ "--legacy"        , &core.legacyFiles                  },
-    .{ "-legacy"         , &core.legacyFiles                  },
-    .{ "/LEGACY"         , &core.legacyFiles                  },
-    .{ "legacy"          , &core.legacyFiles                  },
-    .{ "LEGACY"          , &core.legacyFiles                  },
-};
-
-const COMPTIME_LINKS_SHORTCUTS = .{
-    .{ "--links"         , &core.linksShortcuts               },
-    .{ "-ls"             , &core.linksShortcuts               },
-    .{ "-LS"             , &core.linksShortcuts               },
-    .{ "links"           , &core.linksShortcuts               },
-    .{ "/LS"             , &core.linksShortcuts               },
-    .{ "LINKS"           , &core.linksShortcuts               },
-};
-
-const COMPTIME_MAGIC_NUMBERS = .{
-    .{ "--magic"         , &core.magicNumbers                 },
-    .{ "-m"              , &core.magicNumbers                 },
-    .{ "-M"              , &core.magicNumbers                 },
-    .{ "magic"           , &core.magicNumbers                 },
-    .{ "/M"              , &core.magicNumbers                 },
-    .{ "MAGIC"           , &core.magicNumbers                 },
-};
-
-const COMPTIME_MANY_ITEMS_DIRECTORY = .{
-    .{ "--manyitems"     , &core.manyItemsDirectories         },
-    .{ "-mi"             , &core.manyItemsDirectories         },
-    .{ "-MI"             , &core.manyItemsDirectories         },
-    .{ "manyitems"       , &core.manyItemsDirectories         },
-    .{ "/MI"             , &core.manyItemsDirectories         },
-    .{ "MANYITEMS"       , &core.manyItemsDirectories         },
-};
-
-const COMPTIME_NO_EXTENSION = .{
-    .{ "--noext"         , &core.noExtension                  },
-    .{ "-n"              , &core.noExtension                  },
-    .{ "-N"              , &core.noExtension                  },
-    .{ "noext"           , &core.noExtension                  },
-    .{ "/N"              , &core.noExtension                  },
-    .{ "NOEXT"           , &core.noExtension                  },
-};
-
-const COMPTIME_ONE_ITEM_DIRECTORY = .{
-    .{ "--oneitem"       , &core.oneItemDirectories           },
-    .{ "-o"              , &core.oneItemDirectories           },
-    .{ "-O"              , &core.oneItemDirectories           },
-    .{ "oneitem"         , &core.oneItemDirectories           },
-    .{ "/O"              , &core.oneItemDirectories           },
-    .{ "ONEITEM"         , &core.oneItemDirectories           },
-};
-
-const COMPTIME_TEMPORARY_FILES = .{
-    .{ "--temp"          , &core.temporaryFiles               },
-    .{ "-tf"             , &core.temporaryFiles               },
-    .{ "-TF"             , &core.temporaryFiles               },
-    .{ "temp"            , &core.temporaryFiles               },
-    .{ "/TF"             , &core.temporaryFiles               },
-    .{ "TEMP"            , &core.temporaryFiles               },
-};
-
-const COMPTIME_UNPORTABLE_CHARS = .{
-    .{ "--uchars"        , &core.unportableChars              },
-    .{ "-u"              , &core.unportableChars              },
-    .{ "-U"              , &core.unportableChars              },
-    .{ "uchars"          , &core.unportableChars              },
-    .{ "/U"              , &core.unportableChars              },
-    .{ "UCHARS"          , &core.unportableChars              },
-};
-
-const COMPTIME_WRONG_DATES = .{
-    .{ "--wrong"         , &core.wrongDates                   },
-    .{ "-w"              , &core.wrongDates                   },
-    .{ "-W"              , &core.wrongDates                   },
-    .{ "wrong"           , &core.wrongDates                   },
-    .{ "/W"              , &core.wrongDates                   },
-    .{ "WRONG"           , &core.wrongDates                   },
-};
-
-
-const COMPTIME_DUPLICATE_FILES_REMOVE = .{
-    .{ "--duplicate_rm"  , &core.duplicateRemoveFiles         },
-    .{ "-drm"            , &core.duplicateRemoveFiles         },
-    .{ "-DRM"            , &core.duplicateRemoveFiles         },
-    .{ "duplicate_rm"    , &core.duplicateRemoveFiles         },
-    .{ "/DRM"            , &core.duplicateRemoveFiles         },
-    .{ "DUPLICATE_RM"    , &core.duplicateRemoveFiles         },
-};
-
-const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE = .{
-    .{ "--duplicate_rmp" , &core.duplicateRemoveFilesParallel },
-    .{ "-drmp"           , &core.duplicateRemoveFilesParallel },
-    .{ "-DRMP"           , &core.duplicateRemoveFilesParallel },
-    .{ "duplicate_rmp"   , &core.duplicateRemoveFilesParallel },
-    .{ "/DRMP"           , &core.duplicateRemoveFilesParallel },
-    .{ "DUPLICATE_RMP"   , &core.duplicateRemoveFilesParallel },
-};
-
-const COMPTIME_EMPTY_FILES_REMOVE = .{
-    .{ "--empty_rm"      , &core.emptyRemoveFiles             },
-    .{ "-efrm"           , &core.emptyRemoveFiles             },
-    .{ "-EFRM"           , &core.emptyRemoveFiles             },
-    .{ "empty_rm"        , &core.emptyRemoveFiles             },
-    .{ "/EFRM"           , &core.emptyRemoveFiles             },
-    .{ "EMPTY_RM"        , &core.emptyRemoveFiles             },
-};
-
-const COMPTIME_EMPTY_DIRECTORIES_REMOVE = .{
-    .{ "--emptydirs_rm"  , &core.emptyRemoveDirectories       },
-    .{ "-erm"            , &core.emptyRemoveDirectories       },
-    .{ "-ERM"            , &core.emptyRemoveDirectories       },
-    .{ "emptydirs_rm"    , &core.emptyRemoveDirectories       },
-    .{ "/ERM"            , &core.emptyRemoveDirectories       },
-    .{ "EMPTYDIRS_RM"    , &core.emptyRemoveDirectories       },
-};
-
-const COMPTIME_LINKS_SHORTCUTS_REMOVE = .{
-    .{ "--links_rm"      , &core.linksRemoveShortcuts         },
-    .{ "-lsrm"           , &core.linksRemoveShortcuts         },
-    .{ "-LSRM"           , &core.linksRemoveShortcuts         },
-    .{ "links_rm"        , &core.linksRemoveShortcuts         },
-    .{ "/LSRM"           , &core.linksRemoveShortcuts         },
-    .{ "LINKS_RM"        , &core.linksRemoveShortcuts         },
-};
-
-const COMPTIME_TEMPORARY_FILES_REMOVE = .{
-    .{ "--temp_rm"       , &core.temporaryRemoveFiles         },
-    .{ "-tfrm"           , &core.temporaryRemoveFiles         },
-    .{ "-TFRM"           , &core.temporaryRemoveFiles         },
-    .{ "temp_rm"         , &core.temporaryRemoveFiles         },
-    .{ "/TFRM"           , &core.temporaryRemoveFiles         },
-    .{ "TEMP_RM"         , &core.temporaryRemoveFiles         },
-};
-
-const COMPTIME_UTF8_ENCODING = .{
-    .{ "--utf8"          , &core.utf8Encoding                 },
-    .{ "-utf8"           , &core.utf8Encoding                 },
-    .{ "-UTF8"           , &core.utf8Encoding                 },
-    .{ "utf8"            , &core.utf8Encoding                 },
-    .{ "/UTF8"           , &core.utf8Encoding                 },
-    .{ "UTF8"            , &core.utf8Encoding                 },
-};
-
-const help_version_map = std.StaticStringMap(NoParameterFunc).initComptime(.{
-    .{ "--config"        , &createConfig                      },
-    .{ "--configure"     , &createConfig                      },
-    .{ "config"          , &createConfig                      },
-    .{ "configure"       , &createConfig                      },
-
-    .{ "--help"          , &printHelp                         },
-    .{ "-?"              , &printHelp                         },
-    .{ "-h"              , &printHelp                         },
-    .{ "-H"              , &printHelp                         },
-    .{ "/?"              , &printHelp                         },
-    .{ "/h"              , &printHelp                         },
-    .{ "help"            , &printHelp                         },
-    .{ "HELP"            , &printHelp                         },
-
-    .{ "--version"       , &printVersion                      },
-    .{ "-v"              , &printVersion                      },
-    .{ "-V"              , &printVersion                      },
-    .{ "/V"              , &printVersion                      },
-    .{ "version"         , &printVersion                      },
-    .{ "VERSION"         , &printVersion                      },
+    .{ "--version"   , &print.printVersion },
+    .{ "-v"          , &print.printVersion },
+    .{ "/v"          , &print.printVersion },
+    .{ "version"     , &print.printVersion },
 });
 
-/// Map of command-line flags to their corresponding handler functions
-/// Supports various help and version flag formats (Unix, Windows, case variations)
-const command_map = std.StaticStringMap(NoParameterFunc).initComptime(
-    (if (config.COMPTIME_COMPRESSED_FILES               ) COMPTIME_COMPRESSED_FILES                else .{}) ++
-    (if (config.COMPTIME_CONFIDENTIAL_FILES             ) COMPTIME_CONFIDENTIAL_FILES              else .{}) ++
-    (if (config.COMPTIME_DEBUG_INFO                     ) COMPTIME_DEBUG_INFO                      else .{}) ++
-    (if (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE       ) COMPTIME_DIRECTORY_FILE_NAME_SIZE        else .{}) ++
-    (if (config.COMPTIME_DUPLICATE_CHARS_FILES          ) COMPTIME_DUPLICATE_CHARS_FILES           else .{}) ++
-    (if (config.COMPTIME_DUPLICATE_FILES_PARALLEL       ) COMPTIME_DUPLICATE_FILES_PARALLEL        else .{}) ++
-    (if (config.COMPTIME_DUPLICATE_FILES                ) COMPTIME_DUPLICATE_FILES                 else .{}) ++
-    (if (config.COMPTIME_EMPTY_FILES                    ) COMPTIME_EMPTY_FILES                     else .{}) ++
-    (if (config.COMPTIME_EMPTY_DIRECTORIES              ) COMPTIME_EMPTY_DIRECTORIES               else .{}) ++
-    (if (config.COMPTIME_END_OF_LINE                    ) COMPTIME_END_OF_LINE                     else .{}) ++
-    (if (config.COMPTIME_FILES_NEWER_ATIME              ) COMPTIME_FILES_NEWER_ATIME               else .{}) ++
-    (if (config.COMPTIME_FILES_NEWER_CTIME              ) COMPTIME_FILES_NEWER_CTIME               else .{}) ++
-    (if (config.COMPTIME_FILES_NEWER_MTIME              ) COMPTIME_FILES_NEWER_MTIME               else .{}) ++
-    (if (config.COMPTIME_FILES_OLDER_ATIME              ) COMPTIME_FILES_OLDER_ATIME               else .{}) ++
-    (if (config.COMPTIME_FILES_OLDER_CTIME              ) COMPTIME_FILES_OLDER_CTIME               else .{}) ++
-    (if (config.COMPTIME_FILES_OLDER_MTIME              ) COMPTIME_FILES_OLDER_MTIME               else .{}) ++
-    (if (config.COMPTIME_FULL_PATH_SIZE                 ) COMPTIME_FULL_PATH_SIZE                  else .{}) ++
-    (if (config.COMPTIME_INTEGRITY_FILES_PARALLEL       ) COMPTIME_INTEGRITY_FILES_PARALLEL        else .{}) ++
-    (if (config.COMPTIME_INTEGRITY_FILES                ) COMPTIME_INTEGRITY_FILES                 else .{}) ++
-    (if (config.COMPTIME_PARSE_FILES                    ) COMPTIME_PARSE_FILES                     else .{}) ++
-    (if (config.COMPTIME_LARGE_FILES                    ) COMPTIME_LARGE_FILES                     else .{}) ++
-    (if (config.COMPTIME_LAST_ACCESS_FILES              ) COMPTIME_LAST_ACCESS_FILES               else .{}) ++
-    (if (config.COMPTIME_LEGACY_FILES                   ) COMPTIME_LEGACY_FILES                    else .{}) ++
-    (if (config.COMPTIME_LINKS_SHORTCUTS                ) COMPTIME_LINKS_SHORTCUTS                 else .{}) ++
-    (if (config.COMPTIME_MAGIC_NUMBERS                  ) COMPTIME_MAGIC_NUMBERS                   else .{}) ++
-    (if (config.COMPTIME_MANY_ITEMS_DIRECTORY           ) COMPTIME_MANY_ITEMS_DIRECTORY            else .{}) ++
-    (if (config.COMPTIME_NO_EXTENSION                   ) COMPTIME_NO_EXTENSION                    else .{}) ++
-    (if (config.COMPTIME_ONE_ITEM_DIRECTORY             ) COMPTIME_ONE_ITEM_DIRECTORY              else .{}) ++
-    (if (config.COMPTIME_TEMPORARY_FILES                ) COMPTIME_TEMPORARY_FILES                 else .{}) ++
-    (if (config.COMPTIME_UNPORTABLE_CHARS               ) COMPTIME_UNPORTABLE_CHARS                else .{}) ++
-    (if (config.COMPTIME_UTF8_ENCODING                  ) COMPTIME_UTF8_ENCODING                   else .{}) ++
-    (if (config.COMPTIME_WRONG_DATES                    ) COMPTIME_WRONG_DATES                     else .{}) ++
-
-    (if (config.COMPTIME_DUPLICATE_FILES_REMOVE         ) COMPTIME_DUPLICATE_FILES_REMOVE          else .{}) ++
-    (if (config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE else .{}) ++
-    (if (config.COMPTIME_EMPTY_FILES_REMOVE             ) COMPTIME_EMPTY_FILES_REMOVE              else .{}) ++
-    (if (config.COMPTIME_EMPTY_DIRECTORIES_REMOVE       ) COMPTIME_EMPTY_DIRECTORIES_REMOVE        else .{}) ++
-    (if (config.COMPTIME_LINKS_SHORTCUTS_REMOVE         ) COMPTIME_LINKS_SHORTCUTS_REMOVE          else .{}) ++
-    (if (config.COMPTIME_TEMPORARY_FILES_REMOVE         ) COMPTIME_TEMPORARY_FILES_REMOVE          else .{}),
-);
-
-/// Sets system exit code: 0 (no problems), 1 (errors), 2 (warnings)
+/// Returns system exit code: 0 (no problems), 1 (errors), 2 (warnings)
 fn exitCode() u8 {
     if (globals.exit_error.load(.monotonic))   return 1;
     if (globals.exit_warning.load(.monotonic)) return 2;
     return 0;
 }
 
-/// Creates a config.json with default values in the same directory of the system
-fn createConfig() !void {
-    try print.stdout("\t\t");
-    try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
-    try print.stdout("\x1b[2K\r");
-
-    _ = std.Io.Dir.cwd().statFile(globals.init.io, "config.json", .{}) catch |err| {
-        if (err == error.FileNotFound) {
-            const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.init.io, "config.json", .{});
-            defer config_file.close(globals.init.io);
-
-            var file_writer: std.Io.File.Writer = config_file.writer(globals.init.io, &globals.io_buffer);
-            try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG);
-            try file_writer.interface.flush();
-
-            try print.alignedOk(i18n.CONFIG_MESSAGE_CREATE);
-            return print.stdout("\x1b[1B\r\x1b[2K\n");
-        }
-
-        return err;
-    };
-
-    return print.stopError(i18n.ERROR_CONFIG_FILE);
-}
-
 /// Common main for all operating systems
-fn commonMain(init: std.process.Init) !void {
+fn commonMain(init: *const std.process.Init) !void {
     // Accessing command line arguments (arena required):
     var check_directory: []u8 = undefined;
 
-    globals.init = &init;
+    globals.init = init;
 
     const total_memory: u64 = try std.process.totalSystemMemory();
     const half_memory:  u64 = total_memory / 2;
@@ -470,7 +134,7 @@ fn commonMain(init: std.process.Init) !void {
     globals.memory_limit = @intCast(@min(half_memory, std.math.maxInt(usize)));
 
     globals.file_writer_stdout = .init(.stdout(), globals.init.io, &globals.io_buffer);
-    globals.file_writer_stdout_interface = globals.file_writer_stdout.interface;
+    globals.file_writer_stdout_interface = &globals.file_writer_stdout.interface;
 
     globals.file_stats = globals.FileStatMap.init(globals.init.arena.allocator());
     globals.dir_count  = std.StringHashMap(usize).init(globals.init.arena.allocator());
@@ -480,11 +144,11 @@ fn commonMain(init: std.process.Init) !void {
     defer {
         globals.ignore_path_patterns.deinit();
 
-        var iterator: std.hash_map.HashMapUnmanaged([]const u8, usize, std.hash_map.StringContext, 80).Iterator = globals.dir_count.iterator();
+        var iterator = globals.dir_count.iterator();
         while (iterator.next()) |entry| { globals.init.arena.allocator().free(entry.key_ptr.*); }
         globals.dir_count.deinit();
 
-        var iterator2: std.hash_map.HashMapUnmanaged([]const u8, std.Io.File.Stat, std.hash_map.StringContext, 80).Iterator = globals.file_stats.iterator();
+        var iterator2 = globals.file_stats.iterator();
         while (iterator2.next()) |entry| { globals.init.arena.allocator().free(entry.key_ptr.*); }
         globals.file_stats.deinit();
     }
@@ -496,18 +160,30 @@ fn commonMain(init: std.process.Init) !void {
     const args: []const [:0]const u8 = try init.minimal.args.toSlice(globals.init.arena.allocator());
 
     if (args.len == 1) {
-        _ = std.Io.Dir.cwd().statFile(globals.init.io, "config.json", .{}) catch |err| {
-            if (err == error.FileNotFound) return printHelp();
+        _ = std.Io.Dir.cwd().statFile(globals.init.io, config.COMPTIME_CONFIG_FILE_NAME, .{}) catch |err| {
+            if (err == error.FileNotFound) {
+                try print.printHelp();
+                return print.waitForEnter();
+            }
+            try print.waitForEnter();
             return err;
         };
     }
 
     if (args.len == 2) {
-        if (help_version_map.get(args[1])) |func| { return func(); }
+        if (help_version_map.get(args[1])) |func| {
+            try func();
+            return print.waitForEnter();
+        }
     }
 
     // Loads configurations from config.json or uses default values
-    const must_clean: bool = try loadLocal(&globals.config_file, &globals.config_parsed, globals.init.io, globals.init.arena.allocator());
+    const must_clean: bool = loadLocal(&globals.config_file, config.COMPTIME_CONFIG_FILE_NAME, &globals.config_parsed, globals.init.io, globals.init.arena.allocator()) catch |err| {
+        try print.stopError(i18n.ERROR_CONFIG_FILE_PARSE);
+        try print.waitForEnter();
+        return err;
+    };
+
     defer config.deinit(&globals.config_file, &globals.config_parsed, globals.init.arena.allocator(), must_clean);
 
     if (must_clean) try print.alignedOk(i18n.CONFIG_MESSAGE_HEADER) else try print.alignedOk(i18n.CONFIG_MESSAGE_HEADER_DEFAULT);
@@ -521,22 +197,29 @@ fn commonMain(init: std.process.Init) !void {
     if (args.len > 1) {
         check_directory = try globals.init.arena.allocator().dupe(u8, args[args.len - 1]);
     } else {
-        if (globals.config_parsed.value.INPUT_FOLDER.len == 1) {
+        if (std.mem.eql(u8, globals.config_parsed.value.INPUT_FOLDER, ".")) {
             check_directory = try std.process.currentPathAlloc(globals.init.io, globals.init.arena.allocator());
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 globals.exit_error.store(true, .monotonic);
                 try print.stdout("\n");
-                return print.stopError(i18n.ERROR_EMPTY_PATH);
+                try print.stopError(i18n.ERROR_EMPTY_PATH);
+                return print.waitForEnter();
             }
 
             check_directory = try globals.init.arena.allocator().dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
         }
     }
-
     defer globals.init.arena.allocator().free(check_directory);
 
-    // Ensures path separator at end
+    if (check_directory.len == 0) {
+        globals.exit_error.store(true, .monotonic);
+        try print.stdout("\n");
+        try print.stopError(i18n.ERROR_EMPTY_PATH);
+        return print.waitForEnter();
+    }
+
+    // Replaces a trailing ".
     if (check_directory[check_directory.len - 1] == '"') check_directory[check_directory.len - 1] = std.fs.path.sep;
 
     globals.buffer = try globals.init.arena.allocator().alloc(u8, globals.config_parsed.value.BUFFER_SIZE);
@@ -551,6 +234,7 @@ fn commonMain(init: std.process.Init) !void {
         std.Io.Dir.openDirAbsolute(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
             try print.stdout("\n");
             try print.stopError(i18n.ERROR_INPUT_DIRECTORY);
+            try print.waitForEnter();
             return err;
         }
     else
@@ -558,6 +242,7 @@ fn commonMain(init: std.process.Init) !void {
         std.Io.Dir.cwd().openDir(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
             try print.stdout("\n");
             try print.stopError(i18n.ERROR_INPUT_DIRECTORY);
+            try print.waitForEnter();
             return err;
         };
 
@@ -565,12 +250,10 @@ fn commonMain(init: std.process.Init) !void {
 
     // Get absolute path of input directory directory
     globals.absolute_input_path = try globals.input_directory.realPathFileAlloc(globals.init.io, ".", globals.init.arena.allocator());
-
-    globals.now = std.Io.Clock.real.now(globals.init.io); // campo now: std.Io.Timestamp
-
+    globals.now = std.Io.Clock.real.now(globals.init.io);
     globals.semaphore = std.Io.Semaphore{ .permits = globals.config_parsed.value.MAX_JOBS };
 
-    // Initialize and add patterns to trie to ignore paths
+    // Initializes and add patterns to trie to ignore paths
     if(config.COMPTIME_IGNORE_PATH_PATTERNS) {
         if(globals.config_parsed.value.IGNORE_PATH_PATTERNS) {
             for (globals.config_parsed.value.IGNORE_PATTERNS) |pattern| { try globals.ignore_path_patterns.add(pattern); }
@@ -592,31 +275,53 @@ fn commonMain(init: std.process.Init) !void {
         try core.run();
     }
 
-    if (!globals.config_parsed.value.ENTER_TO_QUIT) return print.stdout("\n\n");
+    // Enables JSON output results to a file in disk
+    if(config.COMPTIME_JSON_OUTPUT) {
+        if(globals.config_parsed.value.OUTPUT_FILE.len > 0) {
+            try print.header(i18n.JSON_OUTPUT_HEADER);
 
-    // Waits for user input before exiting
-    try print.stdout("\n\n");
-    try print.stdout(i18n.QUIT_MESSAGE);
-    var file_reader: std.Io.File.Reader = std.Io.File.stdin().reader(globals.init.io, globals.buffer);
-    _ = try file_reader.interface.take(1);
+            const json_str: []const u8 = try std.json.Stringify.valueAlloc(globals.init.arena.allocator(), globals.output_results.value, .{ .whitespace = .indent_2 });
+            defer globals.init.arena.allocator().free(json_str);
+
+            std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = globals.config_parsed.value.OUTPUT_FILE, .data = json_str }) catch |err| {
+                globals.exit_error.store(true, .monotonic);
+
+                switch (err) {
+                    error.AccessDenied => {
+                        try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{globals.config_parsed.value.OUTPUT_FILE});
+                        return print.waitForEnter();
+                    },
+                    error.FileBusy => {
+                        try print.err(i18n.ERROR_FILE_BUSY, .{globals.config_parsed.value.OUTPUT_FILE});
+                        return print.waitForEnter();
+                    },
+                    else => {
+                        try print.waitForEnter();
+                        return err;
+                    },
+                }
+            };
+
+            try print.alignedOk(i18n.JSON_OUTPUT_HEADER);
+        }
+    }
+
+    return print.waitForEnter();
 }
 
 /// Attempts to load configuration from a local "config.json" file in the current working directory
-fn loadLocal(config_file: *[]const u8, config_parsed: *std.json.Parsed(config.Config), io: std.Io, alloc: std.mem.Allocator) !bool {
-    config_file.* = std.Io.Dir.cwd().readFileAlloc(io, "config.json", alloc, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
+fn loadLocal(config_file: *[]const u8, config_file_path: []const u8, config_parsed: *std.json.Parsed(config.Config), io: std.Io, alloc: std.mem.Allocator) !bool {
+    config_file.* = std.Io.Dir.cwd().readFileAlloc(io, config_file_path, alloc, std.Io.Limit.limited(config.COMPTIME_IO_BUFFER_SIZE)) catch |err| blk: {
         if (err == error.FileNotFound) break :blk "";
         return err;
     };
 
-    // Parses JSON with enum support, on error sets default values
+    // Parses JSON with enum support, on error returns default values
     const must_clean: bool = if (config_file.*.len > 0) true else false;
-    const data: []const u8 = if (must_clean) config_file.* else config.DEFAULT_JSON_CONFIG;
+    const default_config_data: []const u8 = if (must_clean) config_file.* else config.DEFAULT_JSON_CONFIG;
 
-    config_parsed.* = std.json.parseFromSlice(config.Config, alloc, data, .{}) catch |err| {
-        // Invalid config.json
+    config_parsed.* = std.json.parseFromSlice(config.Config, alloc, default_config_data, .{}) catch |err| {        // Invalid config.json
         if (must_clean) alloc.free(config_file.*);
-
-        try print.stopError(i18n.ERROR_CONFIG_FILE_PARSE);
         return err;
     };
 
@@ -628,7 +333,7 @@ pub fn main(init: std.process.Init) !void {
         if (!SetConsoleOutputCP(65001).toBool()) return error.SetConsoleOutputCPFailed;
     }
 
-    commonMain(init) catch |err| blk:{
+    commonMain(&init) catch |err| blk:{
         globals.exit_error.store(true, .monotonic);
         core.debugPrintError(err);
         break :blk;
@@ -637,13 +342,9 @@ pub fn main(init: std.process.Init) !void {
     std.process.exit(exitCode());
 }
 
-/// Prints help and exits
-fn printHelp() !void { try print.stdout(config.HELP); }
+// ==============================================================================================================================================
 
-/// Do nothing: version already is on system header
-fn printVersion() !void {}
-
-test "No config file loads default configuration" {
+test "Empty config file loads default configuration" {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
@@ -654,12 +355,16 @@ test "No config file loads default configuration" {
 
     const loaded = try loadLocal(
         &config_file,
+        "config_test.json",
         &config_parsed,
         threaded.io(),
         gpa.allocator(),
     );
 
-    defer config_parsed.deinit();
+    defer {
+        config_parsed.deinit();
+        std.Io.Dir.cwd().deleteFile(threaded.io(), config.COMPTIME_CONFIG_FILE_NAME) catch {};
+    }
 
     try std.testing.expect(!loaded);
     try std.testing.expectEqualStrings("", config_file);
@@ -674,10 +379,10 @@ test "Invalid config file" {
 
     const cwd = std.Io.Dir.cwd();
 
-    const file = try cwd.createFile(tmp.io(), "config.json", .{});
+    const file = try cwd.createFile(tmp.io(), "config_invalid.json", .{});
     defer {
         file.close(tmp.io());
-        cwd.deleteFile(tmp.io(), "config.json") catch {};
+        cwd.deleteFile(tmp.io(), "config_invalid.json") catch {};
     }
 
     var file_writer = file.writer(tmp.io(), &io_buffer);
@@ -688,13 +393,11 @@ test "Invalid config file" {
     var config_parsed: std.json.Parsed(config.Config) = undefined;
     var config_file: []const u8 = "";
 
-    globals.file_writer_stderr = .init(.stderr(), tmp.io(), &io_buffer);
-    globals.file_writer_stderr_interface = globals.file_writer_stderr.interface;
-
     try std.testing.expectError(
         error.UnexpectedToken,
         loadLocal(
             &config_file,
+            "config_invalid.json",
             &config_parsed,
             tmp.io(),
             gpa.allocator(),
@@ -709,10 +412,10 @@ test "Valid config file" {
     var tmp = std.Io.Threaded.init_single_threaded;
     var io_buffer: [65536]u8 = undefined;
 
-    const file: std.Io.File = try std.Io.Dir.cwd().createFile(tmp.io(), "config.json", .{});
+    const file: std.Io.File = try std.Io.Dir.cwd().createFile(tmp.io(), "config_valid.json", .{});
     defer {
         file.close(tmp.io());
-        std.Io.Dir.cwd().deleteFile(tmp.io(), "config.json") catch {};
+        std.Io.Dir.cwd().deleteFile(tmp.io(), "config_valid.json") catch {};
     }
 
     var file_writer: std.Io.File.Writer = file.writer(tmp.io(), &io_buffer);
@@ -722,8 +425,25 @@ test "Valid config file" {
     var config_parsed: std.json.Parsed(config.Config) = undefined;
     var config_file: []const u8 = "empty";
 
-    const result: bool = try loadLocal(&config_file, &config_parsed, tmp.io(), gpa.allocator());
+    const result: bool = try loadLocal(&config_file, "config_valid.json", &config_parsed, tmp.io(), gpa.allocator());
     defer config.deinit(&config_file, &config_parsed, gpa.allocator(), result);
 
     try std.testing.expect(result);
+}
+
+test "Command spellings are unique" {
+    // StaticStringMap does not complain about duplicate keys, so they are checked here
+    const keys = command_map.keys();
+
+    for (keys, 0..) |key, index| {
+        for (keys[index + 1 ..]) |other| try std.testing.expect(!std.ascii.eqlIgnoreCase(key, other));
+    }
+}
+
+test "Stand-alone commands ignore letter case" {
+    const accepted = [_][]const u8{ "--help", "-H", "/h", "/H", "HELP", "-?", "--VERSION", "-v", "/V", "Version", "--Config", "configure" };
+
+    for (accepted) |flag| try std.testing.expect(help_version_map.get(flag) != null);
+
+    try std.testing.expect(help_version_map.get("--nope") == null);
 }

@@ -23,14 +23,14 @@ pub const USAGE =
 ;
 
 pub const COMPTIME_COMPRESSED_FILES =
-    \\    --compressed, -c, -C, compressed, /C, COMPRESSED
+    \\    --compressed, -c, compressed, /c
     \\        Search for optimization opportunities in lossless compressed files
     \\
     \\
 ;
 
 pub const COMPTIME_CONFIDENTIAL_FILES =
-    \\    --conf, -cf, -CF, conf, /CF, CONF
+    \\    --confidential, -conf, confidential, /conf
     \\        Search for confidential data in files
     \\        (create config.json to customize search patterns)
     \\
@@ -38,14 +38,14 @@ pub const COMPTIME_CONFIDENTIAL_FILES =
 ;
 
 pub const COMPTIME_DEBUG_INFO =
-    \\    --debuginfo, -di, -DI, debuginfo, /DI, DEBUGINFO
+    \\    --debuginfo, -di, -DI, debuginfo, /di
     \\        Search for binary files with debug information
     \\
     \\
 ;
 
 pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE =
-    \\    --dirsize, -ds, -DS, dirsize, /DS, DIRSIZE
+    \\    --dirsize, -ds, dirsize, /ds
     \\        Search for directories or files with excessively long names
     \\        (create config.json to customize length threshold)
     \\
@@ -53,70 +53,42 @@ pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE =
 ;
 
 pub const COMPTIME_DUPLICATE_CHARS_FILES =
-    \\    --dupchars, -dc, -DC, dupchars, /DC, DUPCHARS
+    \\    --dupchars, -dc, dupchars, /dc
     \\        Search for duplicate characters in file names
     \\
     \\
 ;
 
 pub const COMPTIME_DUPLICATE_FILES_PARALLEL =
-    \\    --duplicate_mt, -dmt, -DMT, duplicate_mt, /DMT, DUPLICATE_MT
+    \\    --duplicate_mt, -dmt, duplicate_mt, /dmt
     \\        Search for duplicate files using multithreading
     \\
     \\
 ;
 
-pub const COMPTIME_DUPLICATE_FILES_REMOVE =
-    \\    --duplicate_rm, -drm, -DRM, duplicate_rm, /DRM, DUPLICATE_RM
-    \\        Remove duplicate files
-    \\
-    \\
-;
-
-pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE =
-    \\    --duplicate_rmp, -drmp, -DRMP, duplicate_rmp, /DRMP, DUPLICATE_RMP
-    \\        Remove duplicate files using multithreading
-    \\
-    \\
-;
-
 pub const COMPTIME_DUPLICATE_FILES =
-    \\    --duplicate, -d, -D, duplicate, /D, DUPLICATE
+    \\    --duplicate, -d, duplicate, /d
     \\        Search for duplicate files
     \\
     \\
 ;
 
-pub const COMPTIME_EMPTY_FILES_REMOVE =
-    \\    --empty_rm, -efrm, -EFRM, empty_rm, /EFRM, EMPTY_RM
-    \\        Remove empty files
-    \\
-    \\
-;
-
 pub const COMPTIME_EMPTY_FILES =
-    \\    --empty, -ef, -EF, empty, /EF, EMPTY
+    \\    --empty_files, -ef, empty_files, /ef
     \\        Search for empty files
     \\
     \\
 ;
 
-pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE =
-    \\    --emptydirs_rm, -erm, -ERM, emptydirs_rm, /ERM, EMPTYDIRS_RM
-    \\        Remove empty directories
-    \\
-    \\
-;
-
 pub const COMPTIME_EMPTY_DIRECTORIES =
-    \\    --emptydirs, -e, -E, emptydirs, /E, EMPTYDIRS
+    \\    --empty_dirs, -ed, empty_dirs, /ed
     \\        Search for empty directories
     \\
     \\
 ;
 
 pub const COMPTIME_END_OF_LINE =
-    \\    --endofline, -eol, -EOL, endofline, /EOL, ENDOFLINE
+    \\    --end_of_line, -eol, end_of_line, /eol
     \\        Search for wrong line terminator in text files
     \\        (create config.json to customize terminator)
     \\
@@ -124,7 +96,7 @@ pub const COMPTIME_END_OF_LINE =
 ;
 
 pub const COMPTIME_FILES_NEWER_ATIME =
-    \\    --fna, -fna, -FNA, fna, /FNA, FNA
+    \\    --files_newer_atime, -fna, files_newer_atime, /fna
     \\        Search for files with newer access time
     \\        (create config.json to customize time)
     \\
@@ -132,7 +104,7 @@ pub const COMPTIME_FILES_NEWER_ATIME =
 ;
 
 pub const COMPTIME_FILES_NEWER_CTIME =
-    \\    --fnc, -fnc, -FNC, fnc, /FNC, FNC
+    \\    --files_newer_ctime, -fnc, files_newer_ctime, -fnc
     \\        Search for files with newer change time
     \\        (create config.json to customize time)
     \\
@@ -140,7 +112,7 @@ pub const COMPTIME_FILES_NEWER_CTIME =
 ;
 
 pub const COMPTIME_FILES_NEWER_MTIME =
-    \\    --fnm, -fnm, -FNM, fnm, /FNM, FNM
+    \\    --files_newer_mtime, -fnm, files_newer_mtime, /fnm
     \\        Search for files with newer modified time
     \\        (create config.json to customize time)
     \\
@@ -148,7 +120,7 @@ pub const COMPTIME_FILES_NEWER_MTIME =
 ;
 
 pub const COMPTIME_FILES_OLDER_ATIME =
-    \\    --foa, -foa, -FOA, foa, /FOA, FOA
+    \\    --files_older_atime, -foa, files_older_atime, /foa
     \\        Search for files with older access time
     \\        (create config.json to customize time)
     \\
@@ -156,7 +128,7 @@ pub const COMPTIME_FILES_OLDER_ATIME =
 ;
 
 pub const COMPTIME_FILES_OLDER_CTIME =
-    \\    --foc, -foc, -FOC, foc, /FOC, FOC
+    \\    --files_older_ctime, -foc, files_older_ctime, /foc
     \\        Search for files with older change time
     \\        (create config.json to customize time)
     \\
@@ -164,7 +136,7 @@ pub const COMPTIME_FILES_OLDER_CTIME =
 ;
 
 pub const COMPTIME_FILES_OLDER_MTIME =
-    \\    --fom, -fom, -FOM, fom, /FOM, FOM
+    \\    --files_older_mtime, -fom, files_older_mtime, /fom
     \\        Search for files with older modified time
     \\        (create config.json to customize time)
     \\
@@ -172,29 +144,29 @@ pub const COMPTIME_FILES_OLDER_MTIME =
 ;
 
 pub const COMPTIME_FULL_PATH_SIZE =
-    \\    --fullpathsize, -f, -F, fullpathsize, /F, FULLPATHSIZE
+    \\    --full_path_size, -fps, full_path_size, /fps
     \\        Search for excessively long absolute paths
     \\        (create config.json to customize path length threshold)
     \\
     \\
 ;
 
-pub const COMPTIME_INTEGRITY_FILES_PARALLEL =
-    \\    --integrity_mt, -imt, -IMT, integrity_mt, /IMT, INTEGRITY_MT
-    \\        Create/verify file hashes using multithreading
-    \\
-    \\
-;
-
 pub const COMPTIME_INTEGRITY_FILES =
-    \\    --integrity, -i, -I, integrity, /I, INTEGRITY
+    \\    --integrity, -i, integrity, /i
     \\        Create/verify file hashes
     \\
     \\
 ;
 
+pub const COMPTIME_INTEGRITY_FILES_PARALLEL =
+    \\    --integrity_mt, -imt, integrity_mt, /imt
+    \\        Create/verify file hashes using multithreading
+    \\
+    \\
+;
+
 pub const COMPTIME_LARGE_FILES =
-    \\    --large, -lf, -LF, large, /LF, LARGE
+    \\    --large_files, -lf, large_files, /lf
     \\        Search for large files
     \\        (create config.json to customize size threshold)
     \\
@@ -202,7 +174,7 @@ pub const COMPTIME_LARGE_FILES =
 ;
 
 pub const COMPTIME_LAST_ACCESS_FILES =
-    \\    --last, -l, -L, last, /L, LAST
+    \\    --last_access, -la, last_access, /la
     \\        Search for files not accessed recently
     \\        (create config.json to customize time period)
     \\
@@ -210,93 +182,121 @@ pub const COMPTIME_LAST_ACCESS_FILES =
 ;
 
 pub const COMPTIME_LEGACY_FILES =
-    \\    --legacy, -legacy, /LEGACY, legacy, LEGACY
+    \\    --legacy_files, -lef, legacy_files, /lef
     \\        Search for files using outdated formats
     \\
     \\
 ;
 
-pub const COMPTIME_LINKS_SHORTCUTS_REMOVE =
-    \\    --links_rm, -lsrm, -LSRM, links_rm, /LSRM, LINKS_RM
-    \\        Remove links and shortcuts
-    \\
-    \\
-;
-
 pub const COMPTIME_LINKS_SHORTCUTS =
-    \\    --links, -ls, -LS, links, /LS, LINKS
+    \\    --links, -l, links, /l
     \\        Search for links and shortcuts
     \\
     \\
 ;
 
 pub const COMPTIME_MAGIC_NUMBERS =
-    \\    --magic, -m, -M, magic, /M, MAGIC
+    \\    --magic_numbers, -mn, magic_numbers, /mn
     \\        Search for files with mismatched magic numbers
     \\
     \\
 ;
 
 pub const COMPTIME_MANY_ITEMS_DIRECTORY =
-    \\    --manyitems, -mi, -MI, manyitems, /MI, MANYITEMS
+    \\    --many_items, -mi, many_items, /mi
     \\        Search for directories with an excessive number of items
     \\        (create config.json to customize item threshold)
     \\
     \\
 ;
 
+pub const COMPTIME_NONPORTABLE_CHARS =
+    \\    --nonportable_chars, -nc, nonportable_chars, /nc
+    \\        Search for non-portable characters in absolute paths
+    \\
+    \\
+;
+
 pub const COMPTIME_NO_EXTENSION =
-    \\    --noext, -n, -N, noext, /N, NOEXT
+    \\    --no_extension, -ne, no_extension, /ne
     \\        Search for files without extensions and attempt to identify them
     \\
     \\
 ;
 
 pub const COMPTIME_ONE_ITEM_DIRECTORY =
-    \\    --oneitem, -o, -O, oneitem, /O, ONEITEM
+    \\    --one_item_dir, -oid, one_item_dir, /oid
     \\        Search for directories containing only one item
     \\
     \\
 ;
 
 pub const COMPTIME_PARSE_FILES =
-    \\    --parse, -p, -P, parse, /P, PARSE
+    \\    --parse_files, -pf, parse_files, /pf
     \\        Parse files looking for errors
     \\
     \\
 ;
 
-pub const COMPTIME_TEMPORARY_FILES_REMOVE =
-    \\    --temp_rm, -tfrm, -TFRM, temp_rm, /TFRM, TEMP_RM
-    \\        Remove temporary files
-    \\
-    \\
-;
-
 pub const COMPTIME_TEMPORARY_FILES =
-    \\    --temp, -tf, -TF, temp, /TF, TEMP
+    \\    --temp_files, -tf, temp_files, /tf
     \\        Search for temporary files
     \\
     \\
 ;
 
-pub const COMPTIME_UNPORTABLE_CHARS =
-    \\    --uchars, -u, -U, uchars, /U, UCHARS
-    \\        Search for non-portable characters in absolute paths
-    \\
-    \\
-;
-
 pub const COMPTIME_UTF8_ENCODING =
-    \\    --utf8, -utf8, -UTF8, utf8, /UTF8, UTF8
+    \\    --utf8, -u, utf8, /u
     \\        Search for non-UTF8 encoded text files
     \\
     \\
 ;
 
 pub const COMPTIME_WRONG_DATES =
-    \\    --wrong, -w, -W, wrong, /W, WRONG
+    \\    --wrong_dates, -wd, wrong_dates, /wd
     \\        Search for files with timestamps in the future
+    \\
+    \\
+;
+
+pub const COMPTIME_DUPLICATE_FILES_REMOVE =
+    \\    --duplicate_rm, -drm, duplicate_rm, /drm
+    \\        Remove duplicate files
+    \\
+    \\
+;
+
+pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE =
+    \\    --duplicate_rmp, -drmp, duplicate_rmp, /drmp
+    \\        Remove duplicate files using multithreading
+    \\
+    \\
+;
+
+pub const COMPTIME_EMPTY_FILES_REMOVE =
+    \\    --empty_rm, -efrm, empty_rm, /efrm
+    \\        Remove empty files
+    \\
+    \\
+;
+
+pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE =
+    \\    --empty_dirs_rm, -edrm, empty_dirs_rm, /edrm
+    \\        Remove empty directories
+    \\
+    \\
+;
+
+pub const COMPTIME_LINKS_SHORTCUTS_REMOVE =
+    \\    --links_rm, -lrm, links_rm, /lrm
+    \\        Remove links and shortcuts
+    \\
+    \\
+;
+
+pub const COMPTIME_TEMPORARY_FILES_REMOVE =
+    \\    --temp_rm, -trm, temp_rm, /trm
+    \\        Remove temporary files
     \\
     \\
 ;
@@ -328,11 +328,11 @@ pub const FULL_PATH_SIZE_TOTALS           = "paths found";
 pub const INTEGRITY_FILES_TOTAL           = "hash processed";
 pub const INTEGRITY_FILES_TOTALS          = "hashes processed";
 
+pub const NONPORTABLE_CHARS_TOTAL          = "item with non-portable characters";
+pub const NONPORTABLE_CHARS_TOTALS         = "items with non-portable characters";
+
 pub const PARSE_FILES_TOTAL               = "error found";
 pub const PARSE_FILES_TOTALS              = "errors found";
-
-pub const UNPORTABLE_CHARS_TOTAL          = "item with non-portable characters";
-pub const UNPORTABLE_CHARS_TOTALS         = "items with non-portable characters";
 
 // Header messages
 pub const CONFIG_MESSAGE_HEADER           = "Loading config.json...";
@@ -355,16 +355,17 @@ pub const EMPTY_FILES_HEADER              = "Looking for empty files...";
 pub const END_OF_LINE_HEADER              = "Looking for wrong line terminators in text files...";
 pub const INTEGRITY_FILES_HEADER          = "Checking file integrity...";
 pub const FULL_PATH_SIZE_HEADER           = "Looking for long paths...";
+pub const JSON_OUTPUT_HEADER              = "Writing results in JSON output...";
 pub const LARGE_FILES_HEADER              = "Looking for large files...";
 pub const LAST_ACCESS_HEADER              = "Looking for files accessed a long time ago...";
 pub const LEGACY_FILES_HEADER             = "Looking for legacy files...";
 pub const MAGIC_NUMBERS_HEADER            = "Looking for files with wrong magic numbers...";
 pub const MANY_ITEMS_DIRECTORIES_HEADER   = "Looking for directories with many items...";
 pub const NO_EXTENSION_HEADER             = "Looking for files with no extension...";
+pub const NONPORTABLE_CHARS_HEADER         = "Looking for non-portable characters...";
 pub const ONE_ITEM_DIRECTORIES_HEADER     = "Looking for directories with one item...";
 pub const PARSE_FILES_HEADER              = "Looking for errors while parsing files...";
 pub const TEMPORARY_FILES_HEADER          = "Looking for temporary files...";
-pub const UNPORTABLE_CHARS_HEADER         = "Looking for non-portable characters...";
 pub const UTF8_ENCODING_HEADER            = "Looking for text files not encoded in UTF-8...";
 pub const WRONG_DATES_HEADER              = "Looking for files with wrong dates...";
 
@@ -382,9 +383,9 @@ pub const LAST_ACCESS_WARNING             = "\"{s}\" last access was {d} ns ago"
 pub const LEGACY_FILES_WARNING            = "\"{s}\" has a legacy format \"{s}\"";
 pub const MANY_ITEMS_DIRECTORIES_WARNING  = "\"{s}\" has more than {d} items";
 pub const NO_EXTENSION_WARNING            = "Format of \"{s}\" was not found";
+pub const NONPORTABLE_CHARS_WARNING        = "\"{s}\" has an non-portable character";
 pub const ONE_ITEM_DIRECTORIES_WARNING    = "\"{s}\" has one item";
 pub const TEMPORARY_FILES_WARNING         = "\"{s}\" is a temporary file";
-pub const UNPORTABLE_CHARS_WARNING        = "\"{s}\" has an non-portable character";
 pub const UTF8_ENCODING_WARNING           = "\"{s}\" is not encoded in UTF-8";
 pub const WRONG_DATES_WARNING             = "File \"{s}\" has a date in the future";
 

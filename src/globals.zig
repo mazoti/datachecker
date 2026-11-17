@@ -19,9 +19,28 @@ pub var buffer: []u8 = undefined;
 pub var buffer_size:  usize = undefined;
 pub var buffer_total: usize = undefined;
 
-/// Default configurations or parsed from JSON
+/// Default configurations parsed from JSON
 pub var config_parsed: std.json.Parsed(config.Config) = undefined;
 pub var config_file:   []const u8                     = undefined;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub var output_results: std.json.Parsed(config.Output) = undefined;
+
 
 /// Global hash map instance for caching directory items count
 pub var dir_count: std.StringHashMap(usize) = undefined;
@@ -35,7 +54,7 @@ pub var clear_cache:  std.atomic.Value(bool) = .init(false);
 
 /// Terminal I/O operations
 pub var file_writer_stdout:           std.Io.File.Writer = undefined;
-pub var file_writer_stdout_interface: std.Io.Writer      = undefined;
+pub var file_writer_stdout_interface: *std.Io.Writer      = undefined;
 
 /// Global hash map instance for caching file stats
 pub var file_stats: FileStatMap = undefined;

@@ -2,8 +2,11 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const std  = @import("std");
 const i18n = @import("i18n");
+const std  = @import("std");
+
+/// Configuration file, looked up in the current working directory
+pub const COMPTIME_CONFIG_FILE_NAME:            []const u8 = "config.json";
 
 /// Compile-time flags to determine which features are compiled into the binary
 pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 16384;
@@ -42,7 +45,7 @@ pub const COMPTIME_NO_EXTENSION:                      bool = true;
 pub const COMPTIME_ONE_ITEM_DIRECTORY:                bool = true;
 pub const COMPTIME_PARSE_FILES:                       bool = true;
 pub const COMPTIME_TEMPORARY_FILES:                   bool = true;
-pub const COMPTIME_UNPORTABLE_CHARS:                  bool = true;
+pub const COMPTIME_NONPORTABLE_CHARS:                 bool = true;
 pub const COMPTIME_UTF8_ENCODING:                     bool = true;
 pub const COMPTIME_WRONG_DATES:                       bool = true;
 
@@ -87,17 +90,17 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_MAGIC_NUMBERS)                   i18n.COMPTIME_MAGIC_NUMBERS                   else "")
     ++ (if (COMPTIME_MANY_ITEMS_DIRECTORY)            i18n.COMPTIME_MANY_ITEMS_DIRECTORY            else "")
     ++ (if (COMPTIME_NO_EXTENSION)                    i18n.COMPTIME_NO_EXTENSION                    else "")
+    ++ (if (COMPTIME_NONPORTABLE_CHARS)               i18n.COMPTIME_NONPORTABLE_CHARS               else "")
     ++ (if (COMPTIME_ONE_ITEM_DIRECTORY)              i18n.COMPTIME_ONE_ITEM_DIRECTORY              else "")
     ++ (if (COMPTIME_TEMPORARY_FILES_REMOVE)          i18n.COMPTIME_TEMPORARY_FILES_REMOVE          else "")
     ++ (if (COMPTIME_TEMPORARY_FILES)                 i18n.COMPTIME_TEMPORARY_FILES                 else "")
-    ++ (if (COMPTIME_UNPORTABLE_CHARS)                i18n.COMPTIME_UNPORTABLE_CHARS                else "")
     ++ (if (COMPTIME_UTF8_ENCODING)                   i18n.COMPTIME_UTF8_ENCODING                   else "")
     ++ (if (COMPTIME_WRONG_DATES)                     i18n.COMPTIME_WRONG_DATES                     else "")
 ;
 
 /// Configuration structure that holds runtime-configurable parameters
 pub const Config = struct {
-    INPUT_FOLDER:               []const u8   = "",
+    INPUT_FOLDER:               []const u8   = ".",
     OUTPUT_FILE:                []const u8   = "",
     BUFFER_SIZE:                usize        = 65536,
     ENABLE_CACHE:               bool         = true,
@@ -145,7 +148,7 @@ pub const Config = struct {
     NO_EXTENSION:               bool         = true,
     ONE_ITEM_DIRECTORY:         bool         = true, // Detects unnecessary directory nesting
     TEMPORARY_FILES:            bool         = true, // Looks for for .tmp, .temp, ~ and .swp
-    UNPORTABLE_CHARS:           bool         = true,
+    NONPORTABLE_CHARS:           bool         = true,
     UTF8_ENCODING:              bool         = true,
     WRONG_DATES:                bool         = true,
 };
@@ -272,7 +275,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "ONE_ITEM_DIRECTORY":              true,
     \\    "PARSE_FILES":                     true,
     \\    "TEMPORARY_FILES":                 true,
-    \\    "UNPORTABLE_CHARS":                true,
+    \\    "NONPORTABLE_CHARS":                true,
     \\    "UTF8_ENCODING":                   true,
     \\    "WRONG_DATES":                     true
     \\}
@@ -283,3 +286,36 @@ pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config),
     config_parsed.*.deinit();
     if (must_clean) alloc.free(config_file.*);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub const FileResult = struct {
+    status: enum { CHECK, ERROR, OK, WARNING},
+    message: []const u8,
+};
+
+pub const ModuleResult = struct {
+    operation: []const u8,
+    results: []FileResult,
+};
+
+pub const Output = struct {
+    version: []const u8,
+
+    compressed_files:   if (COMPTIME_COMPRESSED_FILES)   []ModuleResult else void,
+    confidential_files: if (COMPTIME_CONFIDENTIAL_FILES) []ModuleResult else void,
+};

@@ -223,9 +223,9 @@ pub fn temporaryFiles() !void {
     try decorateWalker(config.COMPTIME_TEMPORARY_FILES, true, useless.temporaryFiles, i18n.TEMPORARY_FILES_HEADER, i18n.BYTES_TOTAL, i18n.BYTES_TOTALS);
 }
 
-/// Enables unportable characters check
-pub fn unportableChars() !void {
-    try decorate(config.COMPTIME_UNPORTABLE_CHARS, true, true, Filter.Both, stats.unportableCharacters, i18n.UNPORTABLE_CHARS_HEADER, i18n.UNPORTABLE_CHARS_TOTAL, i18n.UNPORTABLE_CHARS_TOTALS);
+/// Enables non-portable characters check
+pub fn nonPortableChars() !void {
+    try decorate(config.COMPTIME_NONPORTABLE_CHARS, true, true, Filter.Both, stats.nonPortableCharacters, i18n.NONPORTABLE_CHARS_HEADER, i18n.NONPORTABLE_CHARS_TOTAL, i18n.NONPORTABLE_CHARS_TOTALS);
 }
 
 /// Enables wrong dates check
@@ -382,7 +382,7 @@ pub fn run() !void {
     try decorate      (config.COMPTIME_NO_EXTENSION,             globals.config_parsed.value.NO_EXTENSION,             false,                          Filter.Files,                    magic_numbers.checkNoExtension, i18n.NO_EXTENSION_HEADER,           i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
     try decorate      (config.COMPTIME_ONE_ITEM_DIRECTORY,       globals.config_parsed.value.ONE_ITEM_DIRECTORY,       true,                           Filter.Directories,              stats.oneItemDirectory,         i18n.ONE_ITEM_DIRECTORIES_HEADER,   i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
     try decorateWalker(config.COMPTIME_TEMPORARY_FILES,          globals.config_parsed.value.TEMPORARY_FILES,          useless.temporaryFiles,         i18n.TEMPORARY_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
-    try decorate      (config.COMPTIME_UNPORTABLE_CHARS,         globals.config_parsed.value.UNPORTABLE_CHARS,         true,                           Filter.Both,                     stats.unportableCharacters,     i18n.UNPORTABLE_CHARS_HEADER,       i18n.UNPORTABLE_CHARS_TOTAL,      i18n.UNPORTABLE_CHARS_TOTALS     );
+    try decorate      (config.COMPTIME_NONPORTABLE_CHARS,        globals.config_parsed.value.NONPORTABLE_CHARS,        true,                           Filter.Both,                     stats.nonPortableCharacters,    i18n.NONPORTABLE_CHARS_HEADER,      i18n.NONPORTABLE_CHARS_TOTAL,     i18n.NONPORTABLE_CHARS_TOTALS    );
     try decorate      (config.COMPTIME_UTF8_ENCODING,            globals.config_parsed.value.UTF8_ENCODING,            false,                          Filter.Files,                    txt.utf8Encoding,               i18n.UTF8_ENCODING_HEADER,          i18n.FILES_TOTAL,                 i18n.FILES_TOTALS);
     try decorate      (config.COMPTIME_WRONG_DATES,              globals.config_parsed.value.WRONG_DATES,              false,                          Filter.Files,                    stats.checkWrongDates,          i18n.WRONG_DATES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
 }
@@ -660,4 +660,34 @@ fn statFileOrDirectory(path: []const u8) !std.Io.File.Stat {
         }
         return err;
     };
+}
+
+/// Creates a config.json with default values in the same directory of the system
+pub fn createConfig() !void {
+    try print.stdout("\t\t");
+    try print.stdout(i18n.CONFIG_MESSAGE_CREATE);
+    try print.stdout("\x1b[2K\r");
+
+    _ = std.Io.Dir.cwd().statFile(globals.init.io, config.COMPTIME_CONFIG_FILE_NAME, .{}) catch |err| {
+        if (err == error.FileNotFound) {
+            const config_file: std.Io.File = try std.Io.Dir.cwd().createFile(globals.init.io, config.COMPTIME_CONFIG_FILE_NAME, .{});
+            defer config_file.close(globals.init.io);
+
+            var file_writer: std.Io.File.Writer = config_file.writer(globals.init.io, &globals.io_buffer);
+            try file_writer.interface.writeAll(config.DEFAULT_JSON_CONFIG);
+            try file_writer.interface.flush();
+
+            try print.alignedOk(i18n.CONFIG_MESSAGE_CREATE);
+            try print.stdout("\x1b[1A\x1b[1A");
+            return print.waitForEnter();
+        }
+
+        try print.stdout("\x1b[1A\x1b[1A");
+        try print.waitForEnter();
+        return err;
+    };
+
+    try print.stopError(i18n.ERROR_CONFIG_FILE);
+    try print.stdout("\x1b[1A\x1b[1A");
+    return print.waitForEnter();
 }

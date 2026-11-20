@@ -7,6 +7,7 @@ const config  = @import("config");
 const core    = @import("core.zig");
 const data    = @import("data");
 const globals = @import("globals");
+const output  = @import("output");
 const i18n    = @import("i18n");
 const print   = @import("print");
 const std     = @import("std");
@@ -53,6 +54,7 @@ pub fn dirFileNameSize(args: anytype) !bool {
 
     if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
         globals.exit_warning.store(true, .monotonic);
+        try output.add(&globals.output_results.directory_file_name_size, config.Status.WARNING, i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
         return print.messageSumReturn(false, args[1], print.warning, i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
     }
 
@@ -68,6 +70,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
         const path_no_ext: []const u8 = args[0][0..(args[0].len - extension.len)];
 
         if (path_no_ext.len > 1 and path_no_ext[path_no_ext.len - 1] == path_no_ext[path_no_ext.len - 2]) {
+            try output.add(&globals.output_results.duplicate_chars_files, config.Status.CHECK, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0]});
             return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0]});
         }
 
@@ -76,6 +79,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
         if (args[0].len >= index) {
             const tmp_extension: []const u8 = args[0][(args[0].len - index)..(args[0].len - extension.len)];
             if (std.mem.eql(u8, extension, tmp_extension)) {
+                try output.add(&globals.output_results.duplicate_chars_files, config.Status.CHECK, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0]});
                 return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK_EXT, .{args[0]});
             }
         }
@@ -87,6 +91,8 @@ pub fn duplicateCharacters(args: anytype) !bool {
     for (0..args[0].len - 1) |i| {
         if ((args[0][i] == args[0][i + 1]) and (args[0][i] == ' ' or args[0][i] == '-' or
             args[0][i] == '_' or args[0][i] == '.')) {
+
+            try output.add(&globals.output_results.duplicate_chars_files, config.Status.CHECK, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0]});
             return print.messageSumReturn(true, args[1], print.check, i18n.DUPLICATE_CHARS_FILES_CHECK, .{args[0]});
         }
     }
@@ -98,6 +104,7 @@ pub fn duplicateCharacters(args: anytype) !bool {
 pub fn emptyDirectories(args: anytype) !bool {
     if (try countItems(args[0]) != 0) return false;
     globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.empty_directories, config.Status.WARNING, i18n.EMPTY_WARNING, .{args[0]});
     return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_WARNING, .{args[0]});
 }
 
@@ -105,6 +112,7 @@ pub fn emptyDirectories(args: anytype) !bool {
 pub fn emptyFiles(args: anytype) !bool {
     if (args[2].size != 0) return false;
     globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.empty_files, config.Status.WARNING, i18n.EMPTY_WARNING, .{args[0]});
     return print.messageSumReturn(true, args[1], print.warning, i18n.EMPTY_WARNING, .{args[0]});
 }
 
@@ -131,11 +139,13 @@ pub fn emptyRemoveFiles(args: anytype) !bool {
 }
 
 /// Compares file times and prints a message
-fn filesCheck(newer: bool, time_ns: i96, args: anytype) !bool {
+fn filesCheck(newer: bool, time_ns: i96, file_result: *std.ArrayList(config.FileResult), args: anytype) !bool {
     if (globals.config_parsed.value.FILE_TIME == 0) return true;
 
     if ((newer == true  and time_ns > globals.config_parsed.value.FILE_TIME) or
         (newer == false and time_ns < globals.config_parsed.value.FILE_TIME)) {
+
+        try output.add(file_result, config.Status.FOUND, "\"{s}\"", .{args[0]});
         return print.messageSumReturn(false, args[1], print.found, "\"{s}\"", .{args[0]});
     }
 
@@ -144,32 +154,32 @@ fn filesCheck(newer: bool, time_ns: i96, args: anytype) !bool {
 
 /// Enables file search with newer access time
 pub fn filesNewerATime(args: anytype) !bool {
-    return filesCheck(true, args[2].*.atime.?.nanoseconds, args);
+    return filesCheck(true, args[2].*.atime.?.nanoseconds, &globals.output_results.files_newer_atime, args);
 }
 
 /// Enables file search with newer change time
 pub fn filesNewerCTime(args: anytype) !bool {
-    return filesCheck(true, args[2].*.ctime.nanoseconds, args);
+    return filesCheck(true, args[2].*.ctime.nanoseconds, &globals.output_results.files_newer_ctime, args);
 }
 
 /// Enables file search with newer modified time
 pub fn filesNewerMTime(args: anytype) !bool {
-    return filesCheck(true, args[2].*.mtime.nanoseconds, args);
+    return filesCheck(true, args[2].*.mtime.nanoseconds, &globals.output_results.files_newer_mtime, args);
 }
 
 /// Enables file search with older modified time
 pub fn filesOlderATime(args: anytype) !bool {
-    return filesCheck(false, args[2].*.atime.?.nanoseconds, args);
+    return filesCheck(false, args[2].*.atime.?.nanoseconds, &globals.output_results.files_older_atime, args);
 }
 
 /// Enables file search with older change time
 pub fn filesOlderCTime(args: anytype) !bool {
-    return filesCheck(false, args[2].*.ctime.nanoseconds, args);
+    return filesCheck(false, args[2].*.ctime.nanoseconds, &globals.output_results.files_older_ctime, args);
 }
 
 /// Enables file search with older modified time
 pub fn filesOlderMTime(args: anytype) !bool {
-    return filesCheck(false, args[2].*.mtime.nanoseconds, args);
+    return filesCheck(false, args[2].*.mtime.nanoseconds, &globals.output_results.files_older_mtime, args);
 }
 
 /// Checks if full path length exceeds maximum allowed size
@@ -177,6 +187,7 @@ pub fn fullPathSize(args: anytype) !bool {
     if (args[0].len <= globals.config_parsed.value.MAX_FULL_PATH_SIZE) return false;
 
     globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.full_path_size, config.Status.WARNING, i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
     return print.messageSumReturn(true, args[1], print.warning, i18n.FULL_PATH_SIZE_WARNING, .{args[0], globals.config_parsed.value.MAX_FULL_PATH_SIZE});
 }
 
@@ -185,6 +196,7 @@ pub fn largeFiles(args: anytype) !bool {
     if (args[2].size <= globals.config_parsed.value.LARGE_FILE_SIZE) return false;
 
     globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.large_files, config.Status.WARNING, i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
     return print.messageSumReturn(true, args[1], print.warning, i18n.LARGE_FILES_WARNING, .{args[0], globals.config_parsed.value.LARGE_FILE_SIZE});
 }
 
@@ -195,6 +207,8 @@ pub fn lastAccess(args: anytype) !bool {
     if (last_access <= globals.config_parsed.value.LAST_ACCESS_TIME) return false;
 
     globals.exit_warning.store(true, .monotonic);
+
+    try output.add(&globals.output_results.last_access_files, config.Status.WARNING, i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
     try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
     args[1].* += args[2].size;
     return true;

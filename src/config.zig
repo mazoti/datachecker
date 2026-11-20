@@ -5,6 +5,8 @@
 const i18n = @import("i18n");
 const std  = @import("std");
 
+pub const COMPTIME_VERSION:                     []const u8 = "3.0";
+
 /// Configuration file, looked up in the current working directory
 pub const COMPTIME_CONFIG_FILE_NAME:            []const u8 = "config.json";
 
@@ -148,7 +150,7 @@ pub const Config = struct {
     NO_EXTENSION:               bool         = true,
     ONE_ITEM_DIRECTORY:         bool         = true, // Detects unnecessary directory nesting
     TEMPORARY_FILES:            bool         = true, // Looks for for .tmp, .temp, ~ and .swp
-    NONPORTABLE_CHARS:           bool         = true,
+    NONPORTABLE_CHARS:          bool         = true,
     UTF8_ENCODING:              bool         = true,
     WRONG_DATES:                bool         = true,
 };
@@ -275,7 +277,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "ONE_ITEM_DIRECTORY":              true,
     \\    "PARSE_FILES":                     true,
     \\    "TEMPORARY_FILES":                 true,
-    \\    "NONPORTABLE_CHARS":                true,
+    \\    "NONPORTABLE_CHARS":               true,
     \\    "UTF8_ENCODING":                   true,
     \\    "WRONG_DATES":                     true
     \\}
@@ -287,35 +289,49 @@ pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config),
     if (must_clean) alloc.free(config_file.*);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+pub const Status = enum { CHECK, ERROR, FOUND, OK, WARNING };
 
 pub const FileResult = struct {
-    status: enum { CHECK, ERROR, OK, WARNING},
+    status: Status,
     message: []const u8,
-};
-
-pub const ModuleResult = struct {
-    operation: []const u8,
-    results: []FileResult,
 };
 
 pub const Output = struct {
     version: []const u8,
 
-    compressed_files:   if (COMPTIME_COMPRESSED_FILES)   []ModuleResult else void,
-    confidential_files: if (COMPTIME_CONFIDENTIAL_FILES) []ModuleResult else void,
+    compressed_files:          if (COMPTIME_COMPRESSED_FILES)         std.ArrayList(FileResult) else void,
+    confidential_files:        if (COMPTIME_CONFIDENTIAL_FILES)       std.ArrayList(FileResult) else void,
+    debug_information:         if (COMPTIME_DEBUG_INFO)               std.ArrayList(FileResult) else void,
+    directory_file_name_size:  if (COMPTIME_DIRECTORY_FILE_NAME_SIZE) std.ArrayList(FileResult) else void,
+    duplicate_chars_files:     if (COMPTIME_DUPLICATE_CHARS_FILES)    std.ArrayList(FileResult) else void,
+// DUP FILES
+    empty_files:               if (COMPTIME_EMPTY_FILES)              std.ArrayList(FileResult) else void,
+    end_of_line:               if (COMPTIME_END_OF_LINE)              std.ArrayList(FileResult) else void,
+    empty_directories:         if (COMPTIME_EMPTY_DIRECTORIES)        std.ArrayList(FileResult) else void,
+    files_newer_atime:         if (COMPTIME_FILES_NEWER_ATIME)        std.ArrayList(FileResult) else void,
+    files_newer_ctime:         if (COMPTIME_FILES_NEWER_CTIME)        std.ArrayList(FileResult) else void,
+    files_newer_mtime:         if (COMPTIME_FILES_NEWER_MTIME)        std.ArrayList(FileResult) else void,
+    files_older_atime:         if (COMPTIME_FILES_OLDER_ATIME)        std.ArrayList(FileResult) else void,
+    files_older_ctime:         if (COMPTIME_FILES_OLDER_CTIME)        std.ArrayList(FileResult) else void,
+    files_older_mtime:         if (COMPTIME_FILES_OLDER_MTIME)        std.ArrayList(FileResult) else void,
+    full_path_size:            if (COMPTIME_FULL_PATH_SIZE)           std.ArrayList(FileResult) else void,
+// INTEGRITY_FILES
+    large_files:               if (COMPTIME_LARGE_FILES)              std.ArrayList(FileResult) else void,
+    last_access_files:         if (COMPTIME_LAST_ACCESS_FILES)        std.ArrayList(FileResult) else void,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 };

@@ -9,6 +9,7 @@ const core            = @import("core");
 const globals         = @import("globals");
 const i18n            = @import("i18n");
 const print           = @import("print");
+const output          = @import("output");
 const std             = @import("std");
 
 /// Changes terminal codepage on Windows
@@ -75,25 +76,6 @@ const commands = [_]Command{
     .{ .name = "temp_rm"           , .short = "trm"  , .run = if (config.COMPTIME_TEMPORARY_FILES_REMOVE)          &core.temporaryRemoveFiles         else null },
 };
 
-/// Enabled commands, four spellings each
-pub const command_map = blk: {
-    const Entry = struct { []const u8, NoParameterFunc };
-
-    var entries: [commands.len * 4]Entry = undefined;
-    var count: usize = 0;
-
-    for (commands) |command| {
-        const run = command.run orelse continue;
-
-        for ([_][]const u8{ "--" ++ command.name, "-" ++ command.short, command.name, "/" ++ command.short }) |spelling| {
-            entries[count] = .{ spelling, run };
-            count += 1;
-        }
-    }
-
-    break :blk FlagMap.initComptime(entries[0..count].*);
-};
-
 /// Stand-alone commands: used when they are the only argument
 pub const help_version_map = FlagMap.initComptime(.{
     .{ "--config"    , &core.createConfig },
@@ -114,6 +96,25 @@ pub const help_version_map = FlagMap.initComptime(.{
     .{ "version"     , &print.printVersion },
 });
 
+/// Enabled commands, four spellings each
+pub const command_map = blk: {
+    const Entry = struct { []const u8, NoParameterFunc };
+
+    var entries: [commands.len * 4]Entry = undefined;
+    var count: usize = 0;
+
+    for (commands) |command| {
+        const run = command.run orelse continue;
+
+        for ([_][]const u8{ "--" ++ command.name, "-" ++ command.short, command.name, "/" ++ command.short }) |spelling| {
+            entries[count] = .{ spelling, run };
+            count += 1;
+        }
+    }
+
+    break :blk FlagMap.initComptime(entries[0..count].*);
+};
+
 /// Returns system exit code: 0 (no problems), 1 (errors), 2 (warnings)
 fn exitCode() u8 {
     if (globals.exit_error.load(.monotonic))   return 1;
@@ -133,7 +134,7 @@ fn commonMain(init: *const std.process.Init) !void {
 
     globals.memory_limit = @intCast(@min(half_memory, std.math.maxInt(usize)));
 
-    globals.file_writer_stdout = .init(.stdout(), globals.init.io, &globals.io_buffer);
+    globals.file_writer_stdout           = .init(.stdout(), globals.init.io, &globals.io_buffer);
     globals.file_writer_stdout_interface = &globals.file_writer_stdout.interface;
 
     globals.file_stats = globals.FileStatMap.init(globals.init.arena.allocator());
@@ -154,8 +155,7 @@ fn commonMain(init: *const std.process.Init) !void {
     }
 
     // Prints banner before any processing to provide immediate feedback in slow operations
-    try print.stdout(if (config.COMPTIME_EMOJI_COLOR) try std.fmt.bufPrint(&globals.max_path_buffer, "\n🔬\x1b[38;5;255m {s}\x1b[0m\n\n\n", .{i18n.HEADER})
-        else try std.fmt.bufPrint(&globals.max_path_buffer, "\n{s}\n\n\n", .{i18n.HEADER}));
+    try print.banner();
 
     const args: []const [:0]const u8 = try init.minimal.args.toSlice(globals.init.arena.allocator());
 
@@ -202,9 +202,7 @@ fn commonMain(init: *const std.process.Init) !void {
         } else {
             if (globals.config_parsed.value.INPUT_FOLDER.len == 0) {
                 globals.exit_error.store(true, .monotonic);
-                try print.stdout("\n");
-                try print.stopError(i18n.ERROR_EMPTY_PATH);
-                return print.waitForEnter();
+                return print.stopWaitError(i18n.ERROR_EMPTY_PATH);
             }
 
             check_directory = try globals.init.arena.allocator().dupe(u8, globals.config_parsed.value.INPUT_FOLDER);
@@ -214,9 +212,7 @@ fn commonMain(init: *const std.process.Init) !void {
 
     if (check_directory.len == 0) {
         globals.exit_error.store(true, .monotonic);
-        try print.stdout("\n");
-        try print.stopError(i18n.ERROR_EMPTY_PATH);
-        return print.waitForEnter();
+        return print.stopWaitError(i18n.ERROR_EMPTY_PATH);
     }
 
     // Replaces a trailing ".
@@ -232,17 +228,13 @@ fn commonMain(init: *const std.process.Init) !void {
     // Checks input directory
     globals.input_directory = if (std.fs.path.isAbsolute(check_directory))
         std.Io.Dir.openDirAbsolute(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
-            try print.stdout("\n");
-            try print.stopError(i18n.ERROR_INPUT_DIRECTORY);
-            try print.waitForEnter();
+            try print.stopWaitError(i18n.ERROR_INPUT_DIRECTORY);
             return err;
         }
     else
         // Relative paths
         std.Io.Dir.cwd().openDir(globals.init.io, check_directory, .{ .iterate = true }) catch |err| {
-            try print.stdout("\n");
-            try print.stopError(i18n.ERROR_INPUT_DIRECTORY);
-            try print.waitForEnter();
+            try print.stopWaitError(i18n.ERROR_INPUT_DIRECTORY);
             return err;
         };
 
@@ -261,6 +253,10 @@ fn commonMain(init: *const std.process.Init) !void {
         }
     }
 
+    // Enables JSON output results to a file in disk
+    try output.init();
+    defer output.deinit();
+
     if (args.len > 2) {
         if (command_map.get(args[1])) |func| {
             globals.config_parsed.value.ENABLE_CACHE = false;
@@ -273,37 +269,6 @@ fn commonMain(init: *const std.process.Init) !void {
     } else {
         // Runs all enabled check modules
         try core.run();
-    }
-
-    // Enables JSON output results to a file in disk
-    if(config.COMPTIME_JSON_OUTPUT) {
-        if(globals.config_parsed.value.OUTPUT_FILE.len > 0) {
-            try print.header(i18n.JSON_OUTPUT_HEADER);
-
-            const json_str: []const u8 = try std.json.Stringify.valueAlloc(globals.init.arena.allocator(), globals.output_results.value, .{ .whitespace = .indent_2 });
-            defer globals.init.arena.allocator().free(json_str);
-
-            std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = globals.config_parsed.value.OUTPUT_FILE, .data = json_str }) catch |err| {
-                globals.exit_error.store(true, .monotonic);
-
-                switch (err) {
-                    error.AccessDenied => {
-                        try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{globals.config_parsed.value.OUTPUT_FILE});
-                        return print.waitForEnter();
-                    },
-                    error.FileBusy => {
-                        try print.err(i18n.ERROR_FILE_BUSY, .{globals.config_parsed.value.OUTPUT_FILE});
-                        return print.waitForEnter();
-                    },
-                    else => {
-                        try print.waitForEnter();
-                        return err;
-                    },
-                }
-            };
-
-            try print.alignedOk(i18n.JSON_OUTPUT_HEADER);
-        }
     }
 
     return print.waitForEnter();

@@ -5,7 +5,8 @@
 /// Spacing constant for alignment - matches the largest header string size in output
 pub const ALIGNED_SPACES: u32 = 52;
 
-pub const HEADER = "DataChecker v3.0 by Marcos Mazoti - https://mazoti.github.io/datachecker";
+pub const HEADER_START = "DataChecker v";
+pub const HEADER_END   =" by Marcos Mazoti - https://mazoti.github.io/datachecker";
 
 pub const USAGE =
     \\Usage:

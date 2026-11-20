@@ -12,6 +12,8 @@
 //! To deploy (needs `xz` in PATH):
 //!     zig build deploy -p download
 //!     zig build run -- -i download
+//!     zig build run -- -drm download
+//!     zig build run -- -edrm download
 //!
 //! `all` and `deploy` can be limited to some targets: a target is built when its
 //! triple contains any of the given texts (repeat the option to give several):
@@ -39,17 +41,18 @@ const Modules = struct {
     i18n:        *Module,
     icon:        *Module,
     main:        *Module,
+    output:      *Module,
     print:       *Module,
 
     fn create(b: *std.Build, target: Resolved, optimize: Optimize) Modules {
         const ahocorasick: *Module = newModule(b, "src/ahocorasick.zig", target, optimize, &.{});
-        const i18n:        *Module = newModule(b, "src/i18n.zig"       , target, optimize, &.{});
+        const i18n:        *Module = newModule(b, "src/i18n.zig", target, optimize, &.{});
 
-        const config:      *Module = newModule(b, "src/config.zig"     , target, optimize, &.{
+        const config:      *Module = newModule(b, "src/config.zig", target, optimize, &.{
             .{ .name = "i18n", .module = i18n },
         });
 
-        const data: *Module = newModule(b, "src/data.zig"       , target, optimize, &.{
+        const data: *Module = newModule(b, "src/data.zig", target, optimize, &.{
             .{ .name = "config" , .module = config },
         });
 
@@ -63,12 +66,20 @@ const Modules = struct {
             .{ .name = "i18n"    , .module = i18n    },
         });
 
+        const output: *Module = newModule(b, "src/output.zig", target, optimize, &.{
+            .{ .name = "config"      , .module = config      },
+            .{ .name = "globals"     , .module = globals     },
+            .{ .name = "i18n"        , .module = i18n        },
+            .{ .name = "print"       , .module = print       },
+        });
+
         const core: *Module = newModule(b, "src/modules/core.zig", target, optimize, &.{
             .{ .name = "ahocorasick" , .module = ahocorasick },
             .{ .name = "config"      , .module = config      },
             .{ .name = "data"        , .module = data        },
             .{ .name = "globals"     , .module = globals     },
             .{ .name = "i18n"        , .module = i18n        },
+            .{ .name = "output"      , .module = output      },
             .{ .name = "print"       , .module = print       },
         });
 
@@ -83,6 +94,7 @@ const Modules = struct {
             .{ .name = "core"        , .module = core        },
             .{ .name = "globals"     , .module = globals     },
             .{ .name = "i18n"        , .module = i18n        },
+            .{ .name = "output"      , .module = output      },
             .{ .name = "print"       , .module = print       },
         });
 
@@ -95,6 +107,7 @@ const Modules = struct {
             .i18n        = i18n,
             .icon        = icon,
             .main        = main,
+            .output      = output,
             .print       = print,
         };
     }

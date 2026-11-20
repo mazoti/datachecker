@@ -1,11 +1,30 @@
-//! Functions to output data in stdout and stderr
+//! Functions to output data in stdout
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
+const builtin = @import("builtin");
 const config  = @import("config");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const std     = @import("std");
+
+var print_mutex: std.Io.Mutex = std.Io.Mutex{.state = std.atomic.Value(std.Io.Mutex.State).init(.unlocked)};
+
+/// Redirects output to stdout
+pub fn stdout(str: []const u8) !void {
+    if (!config.COMPTIME_STDOUT) return;
+
+    print_mutex.lock(globals.init.io) catch |print_err| {
+        if (builtin.mode == .debug) {
+            std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, print_err });
+            return print_err;
+        }
+    };
+    defer print_mutex.unlock(globals.init.io);
+
+    try globals.file_writer_stdout.interface.writeAll(str);
+    return globals.file_writer_stdout.interface.flush();
+}
 
 // Prints spaces and a colored (or not) status
 fn alignedCore(message: []const u8, comptime status_message: []const u8, comptime color_code: []const u8) !void {
@@ -166,6 +185,9 @@ pub fn err_mt(comptime fmt: []const u8, args: anytype) !void {
 pub fn found(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT) return;
 
+    if (try cleanPath(fmt, "\x1b[34m", i18n.FOUND_MESSAGE, args)) return;
+    if (try cleanPath2Strings(fmt, "\x1b[34m", i18n.FOUND_MESSAGE, args)) return;
+
     return core(fmt, "\x1b[34m", i18n.FOUND_MESSAGE, args);
 }
 
@@ -210,14 +232,6 @@ pub fn results(total_items: u64, comptime header_message: []const u8, comptime m
     };
 }
 
-/// Redirects output to stdout
-pub fn stdout(str: []const u8) !void {
-    if (!config.COMPTIME_STDOUT) return;
-
-    try globals.file_writer_stdout.interface.writeAll(str);
-    return globals.file_writer_stdout.interface.flush();
-}
-
 /// Prints a blue "Total" with tabs
 fn total(comptime result_type: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT) return;
@@ -237,9 +251,9 @@ fn total(comptime result_type: []const u8, args: anytype) !void {
 pub fn warning(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT) return;
 
-    if (try cleanPath(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
-    if (try cleanPath2Strings(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
-    if (try cleanPathStringU64(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
+    if (try cleanPath(fmt,              "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
+    if (try cleanPath2Strings(fmt,      "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
+    if (try cleanPathStringInteger(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args)) return;
 
     return core(fmt, "\x1b[33m", i18n.WARNING_MESSAGE, args);
 }
@@ -294,8 +308,8 @@ fn cleanPath2Strings(comptime fmt: []const u8, comptime ansi_color: []const u8, 
     return false;
 }
 
-fn cleanPathStringU64(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !bool {
-    if (args.len == 2 and @TypeOf(args[0]) == []const u8 and @TypeOf(args[1]) == u64) {
+fn cleanPathStringInteger(comptime fmt: []const u8, comptime ansi_color: []const u8, comptime print_message: []const u8, args: anytype) !bool {
+    if (args.len == 2 and @TypeOf(args[0]) == []const u8 and (@TypeOf(args[1]) == u32 or @TypeOf(args[1]) == u64)) {
         var i: usize = 0;
         for (args[0]) |c| {
             if (c == '\n' or c == '\r') continue;
@@ -329,9 +343,6 @@ pub fn printHelp() !void {
     try stdout("\x1b[1A\x1b[1A");
 }
 
-/// Do nothing: version already is on system header
-pub fn printVersion() !void {}
-
 /// Keeps a console that was opened just for this run (double-click) from closing before the output was read
 pub fn waitForEnter() !void {
     try stdout("\n\n");
@@ -343,4 +354,26 @@ pub fn waitForEnter() !void {
 
     // A closed stdin (pipe, cron, CI) only means that nobody can press Enter: not an error
     _ = stdin.interface.take(1) catch return;
+}
+
+/// Do nothing: version already is on system header
+pub fn printVersion() !void {}
+
+// Prints banner before any processing to provide immediate feedback in slow operations
+pub fn banner() !void {
+     try stdout("\n");
+     if (config.COMPTIME_EMOJI_COLOR) try stdout("🔬\x1b[38;5;255m ");
+
+     try stdout(i18n.HEADER_START);
+     try stdout(config.COMPTIME_VERSION);
+     try stdout(i18n.HEADER_END);
+
+     if (config.COMPTIME_EMOJI_COLOR) try stdout("\x1b[0m");
+     try stdout("\n\n\n");
+}
+
+pub fn stopWaitError(comptime print_message: []const u8) !void {
+    try stdout("\n");
+    try stopError(print_message);
+    return waitForEnter();
 }

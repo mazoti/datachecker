@@ -4,9 +4,11 @@
 //!
 
 const ahocorasick = @import("ahocorasick");
+const config      = @import("config");
 const core        = @import("core.zig");
 const data        = @import("data");
 const globals     = @import("globals");
+const output      = @import("output");
 const i18n        = @import("i18n");
 const print       = @import("print");
 const std         = @import("std");
@@ -29,8 +31,7 @@ pub fn endOfLine(total_items: *u64) !bool {
 
     if (!terminator_found) {
         globals.exit_error.store(true, .monotonic);
-        try print.err(i18n.END_OF_LINE_ERROR, .{});
-        return true;
+        return eol_error(true, i18n.END_OF_LINE_ERROR, .{});
     }
 
     // Set failure links
@@ -45,14 +46,8 @@ pub fn endOfLine(total_items: *u64) !bool {
 
         if (data.TEXT_EXTENSIONS.has(lowercase_extension)) {
             checkEOL(.{entry.path, total_items, &ac}) catch |err| switch (err) {
-                error.AccessDenied => {
-                    try core.exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
-                    return false;
-                },
-                error.FileNotFound => {
-                    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{entry.path});
-                    return false;
-                },
+                error.AccessDenied => return eol_error(false, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path}),
+                error.FileNotFound => return eol_error(false, i18n.ERROR_READING_FILE, .{entry.path}),
                 else => {
                     globals.exit_error.store(true, .monotonic);
                     return err;
@@ -62,6 +57,19 @@ pub fn endOfLine(total_items: *u64) !bool {
     }
 
     return false;
+}
+
+fn eol_error(ret_value: bool, comptime fmt_msg: []const u8, args: anytype) !bool {
+    try output.add(&globals.output_results.end_of_line, config.Status.ERROR, fmt_msg, args);
+    try print.err(fmt_msg, args);
+    return ret_value;
+}
+
+fn eol_warning(args: anytype) !void {
+    globals.exit_warning.store(true, .monotonic);
+    args[1].* += 1;
+    try output.add(&globals.output_results.end_of_line, config.Status.WARNING, i18n.END_OF_LINE_WARNING, .{args[0]});
+    return print.warning(i18n.END_OF_LINE_WARNING, .{args[0]});
 }
 
 /// Scans file contents for
@@ -78,21 +86,13 @@ fn checkEOL(args: anytype) !void {
         const chunk: []u8 = file_reader.interface.take(globals.config_parsed.value.BUFFER_SIZE)
             catch |err| switch (err) {
                 error.EndOfStream => {
-                    if (args[2].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end])) {
-                        globals.exit_warning.store(true, .monotonic);
-                        args[1].* += 1;
-                        try print.warning(i18n.END_OF_LINE_WARNING, .{args[0]});
-                    }
-                    return;
+                    if (!args[2].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end])) return;
+                    return eol_warning(args);
                 },
                 else => return err,
             };
 
-        if (args[2].containsBuffer(chunk[0..chunk.len])) {
-            globals.exit_warning.store(true, .monotonic);
-            args[1].* += 1;
-            return print.warning(i18n.END_OF_LINE_WARNING, .{args[0]});
-        }
+        if (args[2].containsBuffer(chunk[0..chunk.len])) return eol_warning(args);
     }
 
     std.debug.panic("SHOULD NEVER PASS HERE");

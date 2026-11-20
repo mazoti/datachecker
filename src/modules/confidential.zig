@@ -7,6 +7,7 @@ const config      = @import("config");
 const core        = @import("core.zig");
 const globals     = @import("globals");
 const i18n        = @import("i18n");
+const output      = @import("output");
 const print       = @import("print");
 const std         = @import("std");
 
@@ -40,14 +41,8 @@ pub fn checkConfidential(total_items: *u64) !bool {
 
     while (try file_iterator.next(total_items)) |entry| {
         checkConfidentialFiles(.{entry.path, total_items, &ac}) catch |err| switch (err) {
-            error.AccessDenied => {
-                try core.exitCodeFn(total_items, print.err, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path});
-                return false;
-            },
-            error.FileNotFound => {
-                try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{entry.path});
-                return false;
-            },
+            error.AccessDenied => return confidential_error(total_items, i18n.ERROR_ACCESS_DENIED_PATH, .{entry.path}),
+            error.FileNotFound => return confidential_error(total_items, i18n.ERROR_READING_FILE, .{entry.path}),
             else => {
                 globals.exit_error.store(true, .monotonic);
                 return err;
@@ -71,23 +66,27 @@ fn checkConfidentialFiles(args: anytype) !void {
         const chunk: []u8 = file_reader.interface.take(globals.config_parsed.value.BUFFER_SIZE)
             catch |err| switch (err) {
                 error.EndOfStream => {
-                    if (args[2].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end])) {
-                        globals.exit_warning.store(true, .monotonic);
-                        try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
-                        args[1].* += 1;
-                    }
-                    return;
+                    if (!args[2].containsBuffer(file_reader.interface.buffer[0..file_reader.interface.end])) return;
+                    return confidential_warning(args);
                 },
                 else => return err,
             };
 
-        if (args[2].containsBuffer(chunk[0..chunk.len])) {
-            globals.exit_warning.store(true, .monotonic);
-            try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
-            args[1].* += 1;
-            return;
-        }
+        if (args[2].containsBuffer(chunk[0..chunk.len])) return confidential_warning(args);
     }
 
     std.debug.panic("SHOULD NEVER PASS HERE");
+}
+
+fn confidential_error(total_items: *u64, comptime msg_fmt: []const u8, args: anytype) !bool {
+    try core.exitCodeFn(total_items, print.err, msg_fmt, args);
+    try output.add(&globals.output_results.confidential_files, config.Status.ERROR, msg_fmt, args);
+    return false;
+}
+
+fn confidential_warning(args: anytype) !void {
+    globals.exit_warning.store(true, .monotonic);
+    try print.warning(i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+    try output.add(&globals.output_results.confidential_files, config.Status.WARNING, i18n.CONFIDENTIAL_FILES_WARNING, .{args[0]});
+    args[1].* += 1;
 }

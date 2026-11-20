@@ -23,25 +23,6 @@ pub var buffer_total: usize = undefined;
 pub var config_parsed: std.json.Parsed(config.Config) = undefined;
 pub var config_file:   []const u8                     = undefined;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-pub var output_results: std.json.Parsed(config.Output) = undefined;
-
-
 /// Global hash map instance for caching directory items count
 pub var dir_count: std.StringHashMap(usize) = undefined;
 
@@ -83,3 +64,5 @@ pub var group:     std.Io.Group     = undefined;
 pub var now: std.Io.Timestamp = .{ .nanoseconds = 0 }; // substitui now_stat
 
 pub var init: *const std.process.Init = undefined;
+
+pub var output_results: config.Output = undefined;

@@ -6,6 +6,7 @@ const config           = @import("config");
 const core             = @import("core.zig");
 const globals          = @import("globals");
 const i18n             = @import("i18n");
+const output           = @import("output");
 const print            = @import("print");
 const std              = @import("std");
 
@@ -37,63 +38,39 @@ pub fn check(args: anytype) !bool {
 fn checkBZIP2(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Reader) !bool {
     if (try core.readExactChunk(file_reader, 4, fullpath, total_items)) |chunk| {
         // Check the 4th byte: BZIP2 uses compression levels 1-9
-        if(chunk[3] != '9') {
-            globals.exit_warning.store(true, .monotonic);
-            try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
-            total_items.* += 1;
-            return true;
-        }
+        if(chunk[3] != '9') return compressed_warning(total_items, .{fullpath});
         return false;
     }
 
-    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{fullpath});
-    return true;
+    return compressed_error(total_items, .{fullpath});
 }
 
 fn checkGZ(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Reader) !bool {
     if (try core.readExactChunk(file_reader, 9, fullpath, total_items)) |chunk| {
-        if(chunk[8] != 2) {
-            globals.exit_warning.store(true, .monotonic);
-            try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
-            total_items.* += 1;
-            return true;
-        }
+        if(chunk[8] != 2) return compressed_warning(total_items, .{fullpath});
         return false;
     }
 
-    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{fullpath});
-    return true;
+    return compressed_error(total_items, .{fullpath});
 }
 
 fn checkPNG(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Reader) !bool {
     if (try core.readExactChunk(file_reader, 8, fullpath, total_items)) |chunk| {
         // Wrong magic number
-        if (!std.mem.eql(u8, chunk[0..8], "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A")) {
-            try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{fullpath});
-            return true;
-        }
+        if (!std.mem.eql(u8, chunk[0..8], "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A")) return compressed_error(total_items, .{fullpath});
 
         if (try core.readExactChunk(file_reader, 128, fullpath, total_items)) |chunk2| {
             if (std.mem.indexOf(u8, chunk2[0..128], "IDAT")) |pos| {
-                if (pos > 122) {
-                    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{fullpath});
-                    return true;
-                }
+                if (pos > 122) return compressed_error(total_items, .{fullpath});
 
                 // FLEVEL = 11xx xxxx == max compression
-                if (chunk2[pos+5] & 0xC0 != 0xC0) {
-                    globals.exit_warning.store(true, .monotonic);
-                    try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
-                    total_items.* += 1;
-                    return true;
-                }
+                if (chunk2[pos+5] & 0xC0 != 0xC0) return compressed_warning(total_items, .{fullpath});
             }
             return false;
         }
     }
 
-    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{fullpath});
-    return true;
+    return compressed_error(total_items, .{fullpath});
 }
 
 fn checkZIP(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.Reader) !bool {
@@ -102,19 +79,28 @@ fn checkZIP(fullpath: []const u8, total_items: *u64, file_reader: *std.Io.File.R
         if(chunk[8] > 8) {
             try print.check(i18n.COMPRESSED_FILES_CHECK, .{fullpath});
             total_items.* += 1;
+            try output.add(&globals.output_results.compressed_files, config.Status.CHECK, i18n.COMPRESSED_FILES_CHECK, .{fullpath});
             return true;
         }
 
         // If compression method is between 1-7, it's suboptimal
-        if(chunk[8] < 8 and chunk[8] > 0) {
-            globals.exit_warning.store(true, .monotonic);
-            try print.warning(i18n.COMPRESSED_FILES_WARNING, .{fullpath});
-            total_items.* += 1;
-            return true;
-        }
+        if(chunk[8] < 8 and chunk[8] > 0) return compressed_warning(total_items, .{fullpath});
         return false;
     }
 
-    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{fullpath});
+    return compressed_error(total_items, .{fullpath});
+}
+
+fn compressed_error(total_items: *u64, args: anytype) !bool {
+    try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, args);
+    try output.add(&globals.output_results.compressed_files, config.Status.ERROR, i18n.ERROR_READING_FILE, args);
+    return true;
+}
+
+fn compressed_warning(total_items: *u64, args: anytype) !bool {
+    globals.exit_warning.store(true, .monotonic);
+    try print.warning(i18n.COMPRESSED_FILES_WARNING, args);
+    total_items.* += 1;
+    try output.add(&globals.output_results.compressed_files, config.Status.WARNING, i18n.COMPRESSED_FILES_WARNING, args);
     return true;
 }

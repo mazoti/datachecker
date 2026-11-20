@@ -5,9 +5,11 @@
 
 const ahocorasick     = @import("ahocorasick");
 const builtin         = @import("builtin");
+const config          = @import("config");
 const core            = @import("core.zig");
 const data            = @import("data");
 const globals         = @import("globals");
+const output          = @import("output");
 const i18n            = @import("i18n");
 const print           = @import("print");
 const std             = @import("std");
@@ -51,8 +53,7 @@ pub fn debugInfo(args: anytype) !bool {
     var input_file: std.Io.File = std.Io.Dir.cwd().openFile(globals.init.io, args[0],
         .{.mode = .read_only, .lock = .shared}) catch |err| {
             core.debugPrintError(err);
-            globals.exit_error.store(true, .monotonic);
-            return false;
+            return debug_error(args);
         };
     defer input_file.close(globals.init.io);
 
@@ -60,8 +61,7 @@ pub fn debugInfo(args: anytype) !bool {
 
     const chunk_tmp: ?[]const u8 = core.readExactChunk(&file_reader, 4, args[0], args[1]) catch |err| {
         core.debugPrintError(err);
-        globals.exit_error.store(true, .monotonic);
-        return false;
+        return debug_error(args);
     };
 
     const chunk = chunk_tmp orelse return false;
@@ -71,11 +71,7 @@ pub fn debugInfo(args: anytype) !bool {
         var elf_file = try std.debug.ElfFile.load(globals.init.arena.allocator(), globals.init.io, input_file, &.{}, &std.debug.ElfFile.DebugInfoSearchPaths.none);
         defer elf_file.deinit(globals.init.arena.allocator());
 
-        if (elf_file.dwarf != null or elf_file.symtab != null) {
-            args[1].* += 1;
-            globals.exit_warning.store(true, .monotonic);
-            try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
-        }
+        if (elf_file.dwarf != null or elf_file.symtab != null) try debug_warning(args);
         return false;
     }
 
@@ -104,11 +100,7 @@ pub fn debugInfo(args: anytype) !bool {
         const symtab = coff.getSymtab();
         const has_symtab = symtab != null and symtab.?.len() > 0;
 
-        if (pdb_path != null or has_embedded_dwarf or has_symtab) {
-            args[1].* += 1;
-            globals.exit_warning.store(true, .monotonic);
-            try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
-        }
+        if (pdb_path != null or has_embedded_dwarf or has_symtab) try debug_warning(args);
         return false;
     }
 
@@ -124,10 +116,7 @@ pub fn debugInfo(args: anytype) !bool {
 
                 for (macho_file.symbols) |sym| {
                     _ = macho_file.getDwarfForAddress(globals.init.arena.allocator(), globals.init.io, sym.addr) catch continue;
-
-                    args[1].* += 1;
-                    globals.exit_warning.store(true, .monotonic);
-                    try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
+                    try debug_warning(args);
                     return false;
                 }
             }
@@ -188,4 +177,17 @@ fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
 
     try std.Io.Dir.deleteFileAbsolute(globals.init.io, filepath);
     return print.removing("\"{s}\"", .{filepath});
+}
+
+fn debug_error(args: anytype) !bool {
+    globals.exit_error.store(true, .monotonic);
+    try output.add(&globals.output_results.debug_information, config.Status.ERROR, i18n.ERROR_READING_FILE, .{args[0]});
+    return false;
+}
+
+fn debug_warning(args: anytype) !void {
+    args[1].* += 1;
+    globals.exit_warning.store(true, .monotonic);
+    try print.warning(i18n.DEBUG_INFO_WARNING, .{args[0]});
+    try output.add(&globals.output_results.debug_information, config.Status.WARNING, i18n.DEBUG_INFO_WARNING, .{args[0]});
 }

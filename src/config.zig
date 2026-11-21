@@ -37,6 +37,7 @@ pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_INTEGRITY_FILES:                   bool = true;
 pub const COMPTIME_JSON_OUTPUT:                       bool = true;
+pub const COMPTIME_JSON_OUTPUT_COMPRESSED:            bool = true;
 pub const COMPTIME_LARGE_FILES:                       bool = true;
 pub const COMPTIME_LAST_ACCESS_FILES:                 bool = true;
 pub const COMPTIME_LEGACY_FILES:                      bool = true;
@@ -44,10 +45,10 @@ pub const COMPTIME_LINKS_SHORTCUTS:                   bool = true;
 pub const COMPTIME_MAGIC_NUMBERS:                     bool = true;
 pub const COMPTIME_MANY_ITEMS_DIRECTORY:              bool = true;
 pub const COMPTIME_NO_EXTENSION:                      bool = true;
+pub const COMPTIME_NONPORTABLE_CHARS:                 bool = true;
 pub const COMPTIME_ONE_ITEM_DIRECTORY:                bool = true;
 pub const COMPTIME_PARSE_FILES:                       bool = true;
 pub const COMPTIME_TEMPORARY_FILES:                   bool = true;
-pub const COMPTIME_NONPORTABLE_CHARS:                 bool = true;
 pub const COMPTIME_UTF8_ENCODING:                     bool = true;
 pub const COMPTIME_WRONG_DATES:                       bool = true;
 
@@ -83,7 +84,6 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_FULL_PATH_SIZE)                  i18n.COMPTIME_FULL_PATH_SIZE                  else "")
     ++ (if (COMPTIME_INTEGRITY_FILES_PARALLEL)        i18n.COMPTIME_INTEGRITY_FILES_PARALLEL        else "")
     ++ (if (COMPTIME_INTEGRITY_FILES)                 i18n.COMPTIME_INTEGRITY_FILES                 else "")
-    ++ (if (COMPTIME_PARSE_FILES)                     i18n.COMPTIME_PARSE_FILES                     else "")
     ++ (if (COMPTIME_LARGE_FILES)                     i18n.COMPTIME_LARGE_FILES                     else "")
     ++ (if (COMPTIME_LAST_ACCESS_FILES)               i18n.COMPTIME_LAST_ACCESS_FILES               else "")
     ++ (if (COMPTIME_LEGACY_FILES)                    i18n.COMPTIME_LEGACY_FILES                    else "")
@@ -94,6 +94,7 @@ pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_NO_EXTENSION)                    i18n.COMPTIME_NO_EXTENSION                    else "")
     ++ (if (COMPTIME_NONPORTABLE_CHARS)               i18n.COMPTIME_NONPORTABLE_CHARS               else "")
     ++ (if (COMPTIME_ONE_ITEM_DIRECTORY)              i18n.COMPTIME_ONE_ITEM_DIRECTORY              else "")
+    ++ (if (COMPTIME_PARSE_FILES)                     i18n.COMPTIME_PARSE_FILES                     else "")
     ++ (if (COMPTIME_TEMPORARY_FILES_REMOVE)          i18n.COMPTIME_TEMPORARY_FILES_REMOVE          else "")
     ++ (if (COMPTIME_TEMPORARY_FILES)                 i18n.COMPTIME_TEMPORARY_FILES                 else "")
     ++ (if (COMPTIME_UTF8_ENCODING)                   i18n.COMPTIME_UTF8_ENCODING                   else "")
@@ -104,6 +105,7 @@ pub const HELP = i18n.USAGE
 pub const Config = struct {
     INPUT_FOLDER:               []const u8   = ".",
     OUTPUT_FILE:                []const u8   = "",
+        OUTPUT_FILE_COMPRESSED: bool         = true,
     BUFFER_SIZE:                usize        = 65536,
     ENABLE_CACHE:               bool         = true,
     ENTER_TO_QUIT:              bool         = false,
@@ -148,9 +150,9 @@ pub const Config = struct {
     MANY_ITEMS_DIRECTORY:       bool         = true,
         MAX_ITEMS_DIRECTORY:    u32          = 10000,
     NO_EXTENSION:               bool         = true,
+    NONPORTABLE_CHARS:          bool         = true,
     ONE_ITEM_DIRECTORY:         bool         = true, // Detects unnecessary directory nesting
     TEMPORARY_FILES:            bool         = true, // Looks for for .tmp, .temp, ~ and .swp
-    NONPORTABLE_CHARS:          bool         = true,
     UTF8_ENCODING:              bool         = true,
     WRONG_DATES:                bool         = true,
 };
@@ -159,6 +161,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\{
     \\    "INPUT_FOLDER":                    ".",
     \\    "OUTPUT_FILE":                     "",
+    \\        "OUTPUT_FILE_COMPRESSED":      false,
     \\    "BUFFER_SIZE":                     65536,
     \\    "ENABLE_CACHE":                    true,
     \\    "ENTER_TO_QUIT":                   false,
@@ -274,10 +277,10 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "MANY_ITEMS_DIRECTORY":            true,
     \\        "MAX_ITEMS_DIRECTORY":         10000,
     \\    "NO_EXTENSION":                    true,
+    \\    "NONPORTABLE_CHARS":               true,
     \\    "ONE_ITEM_DIRECTORY":              true,
     \\    "PARSE_FILES":                     true,
     \\    "TEMPORARY_FILES":                 true,
-    \\    "NONPORTABLE_CHARS":               true,
     \\    "UTF8_ENCODING":                   true,
     \\    "WRONG_DATES":                     true
     \\}
@@ -289,7 +292,7 @@ pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config),
     if (must_clean) alloc.free(config_file.*);
 }
 
-pub const Status = enum { CHECK, ERROR, FOUND, OK, WARNING };
+pub const Status = enum { CHECK, ERROR, FOUND, OK, REMOVED, WARNING };
 
 pub const FileResult = struct {
     status: Status,
@@ -318,8 +321,15 @@ pub const Output = struct {
 // INTEGRITY_FILES
     large_files:               if (COMPTIME_LARGE_FILES)              std.ArrayList(FileResult) else void,
     last_access_files:         if (COMPTIME_LAST_ACCESS_FILES)        std.ArrayList(FileResult) else void,
-
-
+    legacy_files:              if (COMPTIME_LEGACY_FILES)             std.ArrayList(FileResult) else void,
+    links_shortcuts:           if (COMPTIME_LINKS_SHORTCUTS)          std.ArrayList(FileResult) else void,
+    magic_numbers:             if (COMPTIME_MAGIC_NUMBERS)            std.ArrayList(FileResult) else void,
+    many_items_directory:      if (COMPTIME_MANY_ITEMS_DIRECTORY)     std.ArrayList(FileResult) else void,
+    no_extension:              if (COMPTIME_NO_EXTENSION)             std.ArrayList(FileResult) else void,
+    one_item_directory:        if (COMPTIME_ONE_ITEM_DIRECTORY)       std.ArrayList(FileResult) else void,
+    parse_files:               if (COMPTIME_PARSE_FILES)              std.ArrayList(FileResult) else void,
+    temporary_files:           if (COMPTIME_TEMPORARY_FILES)          std.ArrayList(FileResult) else void,
+    nonportable_chars:         if (COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(FileResult) else void,
 
 
 

@@ -20,32 +20,38 @@ fn checkTempFiles(args: anytype, remove_file: bool) !void {
 
     if (core.getExtensionLowercase(args[0])) |lowercase| {
         // Checks if the file extension is in the temporary extensions map
-        if (data.TEMPORARY_EXTENSIONS.has(lowercase)) {
-            args[1].* += args[2].size;
-            return warnRemoveFile(args[0], remove_file);
-        }
+        if (data.TEMPORARY_EXTENSIONS.has(lowercase)) return warnRemoveFile(args, remove_file);
     }
 
     // Checks if the full filename matches exactly
-    if (data.FULL_NAME.has(filename)) {
-        args[1].* += args[2].size;
-        return warnRemoveFile(args[0], remove_file);
-    }
+    if (data.FULL_NAME.has(filename)) return warnRemoveFile(args, remove_file);
 
     // Checks if filename matches start/end patterns
     for (data.START_END) |pattern| {
         if ((pattern.start.len > 0 and !std.mem.startsWith(u8, filename, pattern.start)) or
             (pattern.end.len   > 0 and !std.mem.endsWith(  u8, filename, pattern.end))) continue;
 
-        args[1].* += args[2].size;
-        return warnRemoveFile(args[0], remove_file);
+        return warnRemoveFile(args, remove_file);
     }
 
     // Checks if the path contains any of the known temporary patterns
-    if (args[3].contains(args[0])) {
-        args[1].* += args[2].size;
-        return warnRemoveFile(args[0], remove_file);
+    if (args[3].contains(args[0])) return warnRemoveFile(args, remove_file);
+}
+
+fn warnRemoveFile(args: anytype, remove_file: bool) !void {
+    args[1].* += args[2].size;
+
+    if (!remove_file) {
+        globals.exit_warning.store(true, .monotonic);
+        try output.add(&globals.output_results.temporary_files, config.Status.WARNING, i18n.TEMPORARY_FILES_WARNING, .{args[0]});
+        return print.warning(i18n.TEMPORARY_FILES_WARNING, .{args[0]});
     }
+
+    globals.clear_cache.store(true, .monotonic);
+    try std.Io.Dir.deleteFileAbsolute(globals.init.io, args[0]);
+
+    try output.add(&globals.output_results.temporary_files, config.Status.REMOVED, "\"{s}\"", .{args[0]});
+    return print.removing("\"{s}\"", .{args[0]});
 }
 
 /// Scans a directory tree for legacy file formats
@@ -126,10 +132,11 @@ pub fn debugInfo(args: anytype) !bool {
 
 /// Scans a directory tree for legacy file formats
 pub fn legacyFiles(args: anytype) !bool {
-    const lowercase   = core.getExtensionLowercase(args[0])          orelse return false;
+    const lowercase   = core.getExtensionLowercase(args[0])               orelse return false;
     const description = data.LEGACY_EXTENSIONS_DESCRIPTION.get(lowercase) orelse return false;
 
     globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.legacy_files, config.Status.WARNING, i18n.LEGACY_FILES_WARNING, .{ args[0], description });
     try print.warning(i18n.LEGACY_FILES_WARNING, .{ args[0], description });
     args[1].* += 1;
     return true;
@@ -165,18 +172,6 @@ pub fn temporaryRemoveFiles(total_items: *u64) !bool {
     }
 
     return false;
-}
-
-fn warnRemoveFile(filepath: []const u8, remove_file: bool) !void {
-    if (!remove_file) {
-        globals.exit_warning.store(true, .monotonic);
-        return print.warning(i18n.TEMPORARY_FILES_WARNING, .{filepath});
-    }
-
-    globals.clear_cache.store(true, .monotonic);
-
-    try std.Io.Dir.deleteFileAbsolute(globals.init.io, filepath);
-    return print.removing("\"{s}\"", .{filepath});
 }
 
 fn debug_error(args: anytype) !bool {

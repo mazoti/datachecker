@@ -6,6 +6,7 @@ const config  = @import("config");
 const core    = @import("core.zig");
 const data    = @import("data");
 const globals = @import("globals");
+const output  = @import("output");
 const i18n    = @import("i18n");
 const print   = @import("print");
 const std     = @import("std");
@@ -58,10 +59,7 @@ pub fn check(args: anytype) !bool {
                 (lowercase.len + magic_number.len)]);
 
             if (try core.readExactChunk(&file_reader, magic_number.len, args[0], &total_items)) |chunk| {
-                if (!std.mem.eql(u8, chunk, magic_number)) {
-                    try core.exitCodeFn(args[1], print.err, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
-                    return true;
-                }
+                if (!std.mem.eql(u8, chunk, magic_number)) return check_error(i18n.MAGIC_NUMBERS_ERROR, args);
             }
 
             return false;
@@ -69,7 +67,6 @@ pub fn check(args: anytype) !bool {
 
         // Handles files with complex magic numbers (multiple signatures or offset positions)
         if (format_config_map.get(lowercase)) |size_start_func| {
-
             var file_reader: std.Io.File.Reader = file_check.reader(globals.init.io, globals.buffer[lowercase.len..
                 (lowercase.len + size_start_func.size)]);
 
@@ -77,19 +74,23 @@ pub fn check(args: anytype) !bool {
 
             if (try core.readExactChunk(&file_reader, size_start_func.size, args[0], &total_items)) |_| {
                 if (!size_start_func.validator(globals.buffer[lowercase.len..(lowercase.len + size_start_func.size)])) {
-                    try core.exitCodeFn(args[1], print.err, i18n.MAGIC_NUMBERS_ERROR, .{args[0]});
-                    return true;
+                    return check_error(i18n.MAGIC_NUMBERS_ERROR, args);
                 }
 
                 return false;
             }
 
-            try core.exitCodeFn(args[1], print.err, i18n.ERROR_READING_FILE, .{args[0]});
-            return true;
+            return check_error(i18n.ERROR_READING_FILE, args);
         }
     }
 
     return false;
+}
+
+fn check_error(comptime error_message: []const u8, args: anytype) !bool {
+    try output.add(&globals.output_results.magic_numbers, config.Status.ERROR, error_message, .{args[0]});
+    try core.exitCodeFn(args[1], print.err, error_message, .{args[0]});
+    return true;
 }
 
 /// Core checking logic for a single file
@@ -101,11 +102,13 @@ pub fn checkNoExtension(args: anytype) !bool {
     args[1].* += 1;
 
     if (findType(args[0], globals.buffer)) |filetype| {
+        try output.add(&globals.output_results.no_extension, config.Status.CHECK, i18n.NO_EXTENSION_CHECK, .{args[0], filetype});
         _ = try print.check(i18n.NO_EXTENSION_CHECK, .{args[0], filetype});
         return true;
     }
 
     globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.no_extension, config.Status.WARNING, i18n.NO_EXTENSION_WARNING, .{args[0]});
     _ = try print.warning(i18n.NO_EXTENSION_WARNING, .{args[0]});
     return false;
 }

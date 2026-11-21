@@ -253,8 +253,14 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
                     .{.mode = .read_only, .lock = .shared})
                 catch |err| {
                     _ = switch (err) {
-                        error.FileNotFound => try core.exitCodeFn(total_items, print.err, i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path}),
-                        else => try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path}),
+                        error.FileNotFound => {
+                            try output.add(&globals.output_results.links_shortcuts, config.Status.ERROR, i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path});
+                            try core.exitCodeFn(total_items, print.err, i18n.LINKS_SHORTCUTS_ERROR, .{absolute_path});
+                        },
+                        else => {
+                            try output.add(&globals.output_results.links_shortcuts, config.Status.ERROR, i18n.ERROR_READING_FILE, .{absolute_path});
+                            try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path});
+                        }
                     };
                     continue;
                 };
@@ -265,6 +271,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
         // Skips entries like pipes and sockets
         if (entry.kind != .file and entry.kind != .directory) {
             globals.exit_warning.store(true, .monotonic);
+            try output.add(&globals.output_results.links_shortcuts, config.Status.WARNING, i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
             try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
             total_items.* += 1;
             continue;
@@ -284,11 +291,13 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
             const chunk = try file_reader.interface.take(4);
 
             if (chunk.len != 4) {
+                try output.add(&globals.output_results.links_shortcuts, config.Status.ERROR, i18n.ERROR_READING_FILE, .{absolute_path});
                 try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path});
                 continue;
             }
 
             if (!std.mem.eql(u8, globals.buffer[0..4], "\x4C\x00\x00\x00")) {
+                try output.add(&globals.output_results.links_shortcuts, config.Status.ERROR, i18n.ERROR_READING_FILE, .{absolute_path});
                 try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{absolute_path});
                 continue;
             }
@@ -303,6 +312,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
             }
 
             globals.exit_warning.store(true, .monotonic);
+            try output.add(&globals.output_results.links_shortcuts, config.Status.WARNING, i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
             try print.warning(i18n.LINKS_SHORTCUTS_WARNING, .{absolute_path});
         }
     }
@@ -318,6 +328,7 @@ pub fn linkShortcuts(total_items: *u64) !bool {
 pub fn manyItemsDirectory(args: anytype) !bool {
     if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORY) {
         globals.exit_warning.store(true, .monotonic);
+        try output.add(&globals.output_results.many_items_directory, config.Status.WARNING, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
         return print.messageSumReturn(false, args[1], print.warning, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
     }
     return false;
@@ -327,6 +338,7 @@ pub fn manyItemsDirectory(args: anytype) !bool {
 pub fn oneItemDirectory(args: anytype) !bool {
     if (try countItems(args[0]) == 1) {
         globals.exit_warning.store(true, .monotonic);
+        try output.add(&globals.output_results.one_item_directory, config.Status.WARNING, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
         return print.messageSumReturn(false, args[1], print.warning, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
     }
     return false;
@@ -339,23 +351,21 @@ pub fn nonPortableCharacters(args: anytype) !bool {
     const filename:  []const u8 = basename[0..(basename.len - extension.len)];
 
     // Windows filename restrictions
-    if (data.WINDOWS_RESTRICTIONS.has(filename)) {
-        globals.exit_warning.store(true, .monotonic);
-        return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
-    }
+    if (data.WINDOWS_RESTRICTIONS.has(filename)) return nonportable_chars_warning(args);
 
     // Windows silently strips trailing dots and spaces
-    if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ') {
-        globals.exit_warning.store(true, .monotonic);
-        return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
-    }
+    if (args[0][args[0].len - 1] == '.' or args[0][args[0].len - 1] == ' ') return nonportable_chars_warning(args);
 
     // < > : " | ? * and chars below ASCII 32
     for (0..args[0].len) |i| {
-        if (data.NONPORTABLE_BYTES[args[0][i]]) {
-            globals.exit_warning.store(true, .monotonic);
-            return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
-        }
+        if (data.NONPORTABLE_BYTES[args[0][i]]) return nonportable_chars_warning(args);
     }
+
     return false;
+}
+
+fn nonportable_chars_warning(args: anytype) !bool {
+    globals.exit_warning.store(true, .monotonic);
+    try output.add(&globals.output_results.nonportable_chars, config.Status.WARNING, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
+    return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
 }

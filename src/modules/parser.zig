@@ -6,6 +6,7 @@ const config  = @import("config");
 const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
+const output  = @import("output");
 const print   = @import("print");
 const std     = @import("std");
 
@@ -43,6 +44,7 @@ pub fn parseFiles(args: anytype) !bool {
 /// Prints error, set globals state and exits true
 fn parseError(args: anytype, err: anytype) !bool {
     core.debugPrintError(err);
+    try output.add(&globals.output_results.parse_files, config.Status.ERROR, i18n.PARSE_FILES_ERROR, .{args[0]});
     try core.exitCodeFn(args[1], print.err, i18n.PARSE_FILES_ERROR, .{args[0]});
     globals.exit_error.store(true, .monotonic);
     return true;
@@ -53,6 +55,7 @@ fn parseStreamTooLongError(args: anytype, err: anytype) !bool {
     core.debugPrintError(err);
 
     if (err == error.StreamTooLong) {
+        try output.add(&globals.output_results.parse_files, config.Status.ERROR, i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
         try core.exitCodeFn(args[1], print.err, i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
         return true;
     }
@@ -75,7 +78,7 @@ fn parseJSON(args: anytype) !bool {
     };
     defer parsed.deinit();
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Parses a TAR file and returns false if no errors were found
@@ -108,7 +111,7 @@ fn parseTarRAM(args: anytype, file_contents: []const u8) !bool {
         return parseError(args, err);
     }
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Decompress a .tar.gz file and returns false if no errors were found
@@ -156,7 +159,7 @@ fn decompressGZ(args: anytype) !bool {
     };
     defer globals.init.arena.allocator().free(data);
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Decompress a .tar.lzma file and returns false if no errors were found
@@ -200,7 +203,7 @@ fn decompressLZMA(args: anytype) !bool {
     };
     defer globals.init.arena.allocator().free(file_contents);
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Decompress a .tar.xz file and returns false if no errors were found
@@ -252,7 +255,7 @@ fn decompressXZ(args: anytype) !bool {
     };
     defer globals.init.arena.allocator().free(data);
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Decompress a ZIP file and returns false if no errors were found
@@ -273,8 +276,8 @@ fn decompressZIP(args: anytype) !bool {
 
         const size: usize = @intCast(entry.uncompressed_size);
 
-        const output = try globals.init.arena.allocator().alloc(u8, size);
-        defer globals.init.arena.allocator().free(output);
+        const output_data = try globals.init.arena.allocator().alloc(u8, size);
+        defer globals.init.arena.allocator().free(output_data);
 
         // Read the local file header.
         try stream.seekTo(entry.file_offset);
@@ -292,7 +295,7 @@ fn decompressZIP(args: anytype) !bool {
         try stream.seekTo(data_offset);
 
         // Write decompressed bytes directly to RAM.
-        var writer = std.Io.Writer.fixed(output);
+        var writer = std.Io.Writer.fixed(output_data);
 
         switch (entry.compression_method) {
             .store => try stream.interface.streamExact64(&writer, entry.uncompressed_size),
@@ -307,14 +310,14 @@ fn decompressZIP(args: anytype) !bool {
 
         // Verify the uncompressed data's CRC-32.
         var crc: std.hash.Crc32 = .init();
-        crc.update(output);
+        crc.update(output_data);
 
         if (crc.final() != entry.crc32) return parseError(args, error.BadCrc);
     } else |err| {
         return parseError(args, err);
     }
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Decompress a ZLIB file and returns false if no errors were found
@@ -336,7 +339,7 @@ fn decompressZLIB(args: anytype) !bool {
     };
     defer globals.init.arena.allocator().free(file_contents);
 
-    return false;
+    return parse_ok(args);
 }
 
 /// Decompress a .tar.zst file and returns false if no errors were found
@@ -347,17 +350,17 @@ fn decompressTARZST(args: anytype) !bool {
     var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Accumulate decompressed data in RAM
-    var output: std.Io.Writer.Allocating = .init(globals.init.arena.allocator());
-    defer output.deinit();
+    var output_data: std.Io.Writer.Allocating = .init(globals.init.arena.allocator());
+    defer output_data.deinit();
 
     var decompressor = std.compress.zstd.Decompress.init(&stream.interface, &.{}, .{});
 
     // Decompress until the input stream ends.
-    _ = decompressor.reader.streamRemaining(&output.writer) catch |err| {
+    _ = decompressor.reader.streamRemaining(&output_data.writer) catch |err| {
         return parseError(args, err);
     };
 
-    return parseTarRAM(args, output.written());
+    return parseTarRAM(args, output_data.written());
 }
 
 /// Decompress a ZST file and returns false if no errors were found
@@ -368,15 +371,22 @@ fn decompressZST(args: anytype) !bool {
     var stream = file.reader(globals.init.io, &globals.io_buffer);
 
     // Accumulate decompressed data in RAM
-    var output: std.Io.Writer.Allocating = .init(globals.init.arena.allocator());
-    defer output.deinit();
+    var output_data: std.Io.Writer.Allocating = .init(globals.init.arena.allocator());
+    defer output_data.deinit();
 
     var decompressor = std.compress.zstd.Decompress.init(&stream.interface, &.{}, .{});
 
     // Decompress until the input stream ends.
-    _ = decompressor.reader.streamRemaining(&output.writer) catch |err| {
+    _ = decompressor.reader.streamRemaining(&output_data.writer) catch |err| {
         return parseError(args, err);
     };
 
+    return parse_ok(args);
+}
+
+fn parse_ok(args: anytype) !bool {
+    try output.add(&globals.output_results.parse_files, config.Status.OK, "{s}", .{args[0]});
+    try print.stdout("\n\t\t");
+    try print.ok("{s}", .{args[0]});
     return false;
 }

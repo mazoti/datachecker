@@ -218,6 +218,7 @@ pub fn ok_mt(comptime fmt: []const u8, args: anytype) !void {
 pub fn removing(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT) return;
 
+    if (try cleanPath(fmt, "\x1b[31m", i18n.REMOVING_MESSAGE, args)) return;
     return core(fmt, "\x1b[31m", i18n.REMOVING_MESSAGE, args);
 }
 

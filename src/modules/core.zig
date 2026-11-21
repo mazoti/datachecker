@@ -30,7 +30,7 @@ pub const FileIterator = struct {
         stat: std.Io.File.Stat,
     };
 
-    pub fn deinit(self: *FileIterator) void { if (self.walker) |*w| w.deinit(); }
+    pub fn deinit(self: *FileIterator) void { if (self.walker) |*w| w.deinit(globals.init.io); }
 
     pub fn init(alloc: std.mem.Allocator) !FileIterator {
         if (globals.file_stats.count() > 0) {
@@ -268,7 +268,7 @@ pub fn emptyRemoveDirectories() !void {
         folder_removed = false;
 
         var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
-        defer walker.deinit();
+        defer walker.deinit(globals.init.io);
 
         while (true) {
             var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
@@ -303,7 +303,7 @@ pub fn emptyRemoveFiles() !void {
 
     var total_items: u64 = 0;
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
-    defer walker.deinit();
+    defer walker.deinit(globals.init.io);
 
     // No cached stats, walk the directory tree
     while (true) {
@@ -458,7 +458,7 @@ fn decorate(
     }
 
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
-    defer walker.deinit();
+    defer walker.deinit(globals.init.io);
 
     // If no cached stats, walk the directory tree
     while (true) {

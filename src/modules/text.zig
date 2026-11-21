@@ -108,6 +108,7 @@ pub fn utf8Encoding(args: anytype) !bool {
                 core.debugPrintError(err);
 
                 if (err == error.StreamTooLong) {
+                    try output.add(&globals.output_results.utf8_encoding, config.Status.ERROR, i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
                     try core.exitCodeFn(args[1], print.err, i18n.ERROR_STREAM_TOO_LONG, .{args[0]});
                     return false;
                 }
@@ -119,6 +120,7 @@ pub fn utf8Encoding(args: anytype) !bool {
 
     if (!std.unicode.utf8ValidateSlice(file_contents)) {
         globals.exit_warning.store(true, .monotonic);
+        try output.add(&globals.output_results.utf8_encoding, config.Status.WARNING, i18n.UTF8_ENCODING_WARNING, .{args[0]});
         return print.messageSumReturn(true, args[1], print.warning, i18n.UTF8_ENCODING_WARNING, .{args[0]});
     }
 

@@ -19,6 +19,7 @@ pub fn checkWrongDates(args: anytype) !bool {
         (args[2].*.mtime.nanoseconds   > globals.now.nanoseconds)) {
 
         globals.exit_warning.store(true, .monotonic);
+        try output.add(&globals.output_results.wrong_dates, config.Status.WARNING, i18n.WRONG_DATES_WARNING, .{args[0]});
         return print.messageSumReturn(true, args[1], print.warning, i18n.WRONG_DATES_WARNING, .{args[0]});
     }
 
@@ -122,6 +123,7 @@ pub fn emptyRemoveDirectories(args: anytype) !bool {
 
     globals.clear_cache.store(true, .monotonic);
 
+    try output.add(&globals.output_results.empty_directories_remove, config.Status.REMOVED, "\"{s}\"", .{args[0]});
     try std.Io.Dir.deleteDirAbsolute(globals.init.io, args[0]);
     return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
 }
@@ -135,6 +137,7 @@ pub fn emptyRemoveFiles(args: anytype) !bool {
     globals.clear_cache.store(true, .monotonic);
 
     try std.Io.Dir.deleteFileAbsolute(globals.init.io, args[0]);
+    try output.add(&globals.output_results.empty_files_remove, config.Status.REMOVED, "\"{s}\"", .{args[0]});
     return print.messageSumReturn(true, args[1], print.removing, "\"{s}\"", .{args[0]});
 }
 
@@ -222,7 +225,7 @@ pub fn linkRemoveShortcuts(total_items: *u64) !bool {
 
 fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
-    defer walker.deinit();
+    defer walker.deinit(globals.init.io);
 
     while (true) {
         var entry_tmp: ?std.Io.Dir.Walker.Entry = null;

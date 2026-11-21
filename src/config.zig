@@ -59,7 +59,6 @@ pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE:          bool = true;
 pub const COMPTIME_LINKS_SHORTCUTS_REMOVE:            bool = true;
 pub const COMPTIME_TEMPORARY_FILES_REMOVE:            bool = true;
 
-
 pub const HELP = i18n.USAGE
     ++ (if (COMPTIME_COMPRESSED_FILES)                i18n.COMPTIME_COMPRESSED_FILES                else "")
     ++ (if (COMPTIME_CONFIDENTIAL_FILES)              i18n.COMPTIME_CONFIDENTIAL_FILES              else "")
@@ -318,7 +317,7 @@ pub const Output = struct {
     files_older_ctime:         if (COMPTIME_FILES_OLDER_CTIME)        std.ArrayList(FileResult) else void,
     files_older_mtime:         if (COMPTIME_FILES_OLDER_MTIME)        std.ArrayList(FileResult) else void,
     full_path_size:            if (COMPTIME_FULL_PATH_SIZE)           std.ArrayList(FileResult) else void,
-// INTEGRITY_FILES
+    integrity_files:           if (COMPTIME_INTEGRITY_FILES_PARALLEL or COMPTIME_INTEGRITY_FILES) std.ArrayList(FileResult) else void,
     large_files:               if (COMPTIME_LARGE_FILES)              std.ArrayList(FileResult) else void,
     last_access_files:         if (COMPTIME_LAST_ACCESS_FILES)        std.ArrayList(FileResult) else void,
     legacy_files:              if (COMPTIME_LEGACY_FILES)             std.ArrayList(FileResult) else void,
@@ -326,15 +325,15 @@ pub const Output = struct {
     magic_numbers:             if (COMPTIME_MAGIC_NUMBERS)            std.ArrayList(FileResult) else void,
     many_items_directory:      if (COMPTIME_MANY_ITEMS_DIRECTORY)     std.ArrayList(FileResult) else void,
     no_extension:              if (COMPTIME_NO_EXTENSION)             std.ArrayList(FileResult) else void,
+    nonportable_chars:         if (COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(FileResult) else void,
     one_item_directory:        if (COMPTIME_ONE_ITEM_DIRECTORY)       std.ArrayList(FileResult) else void,
     parse_files:               if (COMPTIME_PARSE_FILES)              std.ArrayList(FileResult) else void,
     temporary_files:           if (COMPTIME_TEMPORARY_FILES)          std.ArrayList(FileResult) else void,
-    nonportable_chars:         if (COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(FileResult) else void,
-
-
-
-
-
+    utf8_encoding:             if (COMPTIME_UTF8_ENCODING)            std.ArrayList(FileResult) else void,
+    wrong_dates:               if (COMPTIME_WRONG_DATES)              std.ArrayList(FileResult) else void,
+// DUP FILE REMOVED
+    empty_files_remove:        if (COMPTIME_EMPTY_FILES_REMOVE)       std.ArrayList(FileResult) else void,
+    empty_directories_remove:  if (COMPTIME_EMPTY_DIRECTORIES_REMOVE) std.ArrayList(FileResult) else void,
 
 
 

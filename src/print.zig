@@ -73,6 +73,9 @@ pub fn check(comptime fmt: []const u8, args: anytype) !void {
 pub fn check_mt(comptime fmt: []const u8, args: anytype) !void {
     if (!config.COMPTIME_STDOUT) return;
 
+    if (try cleanPath(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args)) return;
+    if (try cleanPath2Strings(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args)) return;
+
     return core_mt(fmt, "\x1b[32m", i18n.CHECK_MESSAGE, args);
 }
 

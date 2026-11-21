@@ -6,6 +6,7 @@ const config  = @import("config");
 const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
+const output  = @import("output");
 const print   = @import("print");
 const std     = @import("std");
 
@@ -55,6 +56,7 @@ pub fn checkSingle(total_items: *u64) !bool {
     while (try file_iterator.next(total_items)) |entry| {
         _ = hashSingle(entry.path, total_items) catch |err| switch (err) {
             error.ReadOnlyFileSystem => {
+                try output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.ERROR_READ_ONLY_FS, .{entry.path});
                 try core.exitCodeFn(total_items, print.err, i18n.ERROR_READ_ONLY_FS, .{entry.path});
                 return true;
             },
@@ -122,17 +124,20 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
         };
 
         globals.clear_cache.store(true, .monotonic);
+        output.add(&globals.output_results.integrity_files, config.Status.CHECK, i18n.INTEGRITY_FILES_CHECK, .{input_file, extension}) catch return;
         return messageSumMutex(print.check_mt, total_items, 1, i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
     }
 
     if (chunk.len != hex_size) {
         globals.exit_error.store(true, .monotonic);
+        output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.ERROR_READING_FILE, .{hash_file_path}) catch return;
         return messageSumMutex(print.err_mt, total_items, 1, i18n.ERROR_READING_FILE, .{hash_file_path});
     }
 
     const hash_code_bytes: []u8 = std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code) catch |err| switch (err) {
             error.InvalidCharacter => {
                 globals.exit_error.store(true, .monotonic);
+                output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path}) catch return;
                 return messageSumMutex(print.err_mt, total_items, 1, i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path});
             },
             else => {
@@ -141,10 +146,13 @@ fn hashParallelCore(hash_file_path: []const u8, total_items: *u64, extension: []
             },
     };
 
-    if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) return messageSumMutex(print.ok_mt, total_items, 1,
-        i18n.INTEGRITY_FILES_OK, .{input_file, extension});
+    if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) {
+        output.add(&globals.output_results.integrity_files, config.Status.OK, i18n.INTEGRITY_FILES_OK, .{input_file, extension}) catch return;
+        return messageSumMutex(print.ok_mt, total_items, 1, i18n.INTEGRITY_FILES_OK, .{input_file, extension});
+    }
 
     globals.exit_error.store(true, .monotonic);
+    output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension}) catch return;
     messageSumMutex(print.err_mt, total_items, 1, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
 }
 
@@ -179,6 +187,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     const input_file: []const u8 = hash_file_path[0..(hash_file_path.len - extension.len - 1)];
     core.hashFile(algorithm, input_file, &calc_hash) catch |err| {
         if (err == error.FileNotFound) {
+            try output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.ERROR_READING_FILE, .{input_file});
             try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{input_file});
             try print.stdout("\n");
             return true;
@@ -195,12 +204,14 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
 
         globals.clear_cache.store(true, .monotonic);
 
+        try output.add(&globals.output_results.integrity_files, config.Status.CHECK, i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
         try print.check(i18n.INTEGRITY_FILES_CHECK, .{input_file, extension});
         total_items.* += 1;
         return true;
     }
 
     if (chunk.len != hex_size) {
+        try output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.ERROR_READING_FILE, .{hash_file_path});
         try core.exitCodeFn(total_items, print.err, i18n.ERROR_READING_FILE, .{hash_file_path});
         try print.stdout("\n");
         return true;
@@ -208,6 +219,7 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
 
     const hash_code_bytes: []u8 = std.fmt.hexToBytes(&hash_code_bytes_buffer, &hash_code) catch |err| switch (err) {
             error.InvalidCharacter => {
+                try output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path});
                 try core.exitCodeFn(total_items, print.err, i18n.INTEGRITY_FILES_ERROR_CHAR, .{hash_file_path});
                 return true;
             },
@@ -218,11 +230,13 @@ fn hashSingleCore(hash_file_path: []const u8, total_items: *u64, extension: []co
     };
 
     if(std.mem.eql(u8, &calc_hash, hash_code_bytes)) {
+        try output.add(&globals.output_results.integrity_files, config.Status.OK, i18n.INTEGRITY_FILES_OK, .{input_file, extension});
         try print.ok(i18n.INTEGRITY_FILES_OK, .{input_file, extension});
         total_items.* += 1;
         return true;
     }
 
+    try output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
     try core.exitCodeFn(total_items, print.err, i18n.INTEGRITY_FILES_ERROR, .{input_file, extension});
     return true;
 }

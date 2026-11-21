@@ -1,3 +1,14 @@
+//! Collects per-category results (`config.FileResult`) while the program runs
+//! and writes them to disk as JSON.
+//!
+//! Lifecycle: call `init()` once, then `add()` from any thread, then `deinit()`
+//! once after the last `add()` has returned. `deinit()` writes `OUTPUT_FILE`
+//! (or `OUTPUT_FILE.gz` when compressed output is requested), streaming the
+//! JSON straight to the file, and frees the collected results.
+//!
+//! The categories are the fields of `config.Output`; categories compiled out
+//! are `void` and left out of the file. When `config.COMPTIME_JSON_OUTPUT` is
+//! off, or no output file was requested, `add`, `init` and `deinit` do nothing.
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
@@ -8,12 +19,29 @@ const i18n            = @import("i18n");
 const print           = @import("print");
 const std             = @import("std");
 
+/// ANSI: move the cursor up two lines.
+const cursor_up_2_lines = "\x1b[2A";
+
 var buffer_arraylist_mutex: std.Io.Mutex = std.Io.Mutex{.state = std.atomic.Value(std.Io.Mutex.State).init(.unlocked)};
 
+/// JSON results are collected only when the feature is compiled in *and* the
+/// user asked for an output file. Because the first half is comptime-known,
+/// builds without JSON output never analyze the bodies guarded by this.
+inline fn enabled() bool {
+    return config.COMPTIME_JSON_OUTPUT and globals.config_parsed.value.OUTPUT_FILE.len != 0;
+}
+
+/// Records one formatted message in `file_result`.
+/// Safe to call from several threads between `init()` and `deinit()`.
 pub fn add(file_result: *std.ArrayList(config.FileResult), message_status: config.Status, comptime fmt_message: []const u8, args: anytype) !void {
-    // Enables JSON output results to a file in disk
-    if(!config.COMPTIME_JSON_OUTPUT) return;
-    if(globals.config_parsed.value.OUTPUT_FILE.len == 0) return;
+    if (!enabled()) return;
+
+    // The process arena is thread-safe, so formatting stays outside the lock.
+    const message: []const u8 = try std.fmt.allocPrint(globals.init.arena.allocator(), fmt_message, args);
+    errdefer {
+        globals.init.arena.allocator().free(message);
+        deinit();
+    }
 
     buffer_arraylist_mutex.lock(globals.init.io) catch |err| {
         if (builtin.mode == .debug) {
@@ -23,205 +51,92 @@ pub fn add(file_result: *std.ArrayList(config.FileResult), message_status: confi
     };
     defer buffer_arraylist_mutex.unlock(globals.init.io);
 
-
-    const buffer_msg: []const u8 = try std.fmt.bufPrint(globals.buffer, fmt_message, args);
-
-    const message = try globals.init.arena.allocator().dupe(u8, buffer_msg);
-    errdefer {
-        globals.init.arena.allocator().free(message);
-        deinit();
-    }
-
-    const fr = config.FileResult{ .status = message_status, .message = message };
-
     errdefer deinit();
-    try file_result.*.append(globals.init.arena.allocator(), fr);
+    try file_result.append(globals.init.arena.allocator(), .{ .status = message_status, .message = message });
 }
 
-pub fn deinit() void {
-    // Enables JSON output results to a file in disk
-    if(!config.COMPTIME_JSON_OUTPUT) return;
-    if(globals.config_parsed.value.OUTPUT_FILE.len == 0) return;
+/// Creates the empty result lists. Call once, before the first `add()`.
+pub fn init() !void {
+    if (!enabled()) return;
 
-    print.stdout("\x1b[2A") catch {};
+    inline for (comptime std.meta.fieldNames(config.Output)) |name| {
+        const Field = @FieldType(config.Output, name);
+
+        if (comptime Field == std.ArrayList(config.FileResult)) {
+            @field(globals.output_results, name) = .empty;
+        } else if (comptime Field == void) {
+            @field(globals.output_results, name) = {}; // category compiled out
+        } else if (comptime std.mem.eql(u8, name, "version")) {
+            @field(globals.output_results, name) = config.COMPTIME_VERSION;
+        } else {
+            @compileError("json_output.init: don't know how to initialise config.Output." ++ name);
+        }
+    }
+}
+
+/// Writes the results to `OUTPUT_FILE` (`OUTPUT_FILE.gz` when compressed) and frees them.
+/// Call once, after every thread that calls `add()` has finished.
+pub fn deinit() void {
+    if (!enabled()) return;
+
+    print.stdout(cursor_up_2_lines)       catch {};
     print.header(i18n.JSON_OUTPUT_HEADER) catch {};
 
-    const json_str: []const u8 = std.json.Stringify.valueAlloc(globals.init.arena.allocator(), globals.output_results, .{ .whitespace = .indent_2 }) catch |err| {
-        if (!config.COMPTIME_STDOUT) return;
-        if (builtin.mode == .debug) {
-            std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
-        }
-        return;
-    };
-    defer globals.init.arena.allocator().free(json_str);
+    if (config.COMPTIME_JSON_OUTPUT_COMPRESSED) write(globals.config_parsed.value.OUTPUT_FILE_COMPRESSED) else write(false);
 
-    if (config.COMPTIME_JSON_OUTPUT_COMPRESSED) {
-        if (globals.config_parsed.value.OUTPUT_FILE_COMPRESSED) write(json_str, writeJSON_compressed) else write(json_str, writeJSON);
-    } else {
-        if (!globals.config_parsed.value.OUTPUT_FILE_COMPRESSED) write(json_str, writeJSON);
+    // Frees every list and leaves it empty (never `undefined`).
+    inline for (comptime std.meta.fieldNames(config.Output)) |name| {
+        if (comptime @FieldType(config.Output, name) == std.ArrayList(config.FileResult)) clean(&@field(globals.output_results, name));
     }
-
-    if (config.COMPTIME_COMPRESSED_FILES)         clean(&globals.output_results.compressed_files);
-    if (config.COMPTIME_CONFIDENTIAL_FILES)       clean(&globals.output_results.confidential_files);
-    if (config.COMPTIME_DEBUG_INFO)               clean(&globals.output_results.debug_information);
-    if (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE) clean(&globals.output_results.directory_file_name_size);
-    if (config.COMPTIME_DUPLICATE_CHARS_FILES)    clean(&globals.output_results.duplicate_chars_files);
-    if (config.COMPTIME_EMPTY_FILES)              clean(&globals.output_results.empty_files);
-    if (config.COMPTIME_END_OF_LINE)              clean(&globals.output_results.end_of_line);
-    if (config.COMPTIME_EMPTY_DIRECTORIES)        clean(&globals.output_results.empty_directories);
-    if (config.COMPTIME_FILES_NEWER_ATIME)        clean(&globals.output_results.files_newer_atime);
-    if (config.COMPTIME_FILES_NEWER_CTIME)        clean(&globals.output_results.files_newer_ctime);
-    if (config.COMPTIME_FILES_NEWER_MTIME)        clean(&globals.output_results.files_newer_mtime);
-    if (config.COMPTIME_FILES_OLDER_ATIME)        clean(&globals.output_results.files_older_atime);
-    if (config.COMPTIME_FILES_OLDER_CTIME)        clean(&globals.output_results.files_older_ctime);
-    if (config.COMPTIME_FILES_OLDER_MTIME)        clean(&globals.output_results.files_older_mtime);
-    if (config.COMPTIME_FULL_PATH_SIZE)           clean(&globals.output_results.full_path_size);
-    if (config.COMPTIME_LARGE_FILES)              clean(&globals.output_results.large_files);
-    if (config.COMPTIME_LAST_ACCESS_FILES)        clean(&globals.output_results.last_access_files);
-    if (config.COMPTIME_LEGACY_FILES)             clean(&globals.output_results.legacy_files);
-    if (config.COMPTIME_LINKS_SHORTCUTS)          clean(&globals.output_results.links_shortcuts);
-    if (config.COMPTIME_MAGIC_NUMBERS)            clean(&globals.output_results.magic_numbers);
-    if (config.COMPTIME_MANY_ITEMS_DIRECTORY)     clean(&globals.output_results.many_items_directory);
-    if (config.COMPTIME_NO_EXTENSION)             clean(&globals.output_results.no_extension);
-    if (config.COMPTIME_NONPORTABLE_CHARS)        clean(&globals.output_results.nonportable_chars);
-    if (config.COMPTIME_ONE_ITEM_DIRECTORY)       clean(&globals.output_results.one_item_directory);
-    if (config.COMPTIME_PARSE_FILES)              clean(&globals.output_results.parse_files);
-    if (config.COMPTIME_TEMPORARY_FILES)          clean(&globals.output_results.temporary_files);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     print.alignedOk(i18n.JSON_OUTPUT_HEADER) catch {};
     print.stdout("\n\n") catch {};
 }
 
+fn write(compress: bool) void {
+    const path: []const u8 = if (compress) std.fmt.bufPrint(&globals.max_path_buffer, "{s}.gz", .{globals.config_parsed.value.OUTPUT_FILE}) catch return else globals.config_parsed.value.OUTPUT_FILE;
 
+    const file = std.Io.Dir.cwd().createFile(globals.init.io, path, .{}) catch { return; };
+    defer file.close(globals.init.io);
 
+    var file_writer = file.writer(globals.init.io, &globals.io_buffer);
+    if (compress) {
+        // The compressor's history window must be at least flate.max_window_len (64 KiB).
+        var window: [std.compress.flate.max_window_len]u8 = undefined;
+        var compress_file = std.compress.flate.Compress.init(&file_writer.interface, &window, .gzip, std.compress.flate.Compress.Options.best,) catch return;
 
+        serialize(&compress_file.writer) catch return;
+        compress_file.finish()           catch return; // final block (+ footer for .gzip/.zlib)
+    } else serialize(&file_writer.interface) catch return;
 
-
-
-pub fn init() !void {
-    // Enables JSON output results to a file in disk
-    if(!config.COMPTIME_JSON_OUTPUT) return;
-    if(globals.config_parsed.value.OUTPUT_FILE.len == 0) return;
-
-    globals.output_results = config.Output {
-        .version = config.COMPTIME_VERSION,
-        .compressed_files         = if (config.COMPTIME_COMPRESSED_FILES)         std.ArrayList(config.FileResult).empty else {},
-        .confidential_files       = if (config.COMPTIME_CONFIDENTIAL_FILES)       std.ArrayList(config.FileResult).empty else {},
-        .debug_information        = if (config.COMPTIME_DEBUG_INFO)               std.ArrayList(config.FileResult).empty else {},
-        .directory_file_name_size = if (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE) std.ArrayList(config.FileResult).empty else {},
-        .duplicate_chars_files    = if (config.COMPTIME_DUPLICATE_CHARS_FILES)    std.ArrayList(config.FileResult).empty else {},
-        .empty_files              = if (config.COMPTIME_EMPTY_FILES)              std.ArrayList(config.FileResult).empty else {},
-        .end_of_line              = if (config.COMPTIME_END_OF_LINE)              std.ArrayList(config.FileResult).empty else {},
-        .empty_directories        = if (config.COMPTIME_EMPTY_DIRECTORIES)        std.ArrayList(config.FileResult).empty else {},
-        .files_newer_atime        = if (config.COMPTIME_FILES_NEWER_ATIME)        std.ArrayList(config.FileResult).empty else {},
-        .files_newer_ctime        = if (config.COMPTIME_FILES_NEWER_CTIME)        std.ArrayList(config.FileResult).empty else {},
-        .files_newer_mtime        = if (config.COMPTIME_FILES_NEWER_MTIME)        std.ArrayList(config.FileResult).empty else {},
-        .files_older_atime        = if (config.COMPTIME_FILES_OLDER_ATIME)        std.ArrayList(config.FileResult).empty else {},
-        .files_older_ctime        = if (config.COMPTIME_FILES_OLDER_CTIME)        std.ArrayList(config.FileResult).empty else {},
-        .files_older_mtime        = if (config.COMPTIME_FILES_OLDER_MTIME)        std.ArrayList(config.FileResult).empty else {},
-        .full_path_size           = if (config.COMPTIME_FULL_PATH_SIZE)           std.ArrayList(config.FileResult).empty else {},
-        .large_files              = if (config.COMPTIME_LARGE_FILES)              std.ArrayList(config.FileResult).empty else {},
-        .last_access_files        = if (config.COMPTIME_LAST_ACCESS_FILES)        std.ArrayList(config.FileResult).empty else {},
-        .legacy_files             = if (config.COMPTIME_LEGACY_FILES)             std.ArrayList(config.FileResult).empty else {},
-        .links_shortcuts          = if (config.COMPTIME_LINKS_SHORTCUTS)          std.ArrayList(config.FileResult).empty else {},
-        .magic_numbers            = if (config.COMPTIME_MAGIC_NUMBERS)            std.ArrayList(config.FileResult).empty else {},
-        .many_items_directory     = if (config.COMPTIME_MANY_ITEMS_DIRECTORY)     std.ArrayList(config.FileResult).empty else {},
-        .no_extension             = if (config.COMPTIME_NO_EXTENSION)             std.ArrayList(config.FileResult).empty else {},
-        .nonportable_chars        = if (config.COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(config.FileResult).empty else {},
-        .one_item_directory       = if (config.COMPTIME_ONE_ITEM_DIRECTORY)       std.ArrayList(config.FileResult).empty else {},
-        .parse_files              = if (config.COMPTIME_PARSE_FILES)              std.ArrayList(config.FileResult).empty else {},
-        .temporary_files          = if (config.COMPTIME_TEMPORARY_FILES)          std.ArrayList(config.FileResult).empty else {},
-
-
-
-
-
-
-
-
-
-
-    };
+    file_writer.flush() catch return;
 }
 
-fn write(json_str: []const u8, process_fn: anytype) void {
-    process_fn(json_str) catch |err| {
-        if (!config.COMPTIME_STDOUT) return;
-        if (builtin.mode == .debug) {
-            std.debug.print("{s}:{d} => {any}\n", .{ @src().file, @src().line, err });
+fn serialize(w: *std.Io.Writer) std.Io.Writer.Error!void {
+    const options: std.json.Stringify.Options = .{ .whitespace = .indent_2 };
+    //if (!plain_json_arrays) return std.json.Stringify.value(globals.output_results, options, w);
+
+    var json: std.json.Stringify = .{ .writer = w, .options = options };
+    try json.beginObject();
+
+    inline for (comptime std.meta.fieldNames(config.Output)) |name| {
+        const Field = @FieldType(config.Output, name);
+        if (comptime Field != void) {
+            try json.objectField(name);
+            if (comptime Field == std.ArrayList(config.FileResult)) {
+                try json.write(@field(globals.output_results, name).items);
+            } else {
+                try json.write(@field(globals.output_results, name));
+            }
         }
-    };
+    }
+    try json.endObject();
 }
 
-fn writeJSON(json_str: []const u8) !void {
-    std.Io.Dir.cwd().writeFile(globals.init.io, .{ .sub_path = globals.config_parsed.value.OUTPUT_FILE, .data = json_str }) catch |err| {
-        globals.exit_error.store(true, .monotonic);
-        switch (err) {
-            error.AccessDenied => {
-                try print.err(i18n.ERROR_ACCESS_DENIED_PATH, .{globals.config_parsed.value.OUTPUT_FILE});
-                print.waitForEnter() catch {};
-                return;
-            },
-            error.FileBusy => {
-                try print.err(i18n.ERROR_FILE_BUSY, .{globals.config_parsed.value.OUTPUT_FILE});
-                print.waitForEnter() catch {};
-                return;
-            },
-            else => {
-                try print.waitForEnter();
-                return;
-            },
-        }
-    };
-}
-
-fn writeJSON_compressed(json_str: []const u8) !void {
-    const compressed_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}.gz", .{ globals.config_parsed.value.OUTPUT_FILE });
-
-    const output_file = try std.Io.Dir.cwd().createFile(globals.init.io, compressed_path, .{});
-    defer output_file.close(globals.init.io);
-
-    // Output buffer for the file writer (flate.Compress needs more than 8 bytes).
-    var file_buf: [4096]u8 = undefined;
-    var file_writer = output_file.writer(globals.init.io, &file_buf);
-
-    // The compressor's history window must be at least flate.max_window_len (64 KiB).
-    var window: [std.compress.flate.max_window_len]u8 = undefined;
-    var compress: std.compress.flate.Compress = try .init(&file_writer.interface, &window, .gzip, .best);
-
-    try compress.writer.writeAll(json_str);
-    try compress.finish(); // final block (+ footer for .gzip/.zlib)
-    try file_writer.interface.flush(); // push the file buffer to disk
-}
-
+/// With an arena these frees mostly just forget the memory; they keep the code
+/// correct if the allocator is ever swapped for a real one.
 fn clean(results: *std.ArrayList(config.FileResult)) void {
     for (results.items) |fr| { globals.init.arena.allocator().free(fr.message); }
     results.deinit(globals.init.arena.allocator());
+    results.* = .empty;
 }

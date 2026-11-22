@@ -9,6 +9,7 @@ const core    = @import("core.zig");
 const globals = @import("globals");
 const i18n    = @import("i18n");
 const modules = @import("../core.zig");
+const output  = @import("output");
 const print   = @import("print");
 const std     = @import("std");
 
@@ -70,6 +71,7 @@ pub fn check(total_items: *u64, remove_duplicate: bool) !void {
             try core.groupSameFiles(&removed_list_map, &results, total_items, remove_duplicate);
             core.removeUniquesArrayList(&results);
             try print.duplicateFiles(&results, remove_duplicate);
+            try output.addDuplicates(&globals.output_results.duplicate_files, &results);
         }
     }
 }

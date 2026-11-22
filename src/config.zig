@@ -5,7 +5,7 @@
 const i18n = @import("i18n");
 const std  = @import("std");
 
-pub const COMPTIME_VERSION:                     []const u8 = "3.0";
+pub const COMPTIME_VERSION:                     []const u8 = "0.3.1";
 
 /// Configuration file, looked up in the current working directory
 pub const COMPTIME_CONFIG_FILE_NAME:            []const u8 = "config.json";
@@ -165,7 +165,6 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "ENABLE_CACHE":                    true,
     \\    "ENTER_TO_QUIT":                   false,
     \\    "MAX_JOBS":                        0,
-    \\
     \\    "COMPRESSED_FILES":                true,
     \\    "CONFIDENTIAL_FILES":              true,
     \\        "PATTERNS":                    [
@@ -293,54 +292,52 @@ pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config),
 
 pub const Status = enum { CHECK, ERROR, FOUND, OK, REMOVED, WARNING };
 
+pub const DuplicateResult = struct {
+    file_size_bytes:  usize,
+    files_duplicated: std.ArrayList([]u8),
+};
+
 pub const FileResult = struct {
-    status: Status,
+    status:  Status,
     message: []const u8,
 };
 
 pub const Output = struct {
     version: []const u8,
 
-    compressed_files:          if (COMPTIME_COMPRESSED_FILES)         std.ArrayList(FileResult) else void,
-    confidential_files:        if (COMPTIME_CONFIDENTIAL_FILES)       std.ArrayList(FileResult) else void,
-    debug_information:         if (COMPTIME_DEBUG_INFO)               std.ArrayList(FileResult) else void,
-    directory_file_name_size:  if (COMPTIME_DIRECTORY_FILE_NAME_SIZE) std.ArrayList(FileResult) else void,
-    duplicate_chars_files:     if (COMPTIME_DUPLICATE_CHARS_FILES)    std.ArrayList(FileResult) else void,
-// DUP FILES
-    empty_files:               if (COMPTIME_EMPTY_FILES)              std.ArrayList(FileResult) else void,
-    end_of_line:               if (COMPTIME_END_OF_LINE)              std.ArrayList(FileResult) else void,
-    empty_directories:         if (COMPTIME_EMPTY_DIRECTORIES)        std.ArrayList(FileResult) else void,
-    files_newer_atime:         if (COMPTIME_FILES_NEWER_ATIME)        std.ArrayList(FileResult) else void,
-    files_newer_ctime:         if (COMPTIME_FILES_NEWER_CTIME)        std.ArrayList(FileResult) else void,
-    files_newer_mtime:         if (COMPTIME_FILES_NEWER_MTIME)        std.ArrayList(FileResult) else void,
-    files_older_atime:         if (COMPTIME_FILES_OLDER_ATIME)        std.ArrayList(FileResult) else void,
-    files_older_ctime:         if (COMPTIME_FILES_OLDER_CTIME)        std.ArrayList(FileResult) else void,
-    files_older_mtime:         if (COMPTIME_FILES_OLDER_MTIME)        std.ArrayList(FileResult) else void,
-    full_path_size:            if (COMPTIME_FULL_PATH_SIZE)           std.ArrayList(FileResult) else void,
-    integrity_files:           if (COMPTIME_INTEGRITY_FILES_PARALLEL or COMPTIME_INTEGRITY_FILES) std.ArrayList(FileResult) else void,
-    large_files:               if (COMPTIME_LARGE_FILES)              std.ArrayList(FileResult) else void,
-    last_access_files:         if (COMPTIME_LAST_ACCESS_FILES)        std.ArrayList(FileResult) else void,
-    legacy_files:              if (COMPTIME_LEGACY_FILES)             std.ArrayList(FileResult) else void,
-    links_shortcuts:           if (COMPTIME_LINKS_SHORTCUTS)          std.ArrayList(FileResult) else void,
-    magic_numbers:             if (COMPTIME_MAGIC_NUMBERS)            std.ArrayList(FileResult) else void,
-    many_items_directory:      if (COMPTIME_MANY_ITEMS_DIRECTORY)     std.ArrayList(FileResult) else void,
-    no_extension:              if (COMPTIME_NO_EXTENSION)             std.ArrayList(FileResult) else void,
-    nonportable_chars:         if (COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(FileResult) else void,
-    one_item_directory:        if (COMPTIME_ONE_ITEM_DIRECTORY)       std.ArrayList(FileResult) else void,
-    parse_files:               if (COMPTIME_PARSE_FILES)              std.ArrayList(FileResult) else void,
-    temporary_files:           if (COMPTIME_TEMPORARY_FILES)          std.ArrayList(FileResult) else void,
-    utf8_encoding:             if (COMPTIME_UTF8_ENCODING)            std.ArrayList(FileResult) else void,
-    wrong_dates:               if (COMPTIME_WRONG_DATES)              std.ArrayList(FileResult) else void,
-// DUP FILE REMOVED
-    empty_files_remove:        if (COMPTIME_EMPTY_FILES_REMOVE)       std.ArrayList(FileResult) else void,
-    empty_directories_remove:  if (COMPTIME_EMPTY_DIRECTORIES_REMOVE) std.ArrayList(FileResult) else void,
-
-
-
-
-
-
-
-
-
+    compressed_files:         if (COMPTIME_COMPRESSED_FILES)         std.ArrayList(FileResult) else void,
+    confidential_files:       if (COMPTIME_CONFIDENTIAL_FILES)       std.ArrayList(FileResult) else void,
+    debug_information:        if (COMPTIME_DEBUG_INFO)               std.ArrayList(FileResult) else void,
+    directory_file_name_size: if (COMPTIME_DIRECTORY_FILE_NAME_SIZE) std.ArrayList(FileResult) else void,
+    duplicate_chars_files:    if (COMPTIME_DUPLICATE_CHARS_FILES)    std.ArrayList(FileResult) else void,
+    duplicate_files:          if (COMPTIME_DUPLICATE_FILES or COMPTIME_DUPLICATE_FILES_PARALLEL)               std.ArrayList(DuplicateResult) else void,
+    duplicate_files_remove:   if (COMPTIME_DUPLICATE_FILES_REMOVE or COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) std.ArrayList(FileResult)      else void,
+    empty_files:              if (COMPTIME_EMPTY_FILES)              std.ArrayList(FileResult) else void,
+    empty_files_remove:       if (COMPTIME_EMPTY_FILES_REMOVE)       std.ArrayList(FileResult) else void,
+    end_of_line:              if (COMPTIME_END_OF_LINE)              std.ArrayList(FileResult) else void,
+    empty_directories:        if (COMPTIME_EMPTY_DIRECTORIES)        std.ArrayList(FileResult) else void,
+    empty_directories_remove: if (COMPTIME_EMPTY_DIRECTORIES_REMOVE) std.ArrayList(FileResult) else void,
+    files_newer_atime:        if (COMPTIME_FILES_NEWER_ATIME)        std.ArrayList(FileResult) else void,
+    files_newer_ctime:        if (COMPTIME_FILES_NEWER_CTIME)        std.ArrayList(FileResult) else void,
+    files_newer_mtime:        if (COMPTIME_FILES_NEWER_MTIME)        std.ArrayList(FileResult) else void,
+    files_older_atime:        if (COMPTIME_FILES_OLDER_ATIME)        std.ArrayList(FileResult) else void,
+    files_older_ctime:        if (COMPTIME_FILES_OLDER_CTIME)        std.ArrayList(FileResult) else void,
+    files_older_mtime:        if (COMPTIME_FILES_OLDER_MTIME)        std.ArrayList(FileResult) else void,
+    full_path_size:           if (COMPTIME_FULL_PATH_SIZE)           std.ArrayList(FileResult) else void,
+    integrity_files:          if (COMPTIME_INTEGRITY_FILES_PARALLEL or COMPTIME_INTEGRITY_FILES) std.ArrayList(FileResult) else void,
+    large_files:              if (COMPTIME_LARGE_FILES)              std.ArrayList(FileResult) else void,
+    last_access_files:        if (COMPTIME_LAST_ACCESS_FILES)        std.ArrayList(FileResult) else void,
+    legacy_files:             if (COMPTIME_LEGACY_FILES)             std.ArrayList(FileResult) else void,
+    links_shortcuts:          if (COMPTIME_LINKS_SHORTCUTS)          std.ArrayList(FileResult) else void,
+    links_shortcuts_remove:   if (COMPTIME_LINKS_SHORTCUTS_REMOVE)   std.ArrayList(FileResult) else void,
+    magic_numbers:            if (COMPTIME_MAGIC_NUMBERS)            std.ArrayList(FileResult) else void,
+    many_items_directory:     if (COMPTIME_MANY_ITEMS_DIRECTORY)     std.ArrayList(FileResult) else void,
+    no_extension:             if (COMPTIME_NO_EXTENSION)             std.ArrayList(FileResult) else void,
+    nonportable_chars:        if (COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(FileResult) else void,
+    one_item_directory:       if (COMPTIME_ONE_ITEM_DIRECTORY)       std.ArrayList(FileResult) else void,
+    parse_files:              if (COMPTIME_PARSE_FILES)              std.ArrayList(FileResult) else void,
+    temporary_files:          if (COMPTIME_TEMPORARY_FILES)          std.ArrayList(FileResult) else void,
+    temporary_files_remove:   if (COMPTIME_TEMPORARY_FILES_REMOVE)   std.ArrayList(FileResult) else void,
+    utf8_encoding:            if (COMPTIME_UTF8_ENCODING)            std.ArrayList(FileResult) else void,
+    wrong_dates:              if (COMPTIME_WRONG_DATES)              std.ArrayList(FileResult) else void,
 };

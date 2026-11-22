@@ -38,10 +38,7 @@ pub fn add(file_result: *std.ArrayList(config.FileResult), message_status: confi
 
     // The process arena is thread-safe, so formatting stays outside the lock.
     const message: []const u8 = try std.fmt.allocPrint(globals.init.arena.allocator(), fmt_message, args);
-    errdefer {
-        globals.init.arena.allocator().free(message);
-        deinit();
-    }
+    errdefer globals.init.arena.allocator().free(message);
 
     buffer_arraylist_mutex.lock(globals.init.io) catch |err| {
         if (builtin.mode == .debug) {
@@ -51,8 +48,22 @@ pub fn add(file_result: *std.ArrayList(config.FileResult), message_status: confi
     };
     defer buffer_arraylist_mutex.unlock(globals.init.io);
 
-    errdefer deinit();
     try file_result.append(globals.init.arena.allocator(), .{ .status = message_status, .message = message });
+}
+
+pub fn addDuplicates(duplicate_result: *std.ArrayList(config.DuplicateResult), duplicates: *const std.ArrayList(std.ArrayList([]u8))) !void {
+    if (!enabled()) return;
+
+    for (duplicates.items) |results_list| {
+        const stat: std.Io.File.Stat = globals.file_stats.get(results_list.items[0]) orelse try std.Io.Dir.cwd().statFile(globals.init.io, results_list.items[0], .{});
+
+        var filepaths_list: std.array_list.Aligned([]u8, null) = std.ArrayList([]u8).empty;
+        for (results_list.items) |result| {
+            const data: []u8 = try globals.init.arena.allocator().dupe(u8, result);
+            try filepaths_list.append(globals.init.arena.allocator(), data);
+        }
+        try duplicate_result.append(globals.init.arena.allocator(), .{ .file_size_bytes = stat.size, .files_duplicated = filepaths_list });
+    }
 }
 
 /// Creates the empty result lists. Call once, before the first `add()`.
@@ -68,6 +79,8 @@ pub fn init() !void {
             @field(globals.output_results, name) = {}; // category compiled out
         } else if (comptime std.mem.eql(u8, name, "version")) {
             @field(globals.output_results, name) = config.COMPTIME_VERSION;
+        } else if (comptime Field == std.ArrayList(config.DuplicateResult)) {
+            @field(globals.output_results, name) = .empty;
         } else {
             @compileError("json_output.init: don't know how to initialise config.Output." ++ name);
         }
@@ -86,7 +99,9 @@ pub fn deinit() void {
 
     // Frees every list and leaves it empty (never `undefined`).
     inline for (comptime std.meta.fieldNames(config.Output)) |name| {
-        if (comptime @FieldType(config.Output, name) == std.ArrayList(config.FileResult)) clean(&@field(globals.output_results, name));
+        if (comptime @FieldType(config.Output, name) == std.ArrayList(config.FileResult))      clean(&@field(globals.output_results, name));
+        if (comptime @FieldType(config.Output, name) == std.ArrayList(config.DuplicateResult)) cleanDuplicate(&@field(globals.output_results, name));
+
     }
 
     print.alignedOk(i18n.JSON_OUTPUT_HEADER) catch {};
@@ -96,7 +111,7 @@ pub fn deinit() void {
 fn write(compress: bool) void {
     const path: []const u8 = if (compress) std.fmt.bufPrint(&globals.max_path_buffer, "{s}.gz", .{globals.config_parsed.value.OUTPUT_FILE}) catch return else globals.config_parsed.value.OUTPUT_FILE;
 
-    const file = std.Io.Dir.cwd().createFile(globals.init.io, path, .{}) catch { return; };
+    const file = std.Io.Dir.cwd().createFile(globals.init.io, path, .{}) catch return;
     defer file.close(globals.init.io);
 
     var file_writer = file.writer(globals.init.io, &globals.io_buffer);
@@ -105,8 +120,8 @@ fn write(compress: bool) void {
         var window: [std.compress.flate.max_window_len]u8 = undefined;
         var compress_file = std.compress.flate.Compress.init(&file_writer.interface, &window, .gzip, std.compress.flate.Compress.Options.best,) catch return;
 
-        serialize(&compress_file.writer) catch return;
-        compress_file.finish()           catch return; // final block (+ footer for .gzip/.zlib)
+        serialize(&compress_file.writer)     catch return;
+        compress_file.finish()               catch return; // final block (+ footer for .gzip/.zlib)
     } else serialize(&file_writer.interface) catch return;
 
     file_writer.flush() catch return;
@@ -114,9 +129,8 @@ fn write(compress: bool) void {
 
 fn serialize(w: *std.Io.Writer) std.Io.Writer.Error!void {
     const options: std.json.Stringify.Options = .{ .whitespace = .indent_2 };
-    //if (!plain_json_arrays) return std.json.Stringify.value(globals.output_results, options, w);
-
     var json: std.json.Stringify = .{ .writer = w, .options = options };
+
     try json.beginObject();
 
     inline for (comptime std.meta.fieldNames(config.Output)) |name| {
@@ -125,6 +139,24 @@ fn serialize(w: *std.Io.Writer) std.Io.Writer.Error!void {
             try json.objectField(name);
             if (comptime Field == std.ArrayList(config.FileResult)) {
                 try json.write(@field(globals.output_results, name).items);
+            } else if (comptime Field == std.ArrayList(config.DuplicateResult)) {
+                const results = @field(globals.output_results, name);
+
+                try json.beginArray();
+
+                for (results.items) |dr| {
+                    try json.beginObject();
+
+                    try json.objectField("file_size_bytes");
+                    try json.write(dr.file_size_bytes);
+
+                    try json.objectField("files_duplicated");
+                    try json.write(dr.files_duplicated.items);
+
+                    try json.endObject();
+                }
+
+                try json.endArray();
             } else {
                 try json.write(@field(globals.output_results, name));
             }
@@ -139,4 +171,19 @@ fn clean(results: *std.ArrayList(config.FileResult)) void {
     for (results.items) |fr| { globals.init.arena.allocator().free(fr.message); }
     results.deinit(globals.init.arena.allocator());
     results.* = .empty;
+}
+
+fn cleanDuplicate(results: *std.ArrayList(config.DuplicateResult)) void {
+    for (results.items) |*dr| {
+        for (dr.files_duplicated.items) |filepath| { globals.init.arena.allocator().free(filepath); }
+        dr.files_duplicated.deinit(globals.init.arena.allocator());
+    }
+    results.deinit(globals.init.arena.allocator());
+    results.* = .empty;
+}
+
+/// Free all strings in a list and deinitialize the list
+fn cleanList(comptime T: type, list: *T) void {
+    for (list.items) |value| { globals.init.arena.allocator().free(value); }
+    list.deinit(globals.init.arena.allocator());
 }

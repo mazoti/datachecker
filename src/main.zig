@@ -72,7 +72,7 @@ const commands = [_]Command{
     .{ .name = "duplicate_rmp"     , .short = "drmp" , .run = if (config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) &core.duplicateRemoveFilesParallel else null },
     .{ .name = "empty_rm"          , .short = "efrm" , .run = if (config.COMPTIME_EMPTY_FILES_REMOVE)              &core.emptyRemoveFiles             else null },
     .{ .name = "empty_dirs_rm"     , .short = "edrm" , .run = if (config.COMPTIME_EMPTY_DIRECTORIES_REMOVE)        &core.emptyRemoveDirectories       else null },
-    .{ .name = "links_rm"          , .short = "lrm " , .run = if (config.COMPTIME_LINKS_SHORTCUTS_REMOVE)          &core.linksRemoveShortcuts         else null },
+    .{ .name = "links_rm"          , .short = "lrm"  , .run = if (config.COMPTIME_LINKS_SHORTCUTS_REMOVE)          &core.linksRemoveShortcuts         else null },
     .{ .name = "temp_rm"           , .short = "trm"  , .run = if (config.COMPTIME_TEMPORARY_FILES_REMOVE)          &core.temporaryRemoveFiles         else null },
 };
 

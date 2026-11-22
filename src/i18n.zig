@@ -416,6 +416,7 @@ pub const TOTAL_MESSAGE                   = " Total:";
 pub const CHECK_MESSAGE                   = " CHECK  ";
 pub const ERROR_MESSAGE                   = " ERROR  ";
 pub const FOUND_MESSAGE                   = " FOUND  ";
+pub const KEEPING_MESSAGE                 = " KEEPING ";
 pub const OK_MESSAGE_FILE                 = "   OK   ";
 pub const REMOVING_MESSAGE                = "REMOVING ";
 pub const WARNING_MESSAGE                 = "WARNING ";

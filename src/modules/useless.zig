@@ -49,8 +49,7 @@ fn warnRemoveFile(args: anytype, remove_file: bool) !void {
 
     globals.clear_cache.store(true, .monotonic);
     try std.Io.Dir.deleteFileAbsolute(globals.init.io, args[0]);
-
-    try output.add(&globals.output_results.temporary_files, config.Status.REMOVED, "\"{s}\"", .{args[0]});
+    try output.add(&globals.output_results.temporary_files_remove, config.Status.REMOVED, "\"{s}\"", .{args[0]});
     return print.removing("\"{s}\"", .{args[0]});
 }
 

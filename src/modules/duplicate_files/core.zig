@@ -3,11 +3,13 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
+const config       = @import("config");
 const dup_parallel = @import("parallel.zig");
 const dup_single   = @import("single.zig");
 const globals      = @import("globals");
 const i18n         = @import("i18n");
 const modules      = @import("../core.zig");
+const output       = @import("output");
 const print        = @import("print");
 const std          = @import("std");
 
@@ -68,7 +70,6 @@ fn groupFileBySizeCore(stat: *const std.Io.File.Stat, map: *std.AutoArrayHashMap
 
     const gop: std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8)).GetOrPutResult = try map.getOrPut(globals.init.arena.allocator(), @intCast(stat.size));
 
-    //if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8){ .items = &.{}, .capacity = 0 };
     if (!gop.found_existing) gop.value_ptr.* = std.ArrayList([]const u8).empty;
 
     const data: []const u8 = try globals.init.arena.allocator().dupe(u8, absolute_path);
@@ -96,7 +97,10 @@ pub fn groupSameFiles(paths: *const std.ArrayList([]const u8), results: *std.Arr
                 const stat = try std.Io.Dir.cwd().statFile(globals.init.io, path, .{});
                 total_bytes.* += stat.size;
 
-                if (remove_duplicate) try std.Io.Dir.deleteFileAbsolute(globals.init.io, path);
+                if (remove_duplicate){
+                    try output.add(&globals.output_results.duplicate_files_remove, config.Status.REMOVED, "{s}", .{path});
+                    try std.Io.Dir.deleteFileAbsolute(globals.init.io, path);
+                }
 
                 continue :outer;
             }

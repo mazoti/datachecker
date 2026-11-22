@@ -121,9 +121,9 @@ pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8)), rem
 
         if (remove_duplicate) {
             // Does not remove first item
-            try stdout(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t{s}\n", .{results_list.items[0]}));
-
             if (config.COMPTIME_EMOJI_COLOR) {
+                try stdout(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t\x1b[32m{s}\x1b[0m{s}", .{i18n.KEEPING_MESSAGE, results_list.items[0]}));
+
                 for (results_list.items[1..]) |result| {
                     var i: usize = 0;
                     for (result) |c| {
@@ -135,6 +135,8 @@ pub fn duplicateFiles(duplicates: *const std.ArrayList(std.ArrayList([]u8)), rem
                     try stdout(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t\x1b[31m{s}\x1b[0m{s}", .{i18n.REMOVING_MESSAGE, globals.max_path_buffer[0..i]}));
                 }
             } else {
+                try stdout(try std.fmt.bufPrint(globals.buffer, "\n\t\t\t{s}{s}", .{i18n.KEEPING_MESSAGE, results_list.items[0]}));
+
                 for (results_list.items[1..]) |result| {
 
                     var i: usize = 0;

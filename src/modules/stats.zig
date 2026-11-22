@@ -248,6 +248,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
                 if (remove_entry) {
                     try std.Io.Dir.deleteFileAbsolute(globals.init.io, absolute_path);
                     total_items.* += 1;
+                    try output.add(&globals.output_results.links_shortcuts_remove, config.Status.REMOVED, "\"{s}\"", .{absolute_path});
                     try print.removing("\"{s}\"", .{absolute_path});
                     continue;
                 }
@@ -310,6 +311,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
             if (remove_entry) {
                 globals.clear_cache.store(true, .monotonic);
                 try std.Io.Dir.deleteFileAbsolute(globals.init.io, absolute_path);
+                try output.add(&globals.output_results.links_shortcuts_remove, config.Status.REMOVED, "\"{s}\"", .{absolute_path});
                 try print.removing("\"{s}\"", .{absolute_path});
                 continue;
             }

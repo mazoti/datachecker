@@ -33,23 +33,25 @@ const release_optimize: Optimize = .small;
 /// The executable and all the test binaries share these instances, so what the
 /// tests compile is exactly what ships.
 const Modules = struct {
-    ahocorasick: *Module,
-    config:      *Module,
-    core:        *Module,
-    data:        *Module,
-    globals:     *Module,
-    i18n:        *Module,
-    icon:        *Module,
-    main:        *Module,
-    output:      *Module,
-    print:       *Module,
+    ahocorasick:   *Module,
+    config:        *Module,
+    core:          *Module,
+    data:          *Module,
+    decorators:    *Module,
+    file_iterator: *Module,
+    globals:       *Module,
+    i18n:          *Module,
+    icon:          *Module,
+    main:          *Module,
+    output:        *Module,
+    print:         *Module,
 
     fn create(b: *std.Build, target: Resolved, optimize: Optimize) Modules {
         const ahocorasick: *Module = newModule(b, "src/ahocorasick.zig", target, optimize, &.{});
-        const i18n:        *Module = newModule(b, "src/i18n.zig", target, optimize, &.{});
+        const config:      *Module = newModule(b, "src/config.zig", target, optimize, &.{});
 
-        const config:      *Module = newModule(b, "src/config.zig", target, optimize, &.{
-            .{ .name = "i18n", .module = i18n },
+        const i18n: *Module = newModule(b, "src/i18n.zig", target, optimize, &.{
+            .{ .name = "config", .module = config },
         });
 
         const data: *Module = newModule(b, "src/data.zig", target, optimize, &.{
@@ -60,10 +62,25 @@ const Modules = struct {
             .{ .name = "ahocorasick" , .module = ahocorasick },
             .{ .name = "config"      , .module = config      },
         });
+
         const print: *Module = newModule(b, "src/print.zig", target, optimize, &.{
             .{ .name = "config"  , .module = config  },
             .{ .name = "globals" , .module = globals },
             .{ .name = "i18n"    , .module = i18n    },
+        });
+
+        const file_iterator: *Module = newModule(b, "src/file_iterator.zig", target, optimize, &.{
+            .{ .name = "config" , .module = config },
+            .{ .name = "globals" , .module = globals },
+            .{ .name = "print"   , .module = print   },
+            .{ .name = "i18n"    , .module = i18n    },
+        });
+
+        const decorators: *Module = newModule(b, "src/decorators.zig", target, optimize, &.{
+            .{ .name = "config" , .module = config },
+            .{ .name = "file_iterator" , .module = file_iterator },
+            .{ .name = "globals" , .module = globals },
+            .{ .name = "print"   , .module = print   },
         });
 
         const output: *Module = newModule(b, "src/output.zig", target, optimize, &.{
@@ -78,6 +95,11 @@ const Modules = struct {
             .{ .name = "config"      , .module = config      },
             .{ .name = "data"        , .module = data        },
             .{ .name = "globals"     , .module = globals     },
+
+            .{ .name = "decorators"  , .module = decorators  },
+            .{ .name = "file_iterator" , .module = file_iterator },
+
+
             .{ .name = "i18n"        , .module = i18n        },
             .{ .name = "output"      , .module = output      },
             .{ .name = "print"       , .module = print       },
@@ -99,16 +121,18 @@ const Modules = struct {
         });
 
         return .{
-            .ahocorasick = ahocorasick,
-            .config      = config,
-            .core        = core,
-            .data        = data,
-            .globals     = globals,
-            .i18n        = i18n,
-            .icon        = icon,
-            .main        = main,
-            .output      = output,
-            .print       = print,
+            .ahocorasick   = ahocorasick,
+            .config        = config,
+            .core          = core,
+            .data          = data,
+            .decorators    = decorators,
+            .file_iterator = file_iterator,
+            .globals       = globals,
+            .i18n          = i18n,
+            .icon          = icon,
+            .main          = main,
+            .output        = output,
+            .print         = print,
         };
     }
 };

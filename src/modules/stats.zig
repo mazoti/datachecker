@@ -2,15 +2,16 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const builtin = @import("builtin");
-const config  = @import("config");
-const core    = @import("core.zig");
-const data    = @import("data");
-const globals = @import("globals");
-const output  = @import("output");
-const i18n    = @import("i18n");
-const print   = @import("print");
-const std     = @import("std");
+const builtin       = @import("builtin");
+const config        = @import("config");
+const core          = @import("core.zig");
+const data          = @import("data");
+const globals       = @import("globals");
+const file_iterator = @import("file_iterator");
+const output        = @import("output");
+const i18n          = @import("i18n");
+const print         = @import("print");
+const std           = @import("std");
 
 /// Detects files with timestamps in the future
 pub fn checkWrongDates(args: anytype) !bool {
@@ -55,8 +56,8 @@ pub fn dirFileNameSize(args: anytype) !bool {
 
     if (dir_file_name.len > globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE) {
         globals.exit_warning.store(true, .monotonic);
-        try output.add(&globals.output_results.directory_file_name_size, config.Status.WARNING, i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
-        return print.messageSumReturn(false, args[1], print.warning, i18n.DIR_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
+        try output.add(&globals.output_results.directory_file_name_size, config.Status.WARNING, i18n.DIRECTORY_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
+        return print.messageSumReturn(false, args[1], print.warning, i18n.DIRECTORY_FILE_NAME_SIZE_WARNING, .{dir_file_name, globals.config_parsed.value.MAX_DIR_FILE_NAME_SIZE});
     }
 
     return false;
@@ -211,8 +212,8 @@ pub fn lastAccess(args: anytype) !bool {
 
     globals.exit_warning.store(true, .monotonic);
 
-    try output.add(&globals.output_results.last_access_files, config.Status.WARNING, i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
-    try print.warning(i18n.LAST_ACCESS_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
+    try output.add(&globals.output_results.last_access_files, config.Status.WARNING, i18n.LAST_ACCESS_FILES_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
+    try print.warning(i18n.LAST_ACCESS_FILES_WARNING, .{args[0], globals.config_parsed.value.LAST_ACCESS_TIME});
     args[1].* += args[2].size;
     return true;
 }
@@ -229,7 +230,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
 
     while (true) {
         var entry_tmp: ?std.Io.Dir.Walker.Entry = null;
-        if (try core.nextEntry(&walker, total_items, &entry_tmp)) continue;
+        if (try file_iterator.nextEntry(&walker, total_items, &entry_tmp)) continue;
 
         const entry = entry_tmp orelse return;
 
@@ -283,7 +284,7 @@ fn linkShortcutsOrRemove(total_items: *u64, remove_entry: bool) !void {
 
         // Adds the file or folder to cache
         if (remove_entry == false) {
-            if (try core.fetchStatWithErrorHandling(absolute_path, total_items) == null) continue;
+            if (try file_iterator.fetchStatWithErrorHandling(absolute_path, total_items) == null) continue;
         }
 
         if (std.ascii.eqlIgnoreCase(std.fs.path.extension(absolute_path), ".lnk")) {
@@ -330,20 +331,20 @@ pub fn linkShortcuts(total_items: *u64) !bool {
 }
 
 /// Detects directories exceeding configured maximum
-pub fn manyItemsDirectory(args: anytype) !bool {
-    if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORY) {
+pub fn manyItemsDirectories(args: anytype) !bool {
+    if (try countItems(args[0]) > globals.config_parsed.value.MAX_ITEMS_DIRECTORIES) {
         globals.exit_warning.store(true, .monotonic);
-        try output.add(&globals.output_results.many_items_directory, config.Status.WARNING, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
-        return print.messageSumReturn(false, args[1], print.warning, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORY});
+        try output.add(&globals.output_results.many_items_directories, config.Status.WARNING, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORIES});
+        return print.messageSumReturn(false, args[1], print.warning, i18n.MANY_ITEMS_DIRECTORIES_WARNING, .{args[0], globals.config_parsed.value.MAX_ITEMS_DIRECTORIES});
     }
     return false;
 }
 
 /// Detects directories with one item only
-pub fn oneItemDirectory(args: anytype) !bool {
+pub fn oneItemDirectories(args: anytype) !bool {
     if (try countItems(args[0]) == 1) {
         globals.exit_warning.store(true, .monotonic);
-        try output.add(&globals.output_results.one_item_directory, config.Status.WARNING, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
+        try output.add(&globals.output_results.one_item_directories, config.Status.WARNING, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
         return print.messageSumReturn(false, args[1], print.warning, i18n.ONE_ITEM_DIRECTORIES_WARNING, .{args[0]});
     }
     return false;

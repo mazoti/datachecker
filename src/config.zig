@@ -2,31 +2,41 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const i18n = @import("i18n");
 const std  = @import("std");
 
+/// Version in the banner and JSON output
 pub const COMPTIME_VERSION:                     []const u8 = "0.3.1";
 
 /// Configuration file, looked up in the current working directory
 pub const COMPTIME_CONFIG_FILE_NAME:            []const u8 = "config.json";
 
 /// Compile-time flags to determine which features are compiled into the binary
-pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 16384;
-
-pub const COMPTIME_EMOJI_COLOR:                       bool = true;
+pub const COMPTIME_IO_BUFFER_SIZE:                   usize = 2048;
 pub const COMPTIME_IGNORE_PATH_PATTERNS:              bool = true;
 pub const COMPTIME_STDOUT:                            bool = true;
+    pub const COMPTIME_EMOJI_COLOR:                   bool = true;
+
+// -----------------------------------------------------------------------------
+// Compile-time feature flags.
+//
+// Setting a flag to `false` removes the feature from the binary: its help text
+// (see `HELP`) and its result storage (see `Output`) disappear with it.
+// -----------------------------------------------------------------------------
 
 pub const COMPTIME_COMPRESSED_FILES:                  bool = true;
 pub const COMPTIME_CONFIDENTIAL_FILES:                bool = true;
 pub const COMPTIME_DEBUG_INFO:                        bool = true;
 pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE:          bool = true;
 pub const COMPTIME_DUPLICATE_CHARS_FILES:             bool = true;
-pub const COMPTIME_DUPLICATE_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_DUPLICATE_FILES:                   bool = true;
+pub const COMPTIME_DUPLICATE_FILES_PARALLEL:          bool = true;
+pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE:   bool = true;
+pub const COMPTIME_DUPLICATE_FILES_REMOVE:            bool = true;
 pub const COMPTIME_EMPTY_FILES:                       bool = true;
+pub const COMPTIME_EMPTY_FILES_REMOVE:                bool = true;
 pub const COMPTIME_END_OF_LINE:                       bool = true;
 pub const COMPTIME_EMPTY_DIRECTORIES:                 bool = true;
+pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE:          bool = true;
 pub const COMPTIME_FILES_NEWER_ATIME:                 bool = true;
 pub const COMPTIME_FILES_NEWER_CTIME:                 bool = true;
 pub const COMPTIME_FILES_NEWER_MTIME:                 bool = true;
@@ -37,68 +47,22 @@ pub const COMPTIME_FULL_PATH_SIZE:                    bool = true;
 pub const COMPTIME_INTEGRITY_FILES_PARALLEL:          bool = true;
 pub const COMPTIME_INTEGRITY_FILES:                   bool = true;
 pub const COMPTIME_JSON_OUTPUT:                       bool = true;
-pub const COMPTIME_JSON_OUTPUT_COMPRESSED:            bool = true;
+    pub const COMPTIME_JSON_OUTPUT_COMPRESSED:        bool = true;
 pub const COMPTIME_LARGE_FILES:                       bool = true;
 pub const COMPTIME_LAST_ACCESS_FILES:                 bool = true;
 pub const COMPTIME_LEGACY_FILES:                      bool = true;
 pub const COMPTIME_LINKS_SHORTCUTS:                   bool = true;
+pub const COMPTIME_LINKS_SHORTCUTS_REMOVE:            bool = true;
 pub const COMPTIME_MAGIC_NUMBERS:                     bool = true;
-pub const COMPTIME_MANY_ITEMS_DIRECTORY:              bool = true;
+pub const COMPTIME_MANY_ITEMS_DIRECTORIES:            bool = true;
 pub const COMPTIME_NO_EXTENSION:                      bool = true;
 pub const COMPTIME_NONPORTABLE_CHARS:                 bool = true;
-pub const COMPTIME_ONE_ITEM_DIRECTORY:                bool = true;
+pub const COMPTIME_ONE_ITEM_DIRECTORIES:              bool = true;
 pub const COMPTIME_PARSE_FILES:                       bool = true;
 pub const COMPTIME_TEMPORARY_FILES:                   bool = true;
+pub const COMPTIME_TEMPORARY_FILES_REMOVE:            bool = true;
 pub const COMPTIME_UTF8_ENCODING:                     bool = true;
 pub const COMPTIME_WRONG_DATES:                       bool = true;
-
-pub const COMPTIME_DUPLICATE_FILES_REMOVE:            bool = true;
-pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE:   bool = true;
-pub const COMPTIME_EMPTY_FILES_REMOVE:                bool = true;
-pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE:          bool = true;
-pub const COMPTIME_LINKS_SHORTCUTS_REMOVE:            bool = true;
-pub const COMPTIME_TEMPORARY_FILES_REMOVE:            bool = true;
-
-pub const HELP = i18n.USAGE
-    ++ (if (COMPTIME_COMPRESSED_FILES)                i18n.COMPTIME_COMPRESSED_FILES                else "")
-    ++ (if (COMPTIME_CONFIDENTIAL_FILES)              i18n.COMPTIME_CONFIDENTIAL_FILES              else "")
-    ++ (if (COMPTIME_DEBUG_INFO)                      i18n.COMPTIME_DEBUG_INFO                      else "")
-    ++ (if (COMPTIME_DIRECTORY_FILE_NAME_SIZE)        i18n.COMPTIME_DIRECTORY_FILE_NAME_SIZE        else "")
-    ++ (if (COMPTIME_DUPLICATE_CHARS_FILES)           i18n.COMPTIME_DUPLICATE_CHARS_FILES           else "")
-    ++ (if (COMPTIME_DUPLICATE_FILES_PARALLEL)        i18n.COMPTIME_DUPLICATE_FILES_PARALLEL        else "")
-    ++ (if (COMPTIME_DUPLICATE_FILES_REMOVE)          i18n.COMPTIME_DUPLICATE_FILES_REMOVE          else "")
-    ++ (if (COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) i18n.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE else "")
-    ++ (if (COMPTIME_DUPLICATE_FILES)                 i18n.COMPTIME_DUPLICATE_FILES                 else "")
-    ++ (if (COMPTIME_EMPTY_FILES_REMOVE)              i18n.COMPTIME_EMPTY_FILES_REMOVE              else "")
-    ++ (if (COMPTIME_EMPTY_FILES)                     i18n.COMPTIME_EMPTY_FILES                     else "")
-    ++ (if (COMPTIME_EMPTY_DIRECTORIES_REMOVE)        i18n.COMPTIME_EMPTY_DIRECTORIES_REMOVE        else "")
-    ++ (if (COMPTIME_EMPTY_DIRECTORIES)               i18n.COMPTIME_EMPTY_DIRECTORIES               else "")
-    ++ (if (COMPTIME_END_OF_LINE)                     i18n.COMPTIME_END_OF_LINE                     else "")
-    ++ (if (COMPTIME_FILES_NEWER_ATIME)               i18n.COMPTIME_FILES_NEWER_ATIME               else "")
-    ++ (if (COMPTIME_FILES_NEWER_CTIME)               i18n.COMPTIME_FILES_NEWER_CTIME               else "")
-    ++ (if (COMPTIME_FILES_NEWER_MTIME)               i18n.COMPTIME_FILES_NEWER_MTIME               else "")
-    ++ (if (COMPTIME_FILES_OLDER_ATIME)               i18n.COMPTIME_FILES_OLDER_ATIME               else "")
-    ++ (if (COMPTIME_FILES_OLDER_CTIME)               i18n.COMPTIME_FILES_OLDER_CTIME               else "")
-    ++ (if (COMPTIME_FILES_OLDER_MTIME)               i18n.COMPTIME_FILES_OLDER_MTIME               else "")
-    ++ (if (COMPTIME_FULL_PATH_SIZE)                  i18n.COMPTIME_FULL_PATH_SIZE                  else "")
-    ++ (if (COMPTIME_INTEGRITY_FILES_PARALLEL)        i18n.COMPTIME_INTEGRITY_FILES_PARALLEL        else "")
-    ++ (if (COMPTIME_INTEGRITY_FILES)                 i18n.COMPTIME_INTEGRITY_FILES                 else "")
-    ++ (if (COMPTIME_LARGE_FILES)                     i18n.COMPTIME_LARGE_FILES                     else "")
-    ++ (if (COMPTIME_LAST_ACCESS_FILES)               i18n.COMPTIME_LAST_ACCESS_FILES               else "")
-    ++ (if (COMPTIME_LEGACY_FILES)                    i18n.COMPTIME_LEGACY_FILES                    else "")
-    ++ (if (COMPTIME_LINKS_SHORTCUTS_REMOVE)          i18n.COMPTIME_LINKS_SHORTCUTS_REMOVE          else "")
-    ++ (if (COMPTIME_LINKS_SHORTCUTS)                 i18n.COMPTIME_LINKS_SHORTCUTS                 else "")
-    ++ (if (COMPTIME_MAGIC_NUMBERS)                   i18n.COMPTIME_MAGIC_NUMBERS                   else "")
-    ++ (if (COMPTIME_MANY_ITEMS_DIRECTORY)            i18n.COMPTIME_MANY_ITEMS_DIRECTORY            else "")
-    ++ (if (COMPTIME_NO_EXTENSION)                    i18n.COMPTIME_NO_EXTENSION                    else "")
-    ++ (if (COMPTIME_NONPORTABLE_CHARS)               i18n.COMPTIME_NONPORTABLE_CHARS               else "")
-    ++ (if (COMPTIME_ONE_ITEM_DIRECTORY)              i18n.COMPTIME_ONE_ITEM_DIRECTORY              else "")
-    ++ (if (COMPTIME_PARSE_FILES)                     i18n.COMPTIME_PARSE_FILES                     else "")
-    ++ (if (COMPTIME_TEMPORARY_FILES_REMOVE)          i18n.COMPTIME_TEMPORARY_FILES_REMOVE          else "")
-    ++ (if (COMPTIME_TEMPORARY_FILES)                 i18n.COMPTIME_TEMPORARY_FILES                 else "")
-    ++ (if (COMPTIME_UTF8_ENCODING)                   i18n.COMPTIME_UTF8_ENCODING                   else "")
-    ++ (if (COMPTIME_WRONG_DATES)                     i18n.COMPTIME_WRONG_DATES                     else "")
-;
 
 /// Configuration structure that holds runtime-configurable parameters
 pub const Config = struct {
@@ -138,19 +102,19 @@ pub const Config = struct {
         IGNORE_PATTERNS:        [][]const u8 = &[_][]const u8{},
     INTEGRITY_FILES_PARALLEL:   bool         = true,
     INTEGRITY_FILES:            bool         = false,
-    PARSE_FILES:                bool         = true,
     LARGE_FILES:                bool         = true,
-        LARGE_FILE_SIZE:        u64          = 107374182400, // 100 GB
+        LARGE_FILE_SIZE:        u64          = 107374182400, // 100 GiB
     LAST_ACCESS_FILES:          bool         = true,
         LAST_ACCESS_TIME:       u64          = 31536000000000000, // ~1 year in nanoseconds
     LEGACY_FILES:               bool         = true,
     LINKS_SHORTCUTS:            bool         = true,
     MAGIC_NUMBERS:              bool         = true, // Validates file signatures
-    MANY_ITEMS_DIRECTORY:       bool         = true,
-        MAX_ITEMS_DIRECTORY:    u32          = 10000,
+    MANY_ITEMS_DIRECTORIES:     bool         = true,
+        MAX_ITEMS_DIRECTORIES:  u32          = 10000,
     NO_EXTENSION:               bool         = true,
     NONPORTABLE_CHARS:          bool         = true,
-    ONE_ITEM_DIRECTORY:         bool         = true, // Detects unnecessary directory nesting
+    ONE_ITEM_DIRECTORIES:       bool         = true, // Detects unnecessary directory nesting
+    PARSE_FILES:                bool         = true,
     TEMPORARY_FILES:            bool         = true, // Looks for for .tmp, .temp, ~ and .swp
     UTF8_ENCODING:              bool         = true,
     WRONG_DATES:                bool         = true,
@@ -187,7 +151,7 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\            "credit card",                         "Credit card",                         "Credit Card",                       "CREDIT CARD",
     \\            "customer list",                       "Customer List",                       "CUSTOMER LIST",
     \\            "card verification value",             "Card Verification Value",             "CARD VERIFICATION VALUE",           "CVV",
-    \\            "date of birth",                       "Date of Birth",                       "DATA OF BIRTH",                     "DOB",
+    \\            "date of birth",                       "Date of Birth",                       "DATE OF BIRTH",                     "DOB",
     \\            "delete this email",                   "Delete this email",                   "DELETE THIS EMAIL",
     \\            "deposition",                          "Deposition",                          "DEPOSITION",
     \\            "destroy after",                       "Destroy After",                       "DESTROY AFTER",
@@ -272,11 +236,11 @@ pub const DEFAULT_JSON_CONFIG: []const u8 =
     \\    "LEGACY_FILES":                    true,
     \\    "LINKS_SHORTCUTS":                 true,
     \\    "MAGIC_NUMBERS":                   true,
-    \\    "MANY_ITEMS_DIRECTORY":            true,
-    \\        "MAX_ITEMS_DIRECTORY":         10000,
+    \\    "MANY_ITEMS_DIRECTORIES":          true,
+    \\        "MAX_ITEMS_DIRECTORIES":       10000,
     \\    "NO_EXTENSION":                    true,
     \\    "NONPORTABLE_CHARS":               true,
-    \\    "ONE_ITEM_DIRECTORY":              true,
+    \\    "ONE_ITEM_DIRECTORIES":            true,
     \\    "PARSE_FILES":                     true,
     \\    "TEMPORARY_FILES":                 true,
     \\    "UTF8_ENCODING":                   true,
@@ -293,7 +257,7 @@ pub fn deinit(config_file: *[]const u8, config_parsed: *std.json.Parsed(Config),
 pub const Status = enum { CHECK, ERROR, FOUND, OK, REMOVED, WARNING };
 
 pub const DuplicateResult = struct {
-    file_size_bytes:  usize,
+    file_size_bytes:  u64,
     files_duplicated: std.ArrayList([]u8),
 };
 
@@ -331,13 +295,19 @@ pub const Output = struct {
     links_shortcuts:          if (COMPTIME_LINKS_SHORTCUTS)          std.ArrayList(FileResult) else void,
     links_shortcuts_remove:   if (COMPTIME_LINKS_SHORTCUTS_REMOVE)   std.ArrayList(FileResult) else void,
     magic_numbers:            if (COMPTIME_MAGIC_NUMBERS)            std.ArrayList(FileResult) else void,
-    many_items_directory:     if (COMPTIME_MANY_ITEMS_DIRECTORY)     std.ArrayList(FileResult) else void,
+    many_items_directories:   if (COMPTIME_MANY_ITEMS_DIRECTORIES)   std.ArrayList(FileResult) else void,
     no_extension:             if (COMPTIME_NO_EXTENSION)             std.ArrayList(FileResult) else void,
     nonportable_chars:        if (COMPTIME_NONPORTABLE_CHARS)        std.ArrayList(FileResult) else void,
-    one_item_directory:       if (COMPTIME_ONE_ITEM_DIRECTORY)       std.ArrayList(FileResult) else void,
+    one_item_directories:     if (COMPTIME_ONE_ITEM_DIRECTORIES)     std.ArrayList(FileResult) else void,
     parse_files:              if (COMPTIME_PARSE_FILES)              std.ArrayList(FileResult) else void,
     temporary_files:          if (COMPTIME_TEMPORARY_FILES)          std.ArrayList(FileResult) else void,
     temporary_files_remove:   if (COMPTIME_TEMPORARY_FILES_REMOVE)   std.ArrayList(FileResult) else void,
     utf8_encoding:            if (COMPTIME_UTF8_ENCODING)            std.ArrayList(FileResult) else void,
     wrong_dates:              if (COMPTIME_WRONG_DATES)              std.ArrayList(FileResult) else void,
 };
+
+comptime {
+    if (COMPTIME_EMOJI_COLOR and !COMPTIME_STDOUT)                 @compileError("COMPTIME_EMOJI_COLOR requires COMPTIME_STDOUT to be true");
+    if (COMPTIME_JSON_OUTPUT and !COMPTIME_JSON_OUTPUT_COMPRESSED) @compileError("COMPTIME_JSON_OUTPUT requires COMPTIME_JSON_OUTPUT_COMPRESSED to be true");
+    if (COMPTIME_IO_BUFFER_SIZE < 1024)                            @compileError("COMPTIME_IO_BUFFER_SIZE must be at least 1024");
+}

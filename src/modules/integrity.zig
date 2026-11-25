@@ -2,13 +2,14 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const config  = @import("config");
-const core    = @import("core.zig");
-const globals = @import("globals");
-const i18n    = @import("i18n");
-const output  = @import("output");
-const print   = @import("print");
-const std     = @import("std");
+const config        = @import("config");
+const core          = @import("core.zig");
+const file_iterator = @import("file_iterator");
+const globals       = @import("globals");
+const i18n          = @import("i18n");
+const output        = @import("output");
+const print         = @import("print");
+const std           = @import("std");
 
 pub fn checkParallel(total_items: *u64) !bool {
     const max_jobs_limit: std.Io.Limit = std.Io.Limit.limited64(globals.config_parsed.value.MAX_JOBS);
@@ -22,11 +23,11 @@ pub fn checkParallel(total_items: *u64) !bool {
     globals.group = std.Io.Group.init;
     defer globals.group.cancel(io);
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
-    defer file_iterator.deinit();
+    var fi: file_iterator.FileIterator = try file_iterator.FileIterator.init(globals.init.arena.allocator());
+    defer fi.deinit();
 
-    while (try file_iterator.next(total_items)) |entry| {
-        if (file_iterator.using_cache) {
+    while (try fi.next(total_items)) |entry| {
+        if (fi.using_cache) {
             const extension: []const u8 = std.fs.path.extension(entry.path);
             if (extension.len == 0) continue;
 
@@ -50,10 +51,10 @@ pub fn checkParallel(total_items: *u64) !bool {
 }
 
 pub fn checkSingle(total_items: *u64) !bool {
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
-    defer file_iterator.deinit();
+    var fi: file_iterator.FileIterator = try file_iterator.FileIterator.init(globals.init.arena.allocator());
+    defer fi.deinit();
 
-    while (try file_iterator.next(total_items)) |entry| {
+    while (try fi.next(total_items)) |entry| {
         _ = hashSingle(entry.path, total_items) catch |err| switch (err) {
             error.ReadOnlyFileSystem => {
                 try output.add(&globals.output_results.integrity_files, config.Status.ERROR, i18n.ERROR_READ_ONLY_FS, .{entry.path});

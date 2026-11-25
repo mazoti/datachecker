@@ -3,15 +3,16 @@
 //!
 //!
 
-const ahocorasick = @import("ahocorasick");
-const config      = @import("config");
-const core        = @import("core.zig");
-const data        = @import("data");
-const globals     = @import("globals");
-const output      = @import("output");
-const i18n        = @import("i18n");
-const print       = @import("print");
-const std         = @import("std");
+const ahocorasick   = @import("ahocorasick");
+const config        = @import("config");
+const core          = @import("core.zig");
+const data          = @import("data");
+const globals       = @import("globals");
+const file_iterator = @import("file_iterator");
+const output        = @import("output");
+const i18n          = @import("i18n");
+const print         = @import("print");
+const std           = @import("std");
 
 ///
 pub fn endOfLine(total_items: *u64) !bool {
@@ -37,10 +38,10 @@ pub fn endOfLine(total_items: *u64) !bool {
     // Set failure links
     try ac.configure();
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
-    defer file_iterator.deinit();
+    var fi: file_iterator.FileIterator = try file_iterator.FileIterator.init(globals.init.arena.allocator());
+    defer fi.deinit();
 
-    while (try file_iterator.next(total_items)) |entry| {
+    while (try fi.next(total_items)) |entry| {
 
         const lowercase_extension = core.getExtensionLowercase(entry.path) orelse continue;
 

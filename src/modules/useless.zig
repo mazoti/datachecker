@@ -3,16 +3,17 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const ahocorasick     = @import("ahocorasick");
-const builtin         = @import("builtin");
-const config          = @import("config");
-const core            = @import("core.zig");
-const data            = @import("data");
-const globals         = @import("globals");
-const output          = @import("output");
-const i18n            = @import("i18n");
-const print           = @import("print");
-const std             = @import("std");
+const ahocorasick   = @import("ahocorasick");
+const builtin       = @import("builtin");
+const config        = @import("config");
+const core          = @import("core.zig");
+const data          = @import("data");
+const file_iterator = @import("file_iterator");
+const globals       = @import("globals");
+const output        = @import("output");
+const i18n          = @import("i18n");
+const print         = @import("print");
+const std           = @import("std");
 
 fn checkTempFiles(args: anytype, remove_file: bool) !void {
     // Extract and normalize extension for case-insensitive matching
@@ -147,10 +148,10 @@ pub fn temporaryFiles(total_items: *u64) !bool {
     var ac = try ahocorasick.AhoCorasick.init(globals.init.arena.allocator(), &data.CONTAINS);
     defer ac.deinit();
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
-    defer file_iterator.deinit();
+    var fi: file_iterator.FileIterator = try file_iterator.FileIterator.init(globals.init.arena.allocator());
+    defer fi.deinit();
 
-    while (try file_iterator.next(total_items)) |entry| {
+    while (try fi.next(total_items)) |entry| {
         try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, false);
     }
 
@@ -163,10 +164,10 @@ pub fn temporaryRemoveFiles(total_items: *u64) !bool {
     var ac = try ahocorasick.AhoCorasick.init(globals.init.arena.allocator(), &data.CONTAINS);
     defer ac.deinit();
 
-    var file_iterator: core.FileIterator = try core.FileIterator.init(globals.init.arena.allocator());
-    defer file_iterator.deinit();
+    var fi: file_iterator.FileIterator = try file_iterator.FileIterator.init(globals.init.arena.allocator());
+    defer fi.deinit();
 
-    while (try file_iterator.next(total_items)) |entry| {
+    while (try fi.next(total_items)) |entry| {
         try checkTempFiles(.{entry.path, total_items, &entry.stat, &ac}, true);
     }
 

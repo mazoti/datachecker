@@ -345,7 +345,7 @@ pub fn stopError(comptime print_message: []const u8) !void {
 /// Prints help and exits
 pub fn printHelp() !void {
     try stdout("\x1b[1A");
-    try stdout(config.HELP);
+    try stdout(i18n.HELP);
     try stdout("\x1b[1A\x1b[1A");
 }
 

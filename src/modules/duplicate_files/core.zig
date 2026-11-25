@@ -3,15 +3,16 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const config       = @import("config");
-const dup_parallel = @import("parallel.zig");
-const dup_single   = @import("single.zig");
-const globals      = @import("globals");
-const i18n         = @import("i18n");
-const modules      = @import("../core.zig");
-const output       = @import("output");
-const print        = @import("print");
-const std          = @import("std");
+const config        = @import("config");
+const dup_parallel  = @import("parallel.zig");
+const dup_single    = @import("single.zig");
+const file_iterator = @import("file_iterator");
+const globals       = @import("globals");
+const i18n          = @import("i18n");
+const modules       = @import("../core.zig");
+const output        = @import("output");
+const print         = @import("print");
+const std           = @import("std");
 
 pub fn check(total_items: *u64) !bool {
     try dup_single.check(total_items, false);
@@ -56,10 +57,10 @@ fn cleanList(comptime T: type, list: *T) void {
 /// Uses cache-first strategy to avoid redundant filesystem stat calls
 pub fn groupFileBySize(map: *std.AutoArrayHashMapUnmanaged(usize, std.ArrayList([]const u8))) !void {
     var total_items: u64 = 0;
-    var file_iterator: modules.FileIterator = try modules.FileIterator.init(globals.init.arena.allocator());
-    defer file_iterator.deinit();
+    var fi: file_iterator.FileIterator = try file_iterator.FileIterator.init(globals.init.arena.allocator());
+    defer fi.deinit();
 
-    while (try file_iterator.next(&total_items)) |entry| {
+    while (try fi.next(&total_items)) |entry| {
         try groupFileBySizeCore(&entry.stat, map, entry.path);
     }
 }

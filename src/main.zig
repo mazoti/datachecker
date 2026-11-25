@@ -58,10 +58,10 @@ const commands = [_]Command{
     .{ .name = "legacy_files"      , .short = "lef"  , .run = if (config.COMPTIME_LEGACY_FILES)                    &core.legacyFiles                  else null },
     .{ .name = "links"             , .short = "l"    , .run = if (config.COMPTIME_LINKS_SHORTCUTS)                 &core.linksShortcuts               else null },
     .{ .name = "magic_numbers"     , .short = "mn"   , .run = if (config.COMPTIME_MAGIC_NUMBERS)                   &core.magicNumbers                 else null },
-    .{ .name = "many_items"        , .short = "mi"   , .run = if (config.COMPTIME_MANY_ITEMS_DIRECTORY)            &core.manyItemsDirectories         else null },
+    .{ .name = "many_items"        , .short = "mi"   , .run = if (config.COMPTIME_MANY_ITEMS_DIRECTORIES)          &core.manyItemsDirectories         else null },
     .{ .name = "no_extension"      , .short = "ne"   , .run = if (config.COMPTIME_NO_EXTENSION)                    &core.noExtension                  else null },
     .{ .name = "nonportable_chars" , .short = "nc"   , .run = if (config.COMPTIME_NONPORTABLE_CHARS)               &core.nonPortableChars             else null },
-    .{ .name = "one_item_dir"      , .short = "oid"  , .run = if (config.COMPTIME_ONE_ITEM_DIRECTORY)              &core.oneItemDirectories           else null },
+    .{ .name = "one_item_dir"      , .short = "oid"  , .run = if (config.COMPTIME_ONE_ITEM_DIRECTORIES)            &core.oneItemDirectories           else null },
     .{ .name = "parse_files"       , .short = "pf"   , .run = if (config.COMPTIME_PARSE_FILES)                     &core.parseFiles                   else null },
     .{ .name = "temp_files"        , .short = "tf"   , .run = if (config.COMPTIME_TEMPORARY_FILES)                 &core.temporaryFiles               else null },
     .{ .name = "utf8"              , .short = "u"    , .run = if (config.COMPTIME_UTF8_ENCODING)                   &core.utf8Encoding                 else null },
@@ -69,7 +69,7 @@ const commands = [_]Command{
 
     // Removals
     .{ .name = "duplicate_rm"      , .short = "drm"  , .run = if (config.COMPTIME_DUPLICATE_FILES_REMOVE)          &core.duplicateRemoveFiles         else null },
-    .{ .name = "duplicate_rmp"     , .short = "drmp" , .run = if (config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) &core.duplicateRemoveFilesParallel else null },
+    .{ .name = "duplicate_rmt"     , .short = "drmt" , .run = if (config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) &core.duplicateRemoveFilesParallel else null },
     .{ .name = "empty_rm"          , .short = "efrm" , .run = if (config.COMPTIME_EMPTY_FILES_REMOVE)              &core.emptyRemoveFiles             else null },
     .{ .name = "empty_dirs_rm"     , .short = "edrm" , .run = if (config.COMPTIME_EMPTY_DIRECTORIES_REMOVE)        &core.emptyRemoveDirectories       else null },
     .{ .name = "links_rm"          , .short = "lrm"  , .run = if (config.COMPTIME_LINKS_SHORTCUTS_REMOVE)          &core.linksRemoveShortcuts         else null },

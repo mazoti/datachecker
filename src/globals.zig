@@ -3,17 +3,11 @@
 //! Copyright © 2025-present Marcos Mazoti
 
 const ahocorasick = @import("ahocorasick");
-const std         = @import("std");
 const config      = @import("config");
+const std         = @import("std");
 
 /// Defines the hash map type
 pub const FileStatMap: type = std.StringHashMap(std.Io.File.Stat);
-
-/// The full path string of the processed input directory
-pub var absolute_input_path: []const u8 = undefined;
-
-/// The buffer with size specified by user
-pub var buffer: []u8 = undefined;
 
 // Prevents bugs with odd sizes of buffer
 pub var buffer_size:  usize = undefined;
@@ -46,12 +40,6 @@ pub var ignore_path_patterns: ahocorasick.AhoCorasick = undefined;
 /// The processed input directory
 pub var input_directory: std.Io.Dir = undefined;
 
-/// The buffer with size specified by config.zig
-pub var io_buffer: [config.COMPTIME_IO_BUFFER_SIZE]u8 = undefined;
-
-/// Thread-local buffer for storing file paths
-pub var max_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-
 /// Memory max usage
 pub var memory_limit: usize = undefined;
 
@@ -61,8 +49,20 @@ pub var semaphore: std.Io.Semaphore = undefined;
 pub var group:     std.Io.Group     = undefined;
 
 /// Nanoseconds since 1970
-pub var now: std.Io.Timestamp = .{ .nanoseconds = 0 }; // substitui now_stat
+pub var now: std.Io.Timestamp = .{ .nanoseconds = 0 };
 
 pub var init: *const std.process.Init = undefined;
 
 pub var output_results: config.Output = undefined;
+
+/// The full path string of the processed input directory
+pub var absolute_input_path: []const u8 = undefined;
+
+/// The buffer with size specified by user
+pub var buffer: []u8 = undefined;
+
+/// The buffer with size specified by config.zig
+pub var io_buffer: [config.COMPTIME_IO_BUFFER_SIZE]u8 = undefined;
+
+/// Buffer for storing file paths
+pub var max_path_buffer: [std.fs.max_path_bytes]u8 = undefined;

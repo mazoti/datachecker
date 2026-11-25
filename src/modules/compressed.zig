@@ -2,13 +2,13 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
 
-const config           = @import("config");
-const core             = @import("core.zig");
-const globals          = @import("globals");
-const i18n             = @import("i18n");
-const output           = @import("output");
-const print            = @import("print");
-const std              = @import("std");
+const config  = @import("config");
+const core    = @import("core.zig");
+const globals = @import("globals");
+const i18n    = @import("i18n");
+const output  = @import("output");
+const print   = @import("print");
+const std     = @import("std");
 
 const CompressFunction = *const fn ([]const u8, *u64, *std.Io.File.Reader) anyerror!bool;
 

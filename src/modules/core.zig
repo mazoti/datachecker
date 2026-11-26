@@ -155,6 +155,11 @@ pub fn oneItemDirectories() !void {
     try decorators.decorate(config.COMPTIME_ONE_ITEM_DIRECTORIES, true, true, decorators.Filter.Directories, stats.oneItemDirectories, i18n.ONE_ITEM_DIRECTORIES_HEADER, i18n.DIRECTORIES_TOTAL, i18n.DIRECTORIES_TOTALS);
 }
 
+/// Enables files and folders ownerships and permissions checks
+pub fn ownershipsPermissions() !void {
+    try decorators.decorate(config.COMPTIME_OWNERSHIPS_PERMISSIONS, true, false, decorators.Filter.Both, stats.ownershipsPermissions, i18n.OWNERSHIPS_PERMISSIONS_HEADER, i18n.DIR_FILE_NAME_SIZE_TOTAL, i18n.DIR_FILE_NAME_SIZE_TOTALS);
+}
+
 /// Enables parse files
 pub fn parseFiles() !void {
     try decorators.decorate(config.COMPTIME_PARSE_FILES, true, false, decorators.Filter.Files, parser.parseFiles, i18n.PARSE_FILES_HEADER, i18n.PARSE_FILES_TOTAL, i18n.PARSE_FILES_TOTALS);
@@ -325,6 +330,8 @@ pub fn run() !void {
     try decorators.decorate      (config.COMPTIME_ONE_ITEM_DIRECTORIES,     globals.config_parsed.value.ONE_ITEM_DIRECTORIES,     true,                           decorators.Filter.Directories,              stats.oneItemDirectories,       i18n.ONE_ITEM_DIRECTORIES_HEADER,   i18n.DIRECTORIES_TOTAL,           i18n.DIRECTORIES_TOTALS          );
     try decorators.decorateWalker(config.COMPTIME_TEMPORARY_FILES,          globals.config_parsed.value.TEMPORARY_FILES,          useless.temporaryFiles,         i18n.TEMPORARY_FILES_HEADER,     i18n.BYTES_TOTAL,               i18n.BYTES_TOTALS                                                                                      );
     try decorators.decorate      (config.COMPTIME_NONPORTABLE_CHARS,        globals.config_parsed.value.NONPORTABLE_CHARS,        true,                           decorators.Filter.Both,                     stats.nonPortableCharacters,    i18n.NONPORTABLE_CHARS_HEADER,      i18n.NONPORTABLE_CHARS_TOTAL,     i18n.NONPORTABLE_CHARS_TOTALS    );
+    try decorators.decorate      (config.COMPTIME_OWNERSHIPS_PERMISSIONS,   globals.config_parsed.value.OWNERSHIPS_PERMISSIONS,   false,                          decorators.Filter.Both,                     stats.ownershipsPermissions,    i18n.OWNERSHIPS_PERMISSIONS_HEADER, i18n.DIR_FILE_NAME_SIZE_TOTAL,    i18n.DIR_FILE_NAME_SIZE_TOTALS   );
+
     try decorators.decorate      (config.COMPTIME_UTF8_ENCODING,            globals.config_parsed.value.UTF8_ENCODING,            false,                          decorators.Filter.Files,                    txt.utf8Encoding,               i18n.UTF8_ENCODING_HEADER,          i18n.FILES_TOTAL,                 i18n.FILES_TOTALS);
     try decorators.decorate      (config.COMPTIME_WRONG_DATES,              globals.config_parsed.value.WRONG_DATES,              false,                          decorators.Filter.Files,                    stats.checkWrongDates,          i18n.WRONG_DATES_HEADER,            i18n.FILES_TOTAL,                 i18n.FILES_TOTALS                );
 }

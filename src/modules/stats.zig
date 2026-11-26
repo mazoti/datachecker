@@ -375,3 +375,35 @@ fn nonportable_chars_warning(args: anytype) !bool {
     try output.add(&globals.output_results.nonportable_chars, config.Status.WARNING, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
     return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
 }
+
+
+
+
+
+
+
+
+
+/// Checks files and folders ownerships and permissions
+pub fn ownershipsPermissions(args: anytype) !bool {
+
+    if (comptime builtin.os.tag == .windows) return true;
+
+    if ((args[2].permissions.toMode() & 0o777) == 0o777) {
+        try output.add(&globals.output_results.ownerships_permissions, config.Status.WARNING, i18n.OWNERSHIPS_PERMISSIONS_WARNING, .{args[0]});
+        _ = try print.messageSumReturn(false, args[1], print.warning, i18n.OWNERSHIPS_PERMISSIONS_WARNING, .{args[0]});
+    }
+
+  //  else {
+    //    std.debug.print("File FOLDEr does not have permissions 777. Current: {o}\n", .{
+      //      mode & 0o777,
+      // });
+      // }
+
+
+
+
+
+
+return true;
+}

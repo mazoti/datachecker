@@ -1,13 +1,39 @@
 //! UTF-8 strings for English language
 //!
+//! Strings a build does not need are compiled out. Three helpers decide that at compile time:
+//!
+//!   console(text)       kept only when console output is built in (COMPTIME_STDOUT)
+//!   report(check, text) also kept when the check that uses it is built in, because its
+//!                       results may be reported without a console (e.g. as JSON)
+//!   header(text)        console(text), plus a build error if it is wider than ALIGNED_SPACES
+//!
+//! Format strings take {s} for a path or name, {d} for a number and {} for an error value.
+//!
 //! Copyright © 2025-present Marcos Mazoti
 
 const config = @import("config");
+const std    = @import("std");
+
+/// One command: its aliases are derived as `--long, -short, long, /short`, so they cannot drift apart
+const Command = struct {
+    on:    bool, // built in? (config.COMPTIME_*)
+    long:  []const u8,
+    short: []const u8,
+    info:  []const u8,
+    cfg:   []const u8 = "", // what config.json can customize, if anything
+};
+
+// A message stays available when any command that can print it is built in; the
+// multithreaded (_mt) and removal (_rm) variants count as their base command.
+const empty_on:     bool = config.COMPTIME_EMPTY_FILES     or config.COMPTIME_EMPTY_DIRECTORIES or config.COMPTIME_EMPTY_FILES_REMOVE or config.COMPTIME_EMPTY_DIRECTORIES_REMOVE;
+const integrity_on: bool = config.COMPTIME_INTEGRITY_FILES or config.COMPTIME_INTEGRITY_FILES_PARALLEL;
+const links_on:     bool = config.COMPTIME_LINKS_SHORTCUTS or config.COMPTIME_LINKS_SHORTCUTS_REMOVE;
+const temp_on:      bool = config.COMPTIME_TEMPORARY_FILES or config.COMPTIME_TEMPORARY_FILES_REMOVE;
 
 /// Spacing constant for alignment - matches the largest header string size in output
 pub const ALIGNED_SPACES: u32 = 52;
 
-pub const HEADER_START = if (config.COMPTIME_STDOUT) "DataChecker v" else "";
+pub const HEADER_START = if (config.COMPTIME_STDOUT) "DataChecker v"                                            else "";
 pub const HEADER_END   = if (config.COMPTIME_STDOUT) " by Marcos Mazoti - https://mazoti.github.io/datachecker" else "";
 
 pub const USAGE = if (config.COMPTIME_STDOUT)
@@ -25,460 +51,225 @@ pub const USAGE = if (config.COMPTIME_STDOUT)
     \\
     else "";
 
+// The order of this table is the order of the help text.
+const commands = [_]Command {
+    .{ .on = config.COMPTIME_COMPRESSED_FILES,                .long = "compressed",             .short = "c",    .info = "Search for optimization opportunities in lossless compressed files"                          },
+    .{ .on = config.COMPTIME_CONFIDENTIAL_FILES,              .long = "confidential",           .short = "conf", .info = "Search for confidential data in files",                       .cfg = "search patterns"       },
+    .{ .on = config.COMPTIME_DEBUG_INFO,                      .long = "debuginfo",              .short = "di",   .info = "Search for binary files with debug information"                                              },
+    .{ .on = config.COMPTIME_DIRECTORY_FILE_NAME_SIZE,        .long = "dirsize",                .short = "ds",   .info = "Search for directories or files with excessively long names", .cfg = "length threshold"      },
+    .{ .on = config.COMPTIME_DUPLICATE_CHARS_FILES,           .long = "dupchars",               .short = "dc",   .info = "Search for duplicate characters in file names"                                               },
+    .{ .on = config.COMPTIME_DUPLICATE_FILES_PARALLEL,        .long = "duplicate_mt",           .short = "dmt",  .info = "Search for duplicate files using multithreading"                                             },
+    .{ .on = config.COMPTIME_DUPLICATE_FILES_REMOVE,          .long = "duplicate_rm",           .short = "drm",  .info = "Remove duplicate files"                                                                      },
+    .{ .on = config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE, .long = "duplicate_rmt",          .short = "drmt", .info = "Remove duplicate files using multithreading"                                                 },
+    .{ .on = config.COMPTIME_DUPLICATE_FILES,                 .long = "duplicate",              .short = "d",    .info = "Search for duplicate files"                                                                  },
+    .{ .on = config.COMPTIME_EMPTY_FILES_REMOVE,              .long = "empty_rm",               .short = "efrm", .info = "Remove empty files"                                                                          },
+    .{ .on = config.COMPTIME_EMPTY_FILES,                     .long = "empty_files",            .short = "ef",   .info = "Search for empty files"                                                                      },
+    .{ .on = config.COMPTIME_EMPTY_DIRECTORIES_REMOVE,        .long = "empty_dirs_rm",          .short = "edrm", .info = "Remove empty directories"                                                                    },
+    .{ .on = config.COMPTIME_EMPTY_DIRECTORIES,               .long = "empty_dirs",             .short = "ed",   .info = "Search for empty directories"                                                                },
+    .{ .on = config.COMPTIME_END_OF_LINE,                     .long = "end_of_line",            .short = "eol",  .info = "Search for wrong line terminator in text files",              .cfg = "terminator"            },
+    .{ .on = config.COMPTIME_FILES_NEWER_ATIME,               .long = "files_newer_atime",      .short = "fna",  .info = "Search for files with newer access time",                     .cfg = "time"                  },
+    .{ .on = config.COMPTIME_FILES_NEWER_CTIME,               .long = "files_newer_ctime",      .short = "fnc",  .info = "Search for files with newer change time",                     .cfg = "time"                  },
+    .{ .on = config.COMPTIME_FILES_NEWER_MTIME,               .long = "files_newer_mtime",      .short = "fnm",  .info = "Search for files with newer modified time",                   .cfg = "time"                  },
+    .{ .on = config.COMPTIME_FILES_OLDER_ATIME,               .long = "files_older_atime",      .short = "foa",  .info = "Search for files with older access time",                     .cfg = "time"                  },
+    .{ .on = config.COMPTIME_FILES_OLDER_CTIME,               .long = "files_older_ctime",      .short = "foc",  .info = "Search for files with older change time",                     .cfg = "time"                  },
+    .{ .on = config.COMPTIME_FILES_OLDER_MTIME,               .long = "files_older_mtime",      .short = "fom",  .info = "Search for files with older modified time",                   .cfg = "time"                  },
+    .{ .on = config.COMPTIME_FULL_PATH_SIZE,                  .long = "full_path_size",         .short = "fps",  .info = "Search for excessively long absolute paths",                  .cfg = "path length threshold" },
+    .{ .on = config.COMPTIME_INTEGRITY_FILES_PARALLEL,        .long = "integrity_mt",           .short = "imt",  .info = "Create/verify file hashes using multithreading"                                              },
+    .{ .on = config.COMPTIME_INTEGRITY_FILES,                 .long = "integrity",              .short = "i",    .info = "Create/verify file hashes"                                                                   },
+    .{ .on = config.COMPTIME_LARGE_FILES,                     .long = "large_files",            .short = "lf",   .info = "Search for large files",                                      .cfg = "size threshold"        },
+    .{ .on = config.COMPTIME_LAST_ACCESS_FILES,               .long = "last_access",            .short = "la",   .info = "Search for files not accessed recently",                      .cfg = "time period"           },
+    .{ .on = config.COMPTIME_LEGACY_FILES,                    .long = "legacy_files",           .short = "lef",  .info = "Search for files using outdated formats"                                                     },
+    .{ .on = config.COMPTIME_LINKS_SHORTCUTS_REMOVE,          .long = "links_rm",               .short = "lrm",  .info = "Remove links and shortcuts"                                                                  },
+    .{ .on = config.COMPTIME_LINKS_SHORTCUTS,                 .long = "links",                  .short = "l",    .info = "Search for links and shortcuts"                                                              },
+    .{ .on = config.COMPTIME_MAGIC_NUMBERS,                   .long = "magic_numbers",          .short = "mn",   .info = "Search for files with mismatched magic numbers"                                              },
+    .{ .on = config.COMPTIME_MANY_ITEMS_DIRECTORIES,          .long = "many_items",             .short = "mi",   .info = "Search for directories with an excessive number of items",    .cfg = "item threshold"        },
+    .{ .on = config.COMPTIME_NO_EXTENSION,                    .long = "no_extension",           .short = "ne",   .info = "Search for files without extensions and attempt to identify them"                            },
+    .{ .on = config.COMPTIME_NONPORTABLE_CHARS,               .long = "nonportable_chars",      .short = "nc",   .info = "Search for non-portable characters in absolute paths"                                        },
+    .{ .on = config.COMPTIME_ONE_ITEM_DIRECTORIES,            .long = "one_item_dir",           .short = "oid",  .info = "Search for directories containing only one item"                                             },
+    .{ .on = config.COMPTIME_OWNERSHIPS_PERMISSIONS,          .long = "ownerships_permissions", .short = "op",   .info = "Search for invalid user, group or overly permissive items (e.g., 777)"                       },
+    .{ .on = config.COMPTIME_PARSE_FILES,                     .long = "parse_files",            .short = "pf",   .info = "Parse files looking for errors"                                                              },
+    .{ .on = config.COMPTIME_TEMPORARY_FILES_REMOVE,          .long = "temp_rm",                .short = "trm",  .info = "Remove temporary files"                                                                      },
+    .{ .on = config.COMPTIME_TEMPORARY_FILES,                 .long = "temp_files",             .short = "tf",   .info = "Search for temporary files"                                                                  },
+    .{ .on = config.COMPTIME_UTF8_ENCODING,                   .long = "utf8",                   .short = "u",    .info = "Search for non-UTF8 encoded text files"                                                      },
+    .{ .on = config.COMPTIME_WRONG_DATES,                     .long = "wrong_dates",            .short = "wd",   .info = "Search for files with timestamps in the future"                                              },
+};
 
-pub const COMPTIME_COMPRESSED_FILES = if (config.COMPTIME_STDOUT)
-    \\    --compressed, -c, compressed, /c
-    \\        Search for optimization opportunities in lossless compressed files
-    \\
-    \\
-    else "";
+comptime {
+    // No two commands may share a name or an alias
+    @setEvalBranchQuota(100_000);
+    for (commands, 0..) |a, i| {
+        for (commands[i + 1 ..]) |b| {
+            if (std.mem.eql(u8, a.long, b.long))   @compileError("duplicate command: --" ++ a.long);
+            if (std.mem.eql(u8, a.short, b.short)) @compileError("duplicate alias: -"    ++ a.short);
+        }
+    }
+}
 
-pub const COMPTIME_CONFIDENTIAL_FILES = if (config.COMPTIME_STDOUT)
-    \\    --confidential, -conf, confidential, /conf
-    \\        Search for confidential data in files
-    \\        (create config.json to customize search patterns)
-    \\
-    \\
-    else "";
+/// Usage followed by one entry for every command that is built in.
+pub const HELP = blk: {
+    if (!config.COMPTIME_STDOUT) break :blk "";
+    var text: []const u8 = USAGE;
+    for (commands) |c| { if (c.on) text = text ++ helpEntry(c); }
+    break :blk text;
+};
 
-pub const COMPTIME_DEBUG_INFO = if (config.COMPTIME_STDOUT)
-    \\    --debuginfo, -di, debuginfo, /di
-    \\        Search for binary files with debug information
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_DIRECTORY_FILE_NAME_SIZE = if (config.COMPTIME_STDOUT)
-    \\    --dirsize, -ds, dirsize, /ds
-    \\        Search for directories or files with excessively long names
-    \\        (create config.json to customize length threshold)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_DUPLICATE_CHARS_FILES = if (config.COMPTIME_STDOUT)
-    \\    --dupchars, -dc, dupchars, /dc
-    \\        Search for duplicate characters in file names
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_DUPLICATE_FILES_PARALLEL = if (config.COMPTIME_STDOUT)
-    \\    --duplicate_mt, -dmt, duplicate_mt, /dmt
-    \\        Search for duplicate files using multithreading
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_DUPLICATE_FILES = if (config.COMPTIME_STDOUT)
-    \\    --duplicate, -d, duplicate, /d
-    \\        Search for duplicate files
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_EMPTY_FILES = if (config.COMPTIME_STDOUT)
-    \\    --empty_files, -ef, empty_files, /ef
-    \\        Search for empty files
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_EMPTY_DIRECTORIES = if (config.COMPTIME_STDOUT)
-    \\    --empty_dirs, -ed, empty_dirs, /ed
-    \\        Search for empty directories
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_END_OF_LINE = if (config.COMPTIME_STDOUT)
-    \\    --end_of_line, -eol, end_of_line, /eol
-    \\        Search for wrong line terminator in text files
-    \\        (create config.json to customize terminator)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FILES_NEWER_ATIME = if (config.COMPTIME_STDOUT)
-    \\    --files_newer_atime, -fna, files_newer_atime, /fna
-    \\        Search for files with newer access time
-    \\        (create config.json to customize time)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FILES_NEWER_CTIME = if (config.COMPTIME_STDOUT)
-    \\    --files_newer_ctime, -fnc, files_newer_ctime, /fnc
-    \\        Search for files with newer change time
-    \\        (create config.json to customize time)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FILES_NEWER_MTIME = if (config.COMPTIME_STDOUT)
-    \\    --files_newer_mtime, -fnm, files_newer_mtime, /fnm
-    \\        Search for files with newer modified time
-    \\        (create config.json to customize time)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FILES_OLDER_ATIME = if (config.COMPTIME_STDOUT)
-    \\    --files_older_atime, -foa, files_older_atime, /foa
-    \\        Search for files with older access time
-    \\        (create config.json to customize time)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FILES_OLDER_CTIME = if (config.COMPTIME_STDOUT)
-    \\    --files_older_ctime, -foc, files_older_ctime, /foc
-    \\        Search for files with older change time
-    \\        (create config.json to customize time)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FILES_OLDER_MTIME = if (config.COMPTIME_STDOUT)
-    \\    --files_older_mtime, -fom, files_older_mtime, /fom
-    \\        Search for files with older modified time
-    \\        (create config.json to customize time)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_FULL_PATH_SIZE = if (config.COMPTIME_STDOUT)
-    \\    --full_path_size, -fps, full_path_size, /fps
-    \\        Search for excessively long absolute paths
-    \\        (create config.json to customize path length threshold)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_INTEGRITY_FILES = if (config.COMPTIME_STDOUT)
-    \\    --integrity, -i, integrity, /i
-    \\        Create/verify file hashes
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_INTEGRITY_FILES_PARALLEL = if (config.COMPTIME_STDOUT)
-    \\    --integrity_mt, -imt, integrity_mt, /imt
-    \\        Create/verify file hashes using multithreading
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_LARGE_FILES = if (config.COMPTIME_STDOUT)
-    \\    --large_files, -lf, large_files, /lf
-    \\        Search for large files
-    \\        (create config.json to customize size threshold)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_LAST_ACCESS_FILES = if (config.COMPTIME_STDOUT)
-    \\    --last_access, -la, last_access, /la
-    \\        Search for files not accessed recently
-    \\        (create config.json to customize time period)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_LEGACY_FILES = if (config.COMPTIME_STDOUT)
-    \\    --legacy_files, -lef, legacy_files, /lef
-    \\        Search for files using outdated formats
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_LINKS_SHORTCUTS = if (config.COMPTIME_STDOUT)
-    \\    --links, -l, links, /l
-    \\        Search for links and shortcuts
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_MAGIC_NUMBERS = if (config.COMPTIME_STDOUT)
-    \\    --magic_numbers, -mn, magic_numbers, /mn
-    \\        Search for files with mismatched magic numbers
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_MANY_ITEMS_DIRECTORIES = if (config.COMPTIME_STDOUT)
-    \\    --many_items, -mi, many_items, /mi
-    \\        Search for directories with an excessive number of items
-    \\        (create config.json to customize item threshold)
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_NONPORTABLE_CHARS = if (config.COMPTIME_STDOUT)
-    \\    --nonportable_chars, -nc, nonportable_chars, /nc
-    \\        Search for non-portable characters in absolute paths
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_NO_EXTENSION = if (config.COMPTIME_STDOUT)
-    \\    --no_extension, -ne, no_extension, /ne
-    \\        Search for files without extensions and attempt to identify them
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_ONE_ITEM_DIRECTORIES = if (config.COMPTIME_STDOUT)
-    \\    --one_item_dir, -oid, one_item_dir, /oid
-    \\        Search for directories containing only one item
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_PARSE_FILES = if (config.COMPTIME_STDOUT)
-    \\    --parse_files, -pf, parse_files, /pf
-    \\        Parse files looking for errors
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_TEMPORARY_FILES = if (config.COMPTIME_STDOUT)
-    \\    --temp_files, -tf, temp_files, /tf
-    \\        Search for temporary files
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_UTF8_ENCODING = if (config.COMPTIME_STDOUT)
-    \\    --utf8, -u, utf8, /u
-    \\        Search for non-UTF8 encoded text files
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_WRONG_DATES = if (config.COMPTIME_STDOUT)
-    \\    --wrong_dates, -wd, wrong_dates, /wd
-    \\        Search for files with timestamps in the future
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_DUPLICATE_FILES_REMOVE = if (config.COMPTIME_STDOUT)
-    \\    --duplicate_rm, -drm, duplicate_rm, /drm
-    \\        Remove duplicate files
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE = if (config.COMPTIME_STDOUT)
-    \\    --duplicate_rmt, -drmt, duplicate_rmt, /drmt
-    \\        Remove duplicate files using multithreading
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_EMPTY_FILES_REMOVE = if (config.COMPTIME_STDOUT)
-    \\    --empty_rm, -efrm, empty_rm, /efrm
-    \\        Remove empty files
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_EMPTY_DIRECTORIES_REMOVE = if (config.COMPTIME_STDOUT)
-    \\    --empty_dirs_rm, -edrm, empty_dirs_rm, /edrm
-    \\        Remove empty directories
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_LINKS_SHORTCUTS_REMOVE = if (config.COMPTIME_STDOUT)
-    \\    --links_rm, -lrm, links_rm, /lrm
-    \\        Remove links and shortcuts
-    \\
-    \\
-    else "";
-
-pub const COMPTIME_TEMPORARY_FILES_REMOVE = if (config.COMPTIME_STDOUT)
-    \\    --temp_rm, -trm, temp_rm, /trm
-    \\        Remove temporary files
-    \\
-    \\
-    else "";
-
-pub const HELP = if (config.COMPTIME_STDOUT) USAGE
-    ++ (if (config.COMPTIME_COMPRESSED_FILES)                COMPTIME_COMPRESSED_FILES                else "")
-    ++ (if (config.COMPTIME_CONFIDENTIAL_FILES)              COMPTIME_CONFIDENTIAL_FILES              else "")
-    ++ (if (config.COMPTIME_DEBUG_INFO)                      COMPTIME_DEBUG_INFO                      else "")
-    ++ (if (config.COMPTIME_DIRECTORY_FILE_NAME_SIZE)        COMPTIME_DIRECTORY_FILE_NAME_SIZE        else "")
-    ++ (if (config.COMPTIME_DUPLICATE_CHARS_FILES)           COMPTIME_DUPLICATE_CHARS_FILES           else "")
-    ++ (if (config.COMPTIME_DUPLICATE_FILES_PARALLEL)        COMPTIME_DUPLICATE_FILES_PARALLEL        else "")
-    ++ (if (config.COMPTIME_DUPLICATE_FILES_REMOVE)          COMPTIME_DUPLICATE_FILES_REMOVE          else "")
-    ++ (if (config.COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE) COMPTIME_DUPLICATE_FILES_PARALLEL_REMOVE else "")
-    ++ (if (config.COMPTIME_DUPLICATE_FILES)                 COMPTIME_DUPLICATE_FILES                 else "")
-    ++ (if (config.COMPTIME_EMPTY_FILES_REMOVE)              COMPTIME_EMPTY_FILES_REMOVE              else "")
-    ++ (if (config.COMPTIME_EMPTY_FILES)                     COMPTIME_EMPTY_FILES                     else "")
-    ++ (if (config.COMPTIME_EMPTY_DIRECTORIES_REMOVE)        COMPTIME_EMPTY_DIRECTORIES_REMOVE        else "")
-    ++ (if (config.COMPTIME_EMPTY_DIRECTORIES)               COMPTIME_EMPTY_DIRECTORIES               else "")
-    ++ (if (config.COMPTIME_END_OF_LINE)                     COMPTIME_END_OF_LINE                     else "")
-    ++ (if (config.COMPTIME_FILES_NEWER_ATIME)               COMPTIME_FILES_NEWER_ATIME               else "")
-    ++ (if (config.COMPTIME_FILES_NEWER_CTIME)               COMPTIME_FILES_NEWER_CTIME               else "")
-    ++ (if (config.COMPTIME_FILES_NEWER_MTIME)               COMPTIME_FILES_NEWER_MTIME               else "")
-    ++ (if (config.COMPTIME_FILES_OLDER_ATIME)               COMPTIME_FILES_OLDER_ATIME               else "")
-    ++ (if (config.COMPTIME_FILES_OLDER_CTIME)               COMPTIME_FILES_OLDER_CTIME               else "")
-    ++ (if (config.COMPTIME_FILES_OLDER_MTIME)               COMPTIME_FILES_OLDER_MTIME               else "")
-    ++ (if (config.COMPTIME_FULL_PATH_SIZE)                  COMPTIME_FULL_PATH_SIZE                  else "")
-    ++ (if (config.COMPTIME_INTEGRITY_FILES_PARALLEL)        COMPTIME_INTEGRITY_FILES_PARALLEL        else "")
-    ++ (if (config.COMPTIME_INTEGRITY_FILES)                 COMPTIME_INTEGRITY_FILES                 else "")
-    ++ (if (config.COMPTIME_LARGE_FILES)                     COMPTIME_LARGE_FILES                     else "")
-    ++ (if (config.COMPTIME_LAST_ACCESS_FILES)               COMPTIME_LAST_ACCESS_FILES               else "")
-    ++ (if (config.COMPTIME_LEGACY_FILES)                    COMPTIME_LEGACY_FILES                    else "")
-    ++ (if (config.COMPTIME_LINKS_SHORTCUTS_REMOVE)          COMPTIME_LINKS_SHORTCUTS_REMOVE          else "")
-    ++ (if (config.COMPTIME_LINKS_SHORTCUTS)                 COMPTIME_LINKS_SHORTCUTS                 else "")
-    ++ (if (config.COMPTIME_MAGIC_NUMBERS)                   COMPTIME_MAGIC_NUMBERS                   else "")
-    ++ (if (config.COMPTIME_MANY_ITEMS_DIRECTORIES)          COMPTIME_MANY_ITEMS_DIRECTORIES          else "")
-    ++ (if (config.COMPTIME_NO_EXTENSION)                    COMPTIME_NO_EXTENSION                    else "")
-    ++ (if (config.COMPTIME_NONPORTABLE_CHARS)               COMPTIME_NONPORTABLE_CHARS               else "")
-    ++ (if (config.COMPTIME_ONE_ITEM_DIRECTORIES)            COMPTIME_ONE_ITEM_DIRECTORIES            else "")
-    ++ (if (config.COMPTIME_PARSE_FILES)                     COMPTIME_PARSE_FILES                     else "")
-    ++ (if (config.COMPTIME_TEMPORARY_FILES_REMOVE)          COMPTIME_TEMPORARY_FILES_REMOVE          else "")
-    ++ (if (config.COMPTIME_TEMPORARY_FILES)                 COMPTIME_TEMPORARY_FILES                 else "")
-    ++ (if (config.COMPTIME_UTF8_ENCODING)                   COMPTIME_UTF8_ENCODING                   else "")
-    ++ (if (config.COMPTIME_WRONG_DATES)                     COMPTIME_WRONG_DATES                     else "")
-    else "";
-
-pub const CONFIG_MESSAGE_CREATE            = if (config.COMPTIME_STDOUT) "Creating config.json..."         else "";
+pub const CONFIG_MESSAGE_CREATE            = console("Creating config.json...");
 
 // Summary messages
-pub const BYTES_TOTAL                      = if (config.COMPTIME_STDOUT) "byte"                            else "";
-pub const BYTES_TOTALS                     = if (config.COMPTIME_STDOUT) "bytes"                           else "";
+pub const BYTES_TOTAL                      = console("byte");
+pub const BYTES_TOTALS                     = console("bytes");
 
-pub const DIRECTORIES_TOTAL                = if (config.COMPTIME_STDOUT) "directory"                       else "";
-pub const DIRECTORIES_TOTALS               = if (config.COMPTIME_STDOUT) "directories"                     else "";
+pub const DIRECTORIES_TOTAL                = console("directory");
+pub const DIRECTORIES_TOTALS               = console("directories");
 
-pub const FILES_TOTAL                      = if (config.COMPTIME_STDOUT) "file"                            else "";
-pub const FILES_TOTALS                     = if (config.COMPTIME_STDOUT) "files"                           else "";
+pub const FILES_TOTAL                      = console("file");
+pub const FILES_TOTALS                     = console("files");
 
-pub const DIR_FILE_NAME_SIZE_TOTAL         = if (config.COMPTIME_STDOUT) "file or directory"               else "";
-pub const DIR_FILE_NAME_SIZE_TOTALS        = if (config.COMPTIME_STDOUT) "files or directories"            else "";
+pub const DIR_FILE_NAME_SIZE_TOTAL         = console("file or directory");
+pub const DIR_FILE_NAME_SIZE_TOTALS        = console("files or directories");
 
-pub const DUPLICATE_CHARS_FILES_TOTAL      = if (config.COMPTIME_STDOUT) "item with duplicate characters"  else "";
-pub const DUPLICATE_CHARS_FILES_TOTALS     = if (config.COMPTIME_STDOUT) "items with duplicate characters" else "";
+pub const DUPLICATE_CHARS_FILES_TOTAL      = console("item with duplicate characters");
+pub const DUPLICATE_CHARS_FILES_TOTALS     = console("items with duplicate characters");
 
-pub const LINKS_SHORTCUTS_TOTAL            = if (config.COMPTIME_STDOUT) "link/shortcut" else "";
-pub const LINKS_SHORTCUTS_TOTALS           = if (config.COMPTIME_STDOUT) "links/shortcuts" else "";
+pub const LINKS_SHORTCUTS_TOTAL            = console("link/shortcut");
+pub const LINKS_SHORTCUTS_TOTALS           = console("links/shortcuts");
 
-pub const FULL_PATH_SIZE_TOTAL             = if (config.COMPTIME_STDOUT) "path found" else "";
-pub const FULL_PATH_SIZE_TOTALS            = if (config.COMPTIME_STDOUT) "paths found" else "";
+pub const FULL_PATH_SIZE_TOTAL             = console("path found");
+pub const FULL_PATH_SIZE_TOTALS            = console("paths found");
 
-pub const INTEGRITY_FILES_TOTAL            = if (config.COMPTIME_STDOUT) "hash processed" else "";
-pub const INTEGRITY_FILES_TOTALS           = if (config.COMPTIME_STDOUT) "hashes processed" else "";
+pub const INTEGRITY_FILES_TOTAL            = console("hash processed");
+pub const INTEGRITY_FILES_TOTALS           = console("hashes processed");
 
-pub const NONPORTABLE_CHARS_TOTAL          = if (config.COMPTIME_STDOUT) "item with non-portable characters"  else "";
-pub const NONPORTABLE_CHARS_TOTALS         = if (config.COMPTIME_STDOUT) "items with non-portable characters" else "";
+pub const NONPORTABLE_CHARS_TOTAL          = console("item with non-portable characters");
+pub const NONPORTABLE_CHARS_TOTALS         = console("items with non-portable characters");
 
-pub const PARSE_FILES_TOTAL                = if (config.COMPTIME_STDOUT) "error found"                        else "";
-pub const PARSE_FILES_TOTALS               = if (config.COMPTIME_STDOUT) "errors found"                       else "";
+pub const PARSE_FILES_TOTAL                = console("error found");
+pub const PARSE_FILES_TOTALS               = console("errors found");
 
 // Header messages
-pub const CONFIG_MESSAGE_HEADER            = if (config.COMPTIME_STDOUT) "Loading config.json..."                              else "";
-pub const CONFIG_MESSAGE_HEADER_DEFAULT    = if (config.COMPTIME_STDOUT) "Loading default configuration..."                    else "";
-pub const COMPRESSED_FILES_HEADER          = if (config.COMPTIME_STDOUT) "Looking for compressed files..."                     else "";
-pub const CONFIDENTIAL_FILES_HEADER        = if (config.COMPTIME_STDOUT) "Looking for confidential files..."                   else "";
-pub const DEBUG_INFO_HEADER                = if (config.COMPTIME_STDOUT) "Looking for debug info in binary files..."           else "";
-pub const DIR_FILE_NAME_SIZE_HEADER        = if (config.COMPTIME_STDOUT) "Looking for long names..."                           else "";
-pub const DUPLICATE_CHARS_FILES_HEADER     = if (config.COMPTIME_STDOUT) "Looking for duplicate characters..."                 else "";
-pub const DUPLICATE_FILES_HEADER           = if (config.COMPTIME_STDOUT) "Looking for duplicate files..."                      else "";
-pub const FILES_NEWER_ATIME_HEADER         = if (config.COMPTIME_STDOUT) "Looking for files with newer access time..."         else "";
-pub const FILES_NEWER_CTIME_HEADER         = if (config.COMPTIME_STDOUT) "Looking for files with newer change time..."         else "";
-pub const FILES_NEWER_MTIME_HEADER         = if (config.COMPTIME_STDOUT) "Looking for files with newer modified time..."       else "";
-pub const FILES_OLDER_ATIME_HEADER         = if (config.COMPTIME_STDOUT) "Looking for files with older access time..."         else "";
-pub const FILES_OLDER_CTIME_HEADER         = if (config.COMPTIME_STDOUT) "Looking for files with older change time..."         else "";
-pub const FILES_OLDER_MTIME_HEADER         = if (config.COMPTIME_STDOUT) "Looking for files with older modified time..."       else "";
-pub const LINKS_SHORTCUTS_HEADER           = if (config.COMPTIME_STDOUT) "Looking for links and shortcuts..."                  else "";
-pub const EMPTY_DIRECTORIES_HEADER         = if (config.COMPTIME_STDOUT) "Looking for empty directories..."                    else "";
-pub const EMPTY_FILES_HEADER               = if (config.COMPTIME_STDOUT) "Looking for empty files..."                          else "";
-pub const END_OF_LINE_HEADER               = if (config.COMPTIME_STDOUT) "Looking for wrong line terminators in text files..." else "";
-pub const INTEGRITY_FILES_HEADER           = if (config.COMPTIME_STDOUT) "Checking file integrity..."                          else "";
-pub const FULL_PATH_SIZE_HEADER            = if (config.COMPTIME_STDOUT) "Looking for long paths..."                           else "";
-pub const JSON_OUTPUT_HEADER               = if (config.COMPTIME_STDOUT) "Writing results in JSON output..."                   else "";
-pub const LARGE_FILES_HEADER               = if (config.COMPTIME_STDOUT) "Looking for large files..."                          else "";
-pub const LAST_ACCESS_HEADER               = if (config.COMPTIME_STDOUT) "Looking for files accessed a long time ago..."       else "";
-pub const LEGACY_FILES_HEADER              = if (config.COMPTIME_STDOUT) "Looking for legacy files..."                         else "";
-pub const MAGIC_NUMBERS_HEADER             = if (config.COMPTIME_STDOUT) "Looking for files with wrong magic numbers..."       else "";
-pub const MANY_ITEMS_DIRECTORIES_HEADER    = if (config.COMPTIME_STDOUT) "Looking for directories with many items..."          else "";
-pub const NO_EXTENSION_HEADER              = if (config.COMPTIME_STDOUT) "Looking for files with no extension..."              else "";
-pub const NONPORTABLE_CHARS_HEADER         = if (config.COMPTIME_STDOUT) "Looking for non-portable characters..."              else "";
-pub const ONE_ITEM_DIRECTORIES_HEADER      = if (config.COMPTIME_STDOUT) "Looking for directories with one item..."            else "";
-pub const PARSE_FILES_HEADER               = if (config.COMPTIME_STDOUT) "Looking for errors while parsing files..."           else "";
-pub const TEMPORARY_FILES_HEADER           = if (config.COMPTIME_STDOUT) "Looking for temporary files..."                      else "";
-pub const UTF8_ENCODING_HEADER             = if (config.COMPTIME_STDOUT) "Looking for text files not encoded in UTF-8..."      else "";
-pub const WRONG_DATES_HEADER               = if (config.COMPTIME_STDOUT) "Looking for files with wrong dates..."               else "";
+pub const CONFIG_MESSAGE_HEADER            = header("Loading config.json...");
+pub const CONFIG_MESSAGE_HEADER_DEFAULT    = header("Loading default configuration...");
+pub const COMPRESSED_FILES_HEADER          = header("Looking for compressed files...");
+pub const CONFIDENTIAL_FILES_HEADER        = header("Looking for confidential files...");
+pub const DEBUG_INFO_HEADER                = header("Looking for debug info in binary files...");
+pub const DIR_FILE_NAME_SIZE_HEADER        = header("Looking for long names...");
+pub const DUPLICATE_CHARS_FILES_HEADER     = header("Looking for duplicate characters...");
+pub const DUPLICATE_FILES_HEADER           = header("Looking for duplicate files...");
+pub const FILES_NEWER_ATIME_HEADER         = header("Looking for files with newer access time...");
+pub const FILES_NEWER_CTIME_HEADER         = header("Looking for files with newer change time...");
+pub const FILES_NEWER_MTIME_HEADER         = header("Looking for files with newer modified time...");
+pub const FILES_OLDER_ATIME_HEADER         = header("Looking for files with older access time...");
+pub const FILES_OLDER_CTIME_HEADER         = header("Looking for files with older change time...");
+pub const FILES_OLDER_MTIME_HEADER         = header("Looking for files with older modified time...");
+pub const LINKS_SHORTCUTS_HEADER           = header("Looking for links and shortcuts...");
+pub const EMPTY_DIRECTORIES_HEADER         = header("Looking for empty directories...");
+pub const EMPTY_FILES_HEADER               = header("Looking for empty files...");
+pub const END_OF_LINE_HEADER               = header("Looking for wrong line terminators in text files...");
+pub const INTEGRITY_FILES_HEADER           = header("Checking file integrity...");
+pub const FULL_PATH_SIZE_HEADER            = header("Looking for long paths...");
+pub const JSON_OUTPUT_HEADER               = header("Writing results in JSON output...");
+pub const LARGE_FILES_HEADER               = header("Looking for large files...");
+pub const LAST_ACCESS_HEADER               = header("Looking for files accessed a long time ago...");
+pub const LEGACY_FILES_HEADER              = header("Looking for legacy files...");
+pub const MAGIC_NUMBERS_HEADER             = header("Looking for files with wrong magic numbers...");
+pub const MANY_ITEMS_DIRECTORIES_HEADER    = header("Looking for directories with many items...");
+pub const NO_EXTENSION_HEADER              = header("Looking for files with no extension...");
+pub const NONPORTABLE_CHARS_HEADER         = header("Looking for non-portable characters...");
+pub const OWNERSHIPS_PERMISSIONS_HEADER    = header("Checking ownerships and permissions...");
+pub const ONE_ITEM_DIRECTORIES_HEADER      = header("Looking for directories with one item...");
+pub const PARSE_FILES_HEADER               = header("Looking for errors while parsing files...");
+pub const TEMPORARY_FILES_HEADER           = header("Looking for temporary files...");
+pub const UTF8_ENCODING_HEADER             = header("Looking for text files not encoded in UTF-8...");
+pub const WRONG_DATES_HEADER               = header("Looking for files with wrong dates...");
 
 // Warning messages
-pub const COMPRESSED_FILES_WARNING         = if (config.COMPTIME_STDOUT or config.COMPTIME_COMPRESSED_FILES)         "\"{s}\" compression could be improved"         else "";
-pub const CONFIDENTIAL_FILES_WARNING       = if (config.COMPTIME_STDOUT or config.COMPTIME_CONFIDENTIAL_FILES)       "\"{s}\" has confidential data"                 else "";
-pub const DEBUG_INFO_WARNING               = if (config.COMPTIME_STDOUT or config.COMPTIME_DEBUG_INFO)               "\"{s}\" has debug/symbol information"          else "";
-pub const DIRECTORY_FILE_NAME_SIZE_WARNING = if (config.COMPTIME_STDOUT or config.COMPTIME_DIRECTORY_FILE_NAME_SIZE) "\"{s}\" is longer than {d} characters"         else "";
-pub const EMPTY_WARNING                    = if (config.COMPTIME_STDOUT or config.COMPTIME_EMPTY_FILES or config.COMPTIME_EMPTY_DIRECTORIES) "\"{s}\" is empty"                  else "";
-pub const END_OF_LINE_WARNING              = if (config.COMPTIME_STDOUT or config.COMPTIME_END_OF_LINE)              "\"{s}\" has an invalid end-of-line terminator" else "";
-pub const FULL_PATH_SIZE_WARNING           = if (config.COMPTIME_STDOUT or config.COMPTIME_FULL_PATH_SIZE)           "Path \"{s}\" is longer than {d} characters"    else "";
-pub const LINKS_SHORTCUTS_WARNING          = if (config.COMPTIME_STDOUT or config.COMPTIME_LINKS_SHORTCUTS)          "\"{s}\" is not portable"                       else "";
-pub const LARGE_FILES_WARNING              = if (config.COMPTIME_STDOUT or config.COMPTIME_LARGE_FILES)              "File \"{s}\" is larger than {d} bytes"         else "";
-pub const LAST_ACCESS_FILES_WARNING        = if (config.COMPTIME_STDOUT or config.COMPTIME_LAST_ACCESS_FILES)        "\"{s}\" last access was {d} ns ago"            else "";
-pub const LEGACY_FILES_WARNING             = if (config.COMPTIME_STDOUT or config.COMPTIME_LEGACY_FILES)             "\"{s}\" has a legacy format \"{s}\""           else "";
-pub const MANY_ITEMS_DIRECTORIES_WARNING   = if (config.COMPTIME_STDOUT or config.COMPTIME_MANY_ITEMS_DIRECTORIES)   "\"{s}\" has more than {d} items"               else "";
-pub const NO_EXTENSION_WARNING             = if (config.COMPTIME_STDOUT or config.COMPTIME_NO_EXTENSION)             "Format of \"{s}\" was not found"               else "";
-pub const NONPORTABLE_CHARS_WARNING        = if (config.COMPTIME_STDOUT or config.COMPTIME_NONPORTABLE_CHARS)        "\"{s}\" has a non-portable character"          else "";
-pub const ONE_ITEM_DIRECTORIES_WARNING     = if (config.COMPTIME_STDOUT or config.COMPTIME_ONE_ITEM_DIRECTORIES)     "\"{s}\" has one item"                          else "";
-pub const TEMPORARY_FILES_WARNING          = if (config.COMPTIME_STDOUT or config.COMPTIME_TEMPORARY_FILES)          "\"{s}\" is a temporary file"                   else "";
-pub const UTF8_ENCODING_WARNING            = if (config.COMPTIME_STDOUT or config.COMPTIME_UTF8_ENCODING)            "\"{s}\" is not encoded in UTF-8"               else "";
-pub const WRONG_DATES_WARNING              = if (config.COMPTIME_STDOUT or config.COMPTIME_WRONG_DATES)              "File \"{s}\" has a date in the future"         else "";
+pub const COMPRESSED_FILES_WARNING         = report(config.COMPTIME_COMPRESSED_FILES,         "\"{s}\" compression could be improved");
+pub const CONFIDENTIAL_FILES_WARNING       = report(config.COMPTIME_CONFIDENTIAL_FILES,       "\"{s}\" has confidential data");
+pub const DEBUG_INFO_WARNING               = report(config.COMPTIME_DEBUG_INFO,               "\"{s}\" has debug/symbol information");
+pub const DIRECTORY_FILE_NAME_SIZE_WARNING = report(config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, "\"{s}\" is longer than {d} characters");
+pub const EMPTY_WARNING                    = report(empty_on,                                 "\"{s}\" is empty");
+pub const END_OF_LINE_WARNING              = report(config.COMPTIME_END_OF_LINE,              "\"{s}\" has an invalid end-of-line terminator");
+pub const FULL_PATH_SIZE_WARNING           = report(config.COMPTIME_FULL_PATH_SIZE,           "Path \"{s}\" is longer than {d} characters");
+pub const LINKS_SHORTCUTS_WARNING          = report(links_on,                                 "\"{s}\" is not portable");
+pub const LARGE_FILES_WARNING              = report(config.COMPTIME_LARGE_FILES,              "File \"{s}\" is larger than {d} bytes");
+pub const LAST_ACCESS_FILES_WARNING        = report(config.COMPTIME_LAST_ACCESS_FILES,        "\"{s}\" last access was {d} ns ago");
+pub const LEGACY_FILES_WARNING             = report(config.COMPTIME_LEGACY_FILES,             "\"{s}\" has a legacy format \"{s}\"");
+pub const MANY_ITEMS_DIRECTORIES_WARNING   = report(config.COMPTIME_MANY_ITEMS_DIRECTORIES,   "\"{s}\" has more than {d} items");
+pub const NO_EXTENSION_WARNING             = report(config.COMPTIME_NO_EXTENSION,             "Format of \"{s}\" was not found");
+pub const NONPORTABLE_CHARS_WARNING        = report(config.COMPTIME_NONPORTABLE_CHARS,        "\"{s}\" has a non-portable character");
+pub const ONE_ITEM_DIRECTORIES_WARNING     = report(config.COMPTIME_ONE_ITEM_DIRECTORIES,     "\"{s}\" has one item");
+pub const OWNERSHIPS_PERMISSIONS_WARNING   = report(config.COMPTIME_OWNERSHIPS_PERMISSIONS,   "\"{s}\" has permission 777");
+pub const TEMPORARY_FILES_WARNING          = report(temp_on,                                  "\"{s}\" is a temporary file");
+pub const UTF8_ENCODING_WARNING            = report(config.COMPTIME_UTF8_ENCODING,            "\"{s}\" is not encoded in UTF-8");
+pub const WRONG_DATES_WARNING              = report(config.COMPTIME_WRONG_DATES,              "File \"{s}\" has a date in the future");
 
 // Check messages
-pub const COMPRESSED_FILES_CHECK          = if (config.COMPTIME_STDOUT or config.COMPTIME_COMPRESSED_FILES)          "\"{s}\" has an uncommon compression method"    else "";
-pub const DUPLICATE_CHARS_FILES_CHECK     = if (config.COMPTIME_STDOUT or config.COMPTIME_DUPLICATE_CHARS_FILES)     "\"{s}\" has a duplicate character"             else "";
-pub const DUPLICATE_CHARS_FILES_CHECK_EXT = if (config.COMPTIME_STDOUT or config.COMPTIME_DUPLICATE_CHARS_FILES)     "\"{s}\" has a duplicate extension"             else "";
-pub const INTEGRITY_FILES_CHECK           = if (config.COMPTIME_STDOUT or config.COMPTIME_INTEGRITY_FILES)           "\"{s}\" {s} hash created"                      else "";
-pub const NO_EXTENSION_CHECK              = if (config.COMPTIME_STDOUT or config.COMPTIME_NO_EXTENSION)              "Format of \"{s}\" could be \"{s}\""            else "";
+pub const COMPRESSED_FILES_CHECK           = report(config.COMPTIME_COMPRESSED_FILES,         "\"{s}\" has an uncommon compression method");
+pub const DUPLICATE_CHARS_FILES_CHECK      = report(config.COMPTIME_DUPLICATE_CHARS_FILES,    "\"{s}\" has a duplicate character");
+pub const DUPLICATE_CHARS_FILES_CHECK_EXT  = report(config.COMPTIME_DUPLICATE_CHARS_FILES,    "\"{s}\" has a duplicate extension");
+pub const INTEGRITY_FILES_CHECK            = report(integrity_on,                             "\"{s}\" {s} hash created");
+pub const NO_EXTENSION_CHECK               = report(config.COMPTIME_NO_EXTENSION,             "Format of \"{s}\" could be \"{s}\"");
 
 // Error messages
-pub const END_OF_LINE_ERROR               = if (config.COMPTIME_STDOUT)                                              "Invalid line terminator in configuration"      else "";
-pub const INTEGRITY_FILES_ERROR           = if (config.COMPTIME_STDOUT or config.COMPTIME_INTEGRITY_FILES)           "\"{s}\" has a different {s} hash"              else "";
-pub const INTEGRITY_FILES_ERROR_CHAR      = if (config.COMPTIME_STDOUT or config.COMPTIME_INTEGRITY_FILES)           "\"{s}\" has an invalid character in its hash"  else "";
-pub const LINKS_SHORTCUTS_ERROR           = if (config.COMPTIME_STDOUT or config.COMPTIME_LINKS_SHORTCUTS)           "\"{s}\" target was not found"                  else "";
-pub const MAGIC_NUMBERS_ERROR             = if (config.COMPTIME_STDOUT or config.COMPTIME_MAGIC_NUMBERS)             "\"{s}\" has a wrong magic number"              else "";
-pub const PARSE_FILES_ERROR               = if (config.COMPTIME_STDOUT or config.COMPTIME_PARSE_FILES)               "Can't parse \"{s}\""                           else "";
+pub const END_OF_LINE_ERROR                = console("Invalid line terminator in configuration");
+pub const INTEGRITY_FILES_ERROR            = report(integrity_on,                             "\"{s}\" has a different {s} hash");
+pub const INTEGRITY_FILES_ERROR_CHAR       = report(integrity_on,                             "\"{s}\" has an invalid character in its hash");
+pub const LINKS_SHORTCUTS_ERROR            = report(links_on,                                 "\"{s}\" target was not found");
+pub const MAGIC_NUMBERS_ERROR              = report(config.COMPTIME_MAGIC_NUMBERS,            "\"{s}\" has a wrong magic number");
+pub const PARSE_FILES_ERROR                = report(config.COMPTIME_PARSE_FILES,              "Can't parse \"{s}\"");
 
 // Ok message
-pub const INTEGRITY_FILES_OK              = if (config.COMPTIME_STDOUT or config.COMPTIME_INTEGRITY_FILES)           "\"{s}\" {s} verified"                          else "";
+pub const INTEGRITY_FILES_OK               = report(integrity_on, "\"{s}\" {s} verified");
 
 // System messages
-pub const OK_MESSAGE                      = if (config.COMPTIME_STDOUT)  "OK"                                                                                        else "";
-pub const DISABLED_MESSAGE                = if (config.COMPTIME_STDOUT) "DISABLED"                                                                                   else "";
-pub const QUIT_MESSAGE                    = if (config.COMPTIME_STDOUT) "Press Enter to quit"                                                                        else "";
-pub const TOTAL_MESSAGE                   = if (config.COMPTIME_STDOUT) " Total:"                                                                                    else "";
-pub const CHECK_MESSAGE                   = if (config.COMPTIME_STDOUT) " CHECK  "                                                                                   else "";
-pub const ERROR_MESSAGE                   = if (config.COMPTIME_STDOUT) " ERROR  "                                                                                   else "";
-pub const FOUND_MESSAGE                   = if (config.COMPTIME_STDOUT) " FOUND  "                                                                                   else "";
-pub const KEEPING_MESSAGE                 = if (config.COMPTIME_STDOUT) " KEEPING "                                                                                  else "";
-pub const OK_MESSAGE_FILE                 = if (config.COMPTIME_STDOUT) "   OK   "                                                                                   else "";
-pub const REMOVING_MESSAGE                = if (config.COMPTIME_STDOUT) "REMOVING "                                                                                  else "";
-pub const WARNING_MESSAGE                 = if (config.COMPTIME_STDOUT) "WARNING "                                                                                   else "";
+pub const OK_MESSAGE                       = console("OK");
+pub const DISABLED_MESSAGE                 = console("DISABLED");
+pub const QUIT_MESSAGE                     = console("Press Enter to quit");
+pub const TOTAL_MESSAGE                    = console(" Total:");
+pub const CHECK_MESSAGE                    = console(" CHECK  ");
+pub const ERROR_MESSAGE                    = console(" ERROR  ");
+pub const FOUND_MESSAGE                    = console(" FOUND  ");
+pub const KEEPING_MESSAGE                  = console(" KEEPING ");
+pub const OK_MESSAGE_FILE                  = console("   OK   ");
+
+pub const REMOVING_MESSAGE                 = console("REMOVING ");
+pub const WARNING_MESSAGE                  = console("WARNING ");
 
 // System error messages
-pub const ERROR_ACCESS_DENIED_PATH        = "\"{s}\": access denied";
-pub const ERROR_ALLOC_MEM                 = "Failed to allocate memory for path \"{s}\": \"{}\"";
-pub const ERROR_APPEND_PATH               = "Failed to append path to list: \"{}\"";
-pub const ERROR_COMMAND_NOT_FOUND         = "Command \"{s}\" not found";
-pub const ERROR_CONFIG_FILE               = "config.json already exists";
-pub const ERROR_CONFIG_FILE_PARSE         = "Can't parse config.json";
-pub const ERROR_EMPTY_PATH                = "Input folder is empty in config.json";
-pub const ERROR_FILE_BUSY                 = "\"{s}\" is busy";
-pub const ERROR_HASH_FILE                 = "Failed to hash file \"{s}\": \"{}\"";
-pub const ERROR_INPUT_DIRECTORY           = "Can't read input directory";
-pub const ERROR_INSERT_HASHMAP            = "Failed to insert into hash map: \"{}\"";
-pub const ERROR_PERMISSION_DENIED         = "\"{s}\": permission denied";
-pub const ERROR_READING_FILE              = "\"{s}\" is unreadable";
-pub const ERROR_READ_ONLY_FS              = "\"{s}\" is on a read-only filesystem";
-pub const ERROR_STREAM_TOO_LONG           = "\"{s}\" is larger than the buffer";
-pub const ERROR_UNEXPECTED_FILE           = "Unexpected error processing file \"{s}\"";
+pub const ERROR_ACCESS_DENIED_PATH         = "\"{s}\": access denied";
+pub const ERROR_ALLOC_MEM                  = "Failed to allocate memory for path \"{s}\": \"{}\"";
+pub const ERROR_APPEND_PATH                = "Failed to append path to list: \"{}\"";
+pub const ERROR_COMMAND_NOT_FOUND          = "Command \"{s}\" not found";
+pub const ERROR_CONFIG_FILE                = "config.json already exists";
+pub const ERROR_CONFIG_FILE_PARSE          = "Can't parse config.json";
+pub const ERROR_EMPTY_PATH                 = "Input folder is empty in config.json";
+pub const ERROR_FILE_BUSY                  = "\"{s}\" is busy";
+pub const ERROR_HASH_FILE                  = "Failed to hash file \"{s}\": \"{}\"";
+pub const ERROR_INPUT_DIRECTORY            = "Can't read input directory";
+pub const ERROR_INSERT_HASHMAP             = "Failed to insert into hash map: \"{}\"";
+pub const ERROR_PERMISSION_DENIED          = "\"{s}\": permission denied";
+pub const ERROR_READING_FILE               = "\"{s}\" is unreadable";
+pub const ERROR_READ_ONLY_FS               = "\"{s}\" is on a read-only filesystem";
+pub const ERROR_STREAM_TOO_LONG            = "\"{s}\" is larger than the buffer";
+pub const ERROR_UNEXPECTED_FILE            = "Unexpected error processing file \"{s}\"";
+
+fn helpEntry(comptime c: Command) []const u8 {
+    return "    --" ++ c.long ++ ", -" ++ c.short ++ ", " ++ c.long ++ ", /" ++ c.short ++ "\n" ++
+        "        " ++ c.info ++ "\n" ++
+        (if (c.cfg.len > 0) "        (create config.json to customize " ++ c.cfg ++ ")\n" else "") ++
+        "\n";
+}
+
+fn gate(comptime on: bool, comptime text: []const u8) []const u8      { return if (on) text else "";                        }
+fn console(comptime text: []const u8) []const u8                      { return gate(config.COMPTIME_STDOUT, text);          }
+fn report(comptime check: bool, comptime text: []const u8) []const u8 { return gate(config.COMPTIME_STDOUT or check, text); }
+
+fn header(comptime text: []const u8) []const u8 {
+    if (text.len >= ALIGNED_SPACES) @compileError("header is wider than ALIGNED_SPACES: " ++ text);
+    return console(text);
+}
+
+// Declarations are analysed lazily; this forces every string (and header-width guard) to be checked.
+test "every string is valid" {
+    std.testing.refAllDecls(@This());
+}

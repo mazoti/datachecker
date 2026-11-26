@@ -128,7 +128,7 @@ fn write(compress: bool) void {
 }
 
 fn serialize(w: *std.Io.Writer) std.Io.Writer.Error!void {
-    const options: std.json.Stringify.Options = .{ .whitespace = .indent_2 };
+    const options: std.json.Stringify.Options = .{ .whitespace = .indent_4 };
     var json: std.json.Stringify = .{ .writer = w, .options = options };
 
     try json.beginObject();

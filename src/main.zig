@@ -62,6 +62,7 @@ const commands = [_]Command{
     .{ .name = "no_extension"      , .short = "ne"   , .run = if (config.COMPTIME_NO_EXTENSION)                    &core.noExtension                  else null },
     .{ .name = "nonportable_chars" , .short = "nc"   , .run = if (config.COMPTIME_NONPORTABLE_CHARS)               &core.nonPortableChars             else null },
     .{ .name = "one_item_dir"      , .short = "oid"  , .run = if (config.COMPTIME_ONE_ITEM_DIRECTORIES)            &core.oneItemDirectories           else null },
+    .{ .name = "ownerships_permissions" , .short = "op"  , .run = if (config.COMPTIME_OWNERSHIPS_PERMISSIONS)      &core.ownershipsPermissions        else null },
     .{ .name = "parse_files"       , .short = "pf"   , .run = if (config.COMPTIME_PARSE_FILES)                     &core.parseFiles                   else null },
     .{ .name = "temp_files"        , .short = "tf"   , .run = if (config.COMPTIME_TEMPORARY_FILES)                 &core.temporaryFiles               else null },
     .{ .name = "utf8"              , .short = "u"    , .run = if (config.COMPTIME_UTF8_ENCODING)                   &core.utf8Encoding                 else null },

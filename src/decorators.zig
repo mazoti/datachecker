@@ -1,5 +1,8 @@
 //!
 //! Copyright © 2025-present Marcos Mazoti
+//!
+//! Drivers that run a check over the input path: `decorate` for per-entry checks (sharing a
+//! stat cache between checks) and `decorateWalker` for checks that do their own traversal.
 
 const globals       = @import("globals");
 const file_iterator = @import("file_iterator");
@@ -8,7 +11,16 @@ const std           = @import("std");
 
 pub const Filter = enum { Files, Directories, Both };
 
-/// Conditionally runs a check in every item if both compile-time and runtime flags are enabled
+/// Runs `process_fn` on every file system entry under the input directory that passes `filter`,
+/// framed by `print.header` and `print.results`. Does nothing unless both flags are set.
+///
+/// `process_fn` is called as `process_fn(.{ path, &total_items, &stat })`. `path` is borrowed and
+/// only valid during the call. With `early_exit`, the input path itself is processed first and
+/// `process_fn` must return `!bool`: `true` ends the run.
+///
+/// Stats are cached in `globals.file_stats`, so later checks reuse the first one's traversal. The
+/// cache holds every non-ignored file and directory, whatever the filter. `process_fn` must not
+/// modify the cache. Not thread-safe.
 pub fn decorate(
     comptime comptime_flag: bool,
     runtime_flag:           bool,
@@ -23,22 +35,23 @@ pub fn decorate(
     if (!runtime_flag)           return print.alignedDisabled(header);
 
     try print.header(header);
-
     var total_items: u64 = 0;
+
+    defer {
+        clearCache();
+        print.results(total_items, header, total, totals) catch {};
+    }
 
     // Handle functions that can exit early
     if (early_exit) {
         const absolute_path: []const u8 = try std.fmt.bufPrint(&globals.max_path_buffer, "{s}",
             .{globals.absolute_input_path});
 
-        if (file_iterator.ignorePath(absolute_path)) return print.results(total_items, header, total, totals);
+        if (file_iterator.ignorePath(absolute_path)) return;
 
         const stat_tmp: ?std.Io.File.Stat = try file_iterator.fetchStatWithErrorHandling(absolute_path, &total_items);
         if (stat_tmp) |stat| {
-            if (try process_fn(.{ absolute_path, &total_items, &stat })) {
-                clearCache();
-                return print.results(total_items, header, total, totals);
-            }
+            if (try process_fn(.{ absolute_path, &total_items, &stat })) return;
         }
     }
 
@@ -54,12 +67,10 @@ pub fn decorate(
             if (comptime filter == .Both) {        if (cached_stat.kind != std.Io.File.Kind.directory and cached_stat.kind != std.Io.File.Kind.file) continue; }
 
             if (file_iterator.ignorePath(entry.key_ptr.*)) continue;
-
             _ = try process_fn(.{ entry.key_ptr.*, &total_items, &cached_stat });
         }
 
-        clearCache();
-        return print.results(total_items, header, total, totals);
+        return;
     }
 
     var walker: std.Io.Dir.Walker = try globals.input_directory.walk(globals.init.arena.allocator());
@@ -82,15 +93,12 @@ pub fn decorate(
         // Adds the file or folder to cache
         const stat_tmp: ?std.Io.File.Stat = try file_iterator.fetchStatWithErrorHandling(absolute_path, &total_items);
         if (stat_tmp) |stat| { _ = try process_fn(.{ absolute_path, &total_items, &stat }); }
-
         continue;
     }
-
-    clearCache();
-    return print.results(total_items, header, total, totals);
 }
 
-/// Conditionally runs a check in every item if both compile-time and runtime flags are enabled
+/// Like `decorate`, for checks that do their own traversal: `process_fn(&total_items)` runs once.
+/// Returning `true` ends the run without printing a results line.
 pub fn decorateWalker(
     comptime comptime_flag: bool,
     runtime_flag:           bool,
@@ -99,18 +107,16 @@ pub fn decorateWalker(
     comptime total:         []const u8,
     comptime totals:        []const u8,
 ) !void {
-    if (!comptime comptime_flag) return;
-    if (!runtime_flag)           return print.alignedDisabled(header);
+    if (!comptime_flag) return;
+    if (!runtime_flag)  return print.alignedDisabled(header);
+
+    try print.header(header);
+    defer clearCache();
 
     var total_items: u64 = 0;
-    _ = try print.header(header);
+    if (try process_fn(&total_items)) return;
 
-    if (try process_fn(&total_items)) {
-        return clearCache();
-    }
-
-    _ = try print.results(total_items, header, total, totals);
-    clearCache();
+    try print.results(total_items, header, total, totals);
 }
 
 fn clearCache() void {

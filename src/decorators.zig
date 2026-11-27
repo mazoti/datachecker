@@ -1,8 +1,7 @@
-//!
-//! Copyright © 2025-present Marcos Mazoti
-//!
 //! Drivers that run a check over the input path: `decorate` for per-entry checks (sharing a
 //! stat cache between checks) and `decorateWalker` for checks that do their own traversal.
+//!
+//! Copyright © 2025-present Marcos Mazoti
 
 const globals       = @import("globals");
 const file_iterator = @import("file_iterator");

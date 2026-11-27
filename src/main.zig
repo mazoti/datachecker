@@ -258,6 +258,9 @@ fn commonMain(init: *const std.process.Init) !void {
     try output.init();
     defer output.deinit();
 
+    try core.init();
+    defer core.deinit();
+
     if (args.len > 2) {
         if (command_map.get(args[1])) |func| {
             globals.config_parsed.value.ENABLE_CACHE = false;

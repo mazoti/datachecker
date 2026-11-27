@@ -113,145 +113,147 @@ pub const HELP = blk: {
     break :blk text;
 };
 
-pub const CONFIG_MESSAGE_CREATE            = console("Creating config.json...");
+pub const CONFIG_MESSAGE_CREATE              = console("Creating config.json...");
 
 // Summary messages
-pub const BYTES_TOTAL                      = console("byte");
-pub const BYTES_TOTALS                     = console("bytes");
+pub const BYTES_TOTAL                        = console("byte");
+pub const BYTES_TOTALS                       = console("bytes");
 
-pub const DIRECTORIES_TOTAL                = console("directory");
-pub const DIRECTORIES_TOTALS               = console("directories");
+pub const DIRECTORIES_TOTAL                  = console("directory");
+pub const DIRECTORIES_TOTALS                 = console("directories");
 
-pub const FILES_TOTAL                      = console("file");
-pub const FILES_TOTALS                     = console("files");
+pub const FILES_TOTAL                        = console("file");
+pub const FILES_TOTALS                       = console("files");
 
-pub const DIR_FILE_NAME_SIZE_TOTAL         = console("file or directory");
-pub const DIR_FILE_NAME_SIZE_TOTALS        = console("files or directories");
+pub const DIR_FILE_NAME_SIZE_TOTAL           = console("file or directory");
+pub const DIR_FILE_NAME_SIZE_TOTALS          = console("files or directories");
 
-pub const DUPLICATE_CHARS_FILES_TOTAL      = console("item with duplicate characters");
-pub const DUPLICATE_CHARS_FILES_TOTALS     = console("items with duplicate characters");
+pub const DUPLICATE_CHARS_FILES_TOTAL        = console("item with duplicate characters");
+pub const DUPLICATE_CHARS_FILES_TOTALS       = console("items with duplicate characters");
 
-pub const LINKS_SHORTCUTS_TOTAL            = console("link/shortcut");
-pub const LINKS_SHORTCUTS_TOTALS           = console("links/shortcuts");
+pub const LINKS_SHORTCUTS_TOTAL              = console("link/shortcut");
+pub const LINKS_SHORTCUTS_TOTALS             = console("links/shortcuts");
 
-pub const FULL_PATH_SIZE_TOTAL             = console("path found");
-pub const FULL_PATH_SIZE_TOTALS            = console("paths found");
+pub const FULL_PATH_SIZE_TOTAL               = console("path found");
+pub const FULL_PATH_SIZE_TOTALS              = console("paths found");
 
-pub const INTEGRITY_FILES_TOTAL            = console("hash processed");
-pub const INTEGRITY_FILES_TOTALS           = console("hashes processed");
+pub const INTEGRITY_FILES_TOTAL              = console("hash processed");
+pub const INTEGRITY_FILES_TOTALS             = console("hashes processed");
 
-pub const NONPORTABLE_CHARS_TOTAL          = console("item with non-portable characters");
-pub const NONPORTABLE_CHARS_TOTALS         = console("items with non-portable characters");
+pub const NONPORTABLE_CHARS_TOTAL            = console("item with non-portable characters");
+pub const NONPORTABLE_CHARS_TOTALS           = console("items with non-portable characters");
 
-pub const PARSE_FILES_TOTAL                = console("error found");
-pub const PARSE_FILES_TOTALS               = console("errors found");
+pub const PARSE_FILES_TOTAL                  = console("error found");
+pub const PARSE_FILES_TOTALS                 = console("errors found");
 
 // Header messages
-pub const CONFIG_MESSAGE_HEADER            = header("Loading config.json...");
-pub const CONFIG_MESSAGE_HEADER_DEFAULT    = header("Loading default configuration...");
-pub const COMPRESSED_FILES_HEADER          = header("Looking for compressed files...");
-pub const CONFIDENTIAL_FILES_HEADER        = header("Looking for confidential files...");
-pub const DEBUG_INFO_HEADER                = header("Looking for debug info in binary files...");
-pub const DIR_FILE_NAME_SIZE_HEADER        = header("Looking for long names...");
-pub const DUPLICATE_CHARS_FILES_HEADER     = header("Looking for duplicate characters...");
-pub const DUPLICATE_FILES_HEADER           = header("Looking for duplicate files...");
-pub const FILES_NEWER_ATIME_HEADER         = header("Looking for files with newer access time...");
-pub const FILES_NEWER_CTIME_HEADER         = header("Looking for files with newer change time...");
-pub const FILES_NEWER_MTIME_HEADER         = header("Looking for files with newer modified time...");
-pub const FILES_OLDER_ATIME_HEADER         = header("Looking for files with older access time...");
-pub const FILES_OLDER_CTIME_HEADER         = header("Looking for files with older change time...");
-pub const FILES_OLDER_MTIME_HEADER         = header("Looking for files with older modified time...");
-pub const LINKS_SHORTCUTS_HEADER           = header("Looking for links and shortcuts...");
-pub const EMPTY_DIRECTORIES_HEADER         = header("Looking for empty directories...");
-pub const EMPTY_FILES_HEADER               = header("Looking for empty files...");
-pub const END_OF_LINE_HEADER               = header("Looking for wrong line terminators in text files...");
-pub const INTEGRITY_FILES_HEADER           = header("Checking file integrity...");
-pub const FULL_PATH_SIZE_HEADER            = header("Looking for long paths...");
-pub const JSON_OUTPUT_HEADER               = header("Writing results in JSON output...");
-pub const LARGE_FILES_HEADER               = header("Looking for large files...");
-pub const LAST_ACCESS_HEADER               = header("Looking for files accessed a long time ago...");
-pub const LEGACY_FILES_HEADER              = header("Looking for legacy files...");
-pub const MAGIC_NUMBERS_HEADER             = header("Looking for files with wrong magic numbers...");
-pub const MANY_ITEMS_DIRECTORIES_HEADER    = header("Looking for directories with many items...");
-pub const NO_EXTENSION_HEADER              = header("Looking for files with no extension...");
-pub const NONPORTABLE_CHARS_HEADER         = header("Looking for non-portable characters...");
-pub const OWNERSHIPS_PERMISSIONS_HEADER    = header("Checking ownerships and permissions...");
-pub const ONE_ITEM_DIRECTORIES_HEADER      = header("Looking for directories with one item...");
-pub const PARSE_FILES_HEADER               = header("Looking for errors while parsing files...");
-pub const TEMPORARY_FILES_HEADER           = header("Looking for temporary files...");
-pub const UTF8_ENCODING_HEADER             = header("Looking for text files not encoded in UTF-8...");
-pub const WRONG_DATES_HEADER               = header("Looking for files with wrong dates...");
+pub const CONFIG_MESSAGE_HEADER              = header("Loading config.json...");
+pub const CONFIG_MESSAGE_HEADER_DEFAULT      = header("Loading default configuration...");
+pub const COMPRESSED_FILES_HEADER            = header("Looking for compressed files...");
+pub const CONFIDENTIAL_FILES_HEADER          = header("Looking for confidential files...");
+pub const DEBUG_INFO_HEADER                  = header("Looking for debug info in binary files...");
+pub const DIR_FILE_NAME_SIZE_HEADER          = header("Looking for long names...");
+pub const DUPLICATE_CHARS_FILES_HEADER       = header("Looking for duplicate characters...");
+pub const DUPLICATE_FILES_HEADER             = header("Looking for duplicate files...");
+pub const FILES_NEWER_ATIME_HEADER           = header("Looking for files with newer access time...");
+pub const FILES_NEWER_CTIME_HEADER           = header("Looking for files with newer change time...");
+pub const FILES_NEWER_MTIME_HEADER           = header("Looking for files with newer modified time...");
+pub const FILES_OLDER_ATIME_HEADER           = header("Looking for files with older access time...");
+pub const FILES_OLDER_CTIME_HEADER           = header("Looking for files with older change time...");
+pub const FILES_OLDER_MTIME_HEADER           = header("Looking for files with older modified time...");
+pub const LINKS_SHORTCUTS_HEADER             = header("Looking for links and shortcuts...");
+pub const EMPTY_DIRECTORIES_HEADER           = header("Looking for empty directories...");
+pub const EMPTY_FILES_HEADER                 = header("Looking for empty files...");
+pub const END_OF_LINE_HEADER                 = header("Looking for wrong line terminators in text files...");
+pub const INTEGRITY_FILES_HEADER             = header("Checking file integrity...");
+pub const FULL_PATH_SIZE_HEADER              = header("Looking for long paths...");
+pub const JSON_OUTPUT_HEADER                 = header("Writing results in JSON output...");
+pub const LARGE_FILES_HEADER                 = header("Looking for large files...");
+pub const LAST_ACCESS_HEADER                 = header("Looking for files accessed a long time ago...");
+pub const LEGACY_FILES_HEADER                = header("Looking for legacy files...");
+pub const MAGIC_NUMBERS_HEADER               = header("Looking for files with wrong magic numbers...");
+pub const MANY_ITEMS_DIRECTORIES_HEADER      = header("Looking for directories with many items...");
+pub const NO_EXTENSION_HEADER                = header("Looking for files with no extension...");
+pub const NONPORTABLE_CHARS_HEADER           = header("Looking for non-portable characters...");
+pub const OWNERSHIPS_PERMISSIONS_HEADER      = header("Checking ownerships and permissions...");
+pub const ONE_ITEM_DIRECTORIES_HEADER        = header("Looking for directories with one item...");
+pub const PARSE_FILES_HEADER                 = header("Looking for errors while parsing files...");
+pub const TEMPORARY_FILES_HEADER             = header("Looking for temporary files...");
+pub const UTF8_ENCODING_HEADER               = header("Looking for text files not encoded in UTF-8...");
+pub const WRONG_DATES_HEADER                 = header("Looking for files with wrong dates...");
 
 // Warning messages
-pub const COMPRESSED_FILES_WARNING         = report(config.COMPTIME_COMPRESSED_FILES,         "\"{s}\" compression could be improved");
-pub const CONFIDENTIAL_FILES_WARNING       = report(config.COMPTIME_CONFIDENTIAL_FILES,       "\"{s}\" has confidential data");
-pub const DEBUG_INFO_WARNING               = report(config.COMPTIME_DEBUG_INFO,               "\"{s}\" has debug/symbol information");
-pub const DIRECTORY_FILE_NAME_SIZE_WARNING = report(config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, "\"{s}\" is longer than {d} characters");
-pub const EMPTY_WARNING                    = report(empty_on,                                 "\"{s}\" is empty");
-pub const END_OF_LINE_WARNING              = report(config.COMPTIME_END_OF_LINE,              "\"{s}\" has an invalid end-of-line terminator");
-pub const FULL_PATH_SIZE_WARNING           = report(config.COMPTIME_FULL_PATH_SIZE,           "Path \"{s}\" is longer than {d} characters");
-pub const LINKS_SHORTCUTS_WARNING          = report(links_on,                                 "\"{s}\" is not portable");
-pub const LARGE_FILES_WARNING              = report(config.COMPTIME_LARGE_FILES,              "File \"{s}\" is larger than {d} bytes");
-pub const LAST_ACCESS_FILES_WARNING        = report(config.COMPTIME_LAST_ACCESS_FILES,        "\"{s}\" last access was {d} ns ago");
-pub const LEGACY_FILES_WARNING             = report(config.COMPTIME_LEGACY_FILES,             "\"{s}\" has a legacy format \"{s}\"");
-pub const MANY_ITEMS_DIRECTORIES_WARNING   = report(config.COMPTIME_MANY_ITEMS_DIRECTORIES,   "\"{s}\" has more than {d} items");
-pub const NO_EXTENSION_WARNING             = report(config.COMPTIME_NO_EXTENSION,             "Format of \"{s}\" was not found");
-pub const NONPORTABLE_CHARS_WARNING        = report(config.COMPTIME_NONPORTABLE_CHARS,        "\"{s}\" has a non-portable character");
-pub const ONE_ITEM_DIRECTORIES_WARNING     = report(config.COMPTIME_ONE_ITEM_DIRECTORIES,     "\"{s}\" has one item");
-pub const OWNERSHIPS_PERMISSIONS_WARNING   = report(config.COMPTIME_OWNERSHIPS_PERMISSIONS,   "\"{s}\" has permission 777");
-pub const TEMPORARY_FILES_WARNING          = report(temp_on,                                  "\"{s}\" is a temporary file");
-pub const UTF8_ENCODING_WARNING            = report(config.COMPTIME_UTF8_ENCODING,            "\"{s}\" is not encoded in UTF-8");
-pub const WRONG_DATES_WARNING              = report(config.COMPTIME_WRONG_DATES,              "File \"{s}\" has a date in the future");
+pub const COMPRESSED_FILES_WARNING           = report(config.COMPTIME_COMPRESSED_FILES,         "\"{s}\" compression could be improved");
+pub const CONFIDENTIAL_FILES_WARNING         = report(config.COMPTIME_CONFIDENTIAL_FILES,       "\"{s}\" has confidential data");
+pub const DEBUG_INFO_WARNING                 = report(config.COMPTIME_DEBUG_INFO,               "\"{s}\" has debug/symbol information");
+pub const DIRECTORY_FILE_NAME_SIZE_WARNING   = report(config.COMPTIME_DIRECTORY_FILE_NAME_SIZE, "\"{s}\" is longer than {d} characters");
+pub const EMPTY_WARNING                      = report(empty_on,                                 "\"{s}\" is empty");
+pub const END_OF_LINE_WARNING                = report(config.COMPTIME_END_OF_LINE,              "\"{s}\" has an invalid end-of-line terminator");
+pub const FULL_PATH_SIZE_WARNING             = report(config.COMPTIME_FULL_PATH_SIZE,           "Path \"{s}\" is longer than {d} characters");
+pub const LINKS_SHORTCUTS_WARNING            = report(links_on,                                 "\"{s}\" is not portable");
+pub const LARGE_FILES_WARNING                = report(config.COMPTIME_LARGE_FILES,              "File \"{s}\" is larger than {d} bytes");
+pub const LAST_ACCESS_FILES_WARNING          = report(config.COMPTIME_LAST_ACCESS_FILES,        "\"{s}\" last access was {d} ns ago");
+pub const LEGACY_FILES_WARNING               = report(config.COMPTIME_LEGACY_FILES,             "\"{s}\" has a legacy format \"{s}\"");
+pub const MANY_ITEMS_DIRECTORIES_WARNING     = report(config.COMPTIME_MANY_ITEMS_DIRECTORIES,   "\"{s}\" has more than {d} items");
+pub const NO_EXTENSION_WARNING               = report(config.COMPTIME_NO_EXTENSION,             "Format of \"{s}\" was not found");
+pub const NONPORTABLE_CHARS_WARNING          = report(config.COMPTIME_NONPORTABLE_CHARS,        "\"{s}\" has a non-portable character");
+pub const ONE_ITEM_DIRECTORIES_WARNING       = report(config.COMPTIME_ONE_ITEM_DIRECTORIES,     "\"{s}\" has one item");
+pub const OWNERSHIPS_PERMISSIONS_WARNING     = report(config.COMPTIME_OWNERSHIPS_PERMISSIONS,   "\"{s}\" has permission 777");
+pub const OWNERSHIPS_PERMISSIONS_GID_WARNING = report(config.COMPTIME_OWNERSHIPS_PERMISSIONS,   "\"{s}\" has invalid group ID \"{d}\"");
+pub const OWNERSHIPS_PERMISSIONS_UID_WARNING = report(config.COMPTIME_OWNERSHIPS_PERMISSIONS,   "\"{s}\" has invalid user ID \"{d}\"");
+pub const TEMPORARY_FILES_WARNING            = report(temp_on,                                  "\"{s}\" is a temporary file");
+pub const UTF8_ENCODING_WARNING              = report(config.COMPTIME_UTF8_ENCODING,            "\"{s}\" is not encoded in UTF-8");
+pub const WRONG_DATES_WARNING                = report(config.COMPTIME_WRONG_DATES,              "File \"{s}\" has a date in the future");
 
 // Check messages
-pub const COMPRESSED_FILES_CHECK           = report(config.COMPTIME_COMPRESSED_FILES,         "\"{s}\" has an uncommon compression method");
-pub const DUPLICATE_CHARS_FILES_CHECK      = report(config.COMPTIME_DUPLICATE_CHARS_FILES,    "\"{s}\" has a duplicate character");
-pub const DUPLICATE_CHARS_FILES_CHECK_EXT  = report(config.COMPTIME_DUPLICATE_CHARS_FILES,    "\"{s}\" has a duplicate extension");
-pub const INTEGRITY_FILES_CHECK            = report(integrity_on,                             "\"{s}\" {s} hash created");
-pub const NO_EXTENSION_CHECK               = report(config.COMPTIME_NO_EXTENSION,             "Format of \"{s}\" could be \"{s}\"");
+pub const COMPRESSED_FILES_CHECK             = report(config.COMPTIME_COMPRESSED_FILES,         "\"{s}\" has an uncommon compression method");
+pub const DUPLICATE_CHARS_FILES_CHECK        = report(config.COMPTIME_DUPLICATE_CHARS_FILES,    "\"{s}\" has a duplicate character");
+pub const DUPLICATE_CHARS_FILES_CHECK_EXT    = report(config.COMPTIME_DUPLICATE_CHARS_FILES,    "\"{s}\" has a duplicate extension");
+pub const INTEGRITY_FILES_CHECK              = report(integrity_on,                             "\"{s}\" {s} hash created");
+pub const NO_EXTENSION_CHECK                 = report(config.COMPTIME_NO_EXTENSION,             "Format of \"{s}\" could be \"{s}\"");
 
 // Error messages
-pub const END_OF_LINE_ERROR                = console("Invalid line terminator in configuration");
-pub const INTEGRITY_FILES_ERROR            = report(integrity_on,                             "\"{s}\" has a different {s} hash");
-pub const INTEGRITY_FILES_ERROR_CHAR       = report(integrity_on,                             "\"{s}\" has an invalid character in its hash");
-pub const LINKS_SHORTCUTS_ERROR            = report(links_on,                                 "\"{s}\" target was not found");
-pub const MAGIC_NUMBERS_ERROR              = report(config.COMPTIME_MAGIC_NUMBERS,            "\"{s}\" has a wrong magic number");
-pub const PARSE_FILES_ERROR                = report(config.COMPTIME_PARSE_FILES,              "Can't parse \"{s}\"");
+pub const END_OF_LINE_ERROR                  = console("Invalid line terminator in configuration");
+pub const INTEGRITY_FILES_ERROR              = report(integrity_on,                             "\"{s}\" has a different {s} hash");
+pub const INTEGRITY_FILES_ERROR_CHAR         = report(integrity_on,                             "\"{s}\" has an invalid character in its hash");
+pub const LINKS_SHORTCUTS_ERROR              = report(links_on,                                 "\"{s}\" target was not found");
+pub const MAGIC_NUMBERS_ERROR                = report(config.COMPTIME_MAGIC_NUMBERS,            "\"{s}\" has a wrong magic number");
+pub const PARSE_FILES_ERROR                  = report(config.COMPTIME_PARSE_FILES,              "Can't parse \"{s}\"");
 
 // Ok message
-pub const INTEGRITY_FILES_OK               = report(integrity_on, "\"{s}\" {s} verified");
+pub const INTEGRITY_FILES_OK                 = report(integrity_on, "\"{s}\" {s} verified");
 
 // System messages
-pub const OK_MESSAGE                       = console("OK");
-pub const DISABLED_MESSAGE                 = console("DISABLED");
-pub const QUIT_MESSAGE                     = console("Press Enter to quit");
-pub const TOTAL_MESSAGE                    = console(" Total:");
-pub const CHECK_MESSAGE                    = console(" CHECK  ");
-pub const ERROR_MESSAGE                    = console(" ERROR  ");
-pub const FOUND_MESSAGE                    = console(" FOUND  ");
-pub const KEEPING_MESSAGE                  = console(" KEEPING ");
-pub const OK_MESSAGE_FILE                  = console("   OK   ");
+pub const OK_MESSAGE                         = console("OK");
+pub const DISABLED_MESSAGE                   = console("DISABLED");
+pub const QUIT_MESSAGE                       = console("Press Enter to quit");
+pub const TOTAL_MESSAGE                      = console(" Total:");
+pub const CHECK_MESSAGE                      = console(" CHECK  ");
+pub const ERROR_MESSAGE                      = console(" ERROR  ");
+pub const FOUND_MESSAGE                      = console(" FOUND  ");
+pub const KEEPING_MESSAGE                    = console(" KEEPING ");
+pub const OK_MESSAGE_FILE                    = console("   OK   ");
 
-pub const REMOVING_MESSAGE                 = console("REMOVING ");
-pub const WARNING_MESSAGE                  = console("WARNING ");
+pub const REMOVING_MESSAGE                   = console("REMOVING ");
+pub const WARNING_MESSAGE                    = console("WARNING ");
 
 // System error messages
-pub const ERROR_ACCESS_DENIED_PATH         = "\"{s}\": access denied";
-pub const ERROR_ALLOC_MEM                  = "Failed to allocate memory for path \"{s}\": \"{}\"";
-pub const ERROR_APPEND_PATH                = "Failed to append path to list: \"{}\"";
-pub const ERROR_COMMAND_NOT_FOUND          = "Command \"{s}\" not found";
-pub const ERROR_CONFIG_FILE                = "config.json already exists";
-pub const ERROR_CONFIG_FILE_PARSE          = "Can't parse config.json";
-pub const ERROR_EMPTY_PATH                 = "Input folder is empty in config.json";
-pub const ERROR_FILE_BUSY                  = "\"{s}\" is busy";
-pub const ERROR_HASH_FILE                  = "Failed to hash file \"{s}\": \"{}\"";
-pub const ERROR_INPUT_DIRECTORY            = "Can't read input directory";
-pub const ERROR_INSERT_HASHMAP             = "Failed to insert into hash map: \"{}\"";
-pub const ERROR_PERMISSION_DENIED          = "\"{s}\": permission denied";
-pub const ERROR_READING_FILE               = "\"{s}\" is unreadable";
-pub const ERROR_READ_ONLY_FS               = "\"{s}\" is on a read-only filesystem";
-pub const ERROR_STREAM_TOO_LONG            = "\"{s}\" is larger than the buffer";
-pub const ERROR_UNEXPECTED_FILE            = "Unexpected error processing file \"{s}\"";
+pub const ERROR_ACCESS_DENIED_PATH           = "\"{s}\": access denied";
+pub const ERROR_ALLOC_MEM                    = "Failed to allocate memory for path \"{s}\": \"{}\"";
+pub const ERROR_APPEND_PATH                  = "Failed to append path to list: \"{}\"";
+pub const ERROR_COMMAND_NOT_FOUND            = "Command \"{s}\" not found";
+pub const ERROR_CONFIG_FILE                  = "config.json already exists";
+pub const ERROR_CONFIG_FILE_PARSE            = "Can't parse config.json";
+pub const ERROR_EMPTY_PATH                   = "Input folder is empty in config.json";
+pub const ERROR_FILE_BUSY                    = "\"{s}\" is busy";
+pub const ERROR_HASH_FILE                    = "Failed to hash file \"{s}\": \"{}\"";
+pub const ERROR_INPUT_DIRECTORY              = "Can't read input directory";
+pub const ERROR_INSERT_HASHMAP               = "Failed to insert into hash map: \"{}\"";
+pub const ERROR_PERMISSION_DENIED            = "\"{s}\": permission denied";
+pub const ERROR_READING_FILE                 = "\"{s}\" is unreadable";
+pub const ERROR_READ_ONLY_FS                 = "\"{s}\" is on a read-only filesystem";
+pub const ERROR_STREAM_TOO_LONG              = "\"{s}\" is larger than the buffer";
+pub const ERROR_UNEXPECTED_FILE              = "Unexpected error processing file \"{s}\"";
 
 fn helpEntry(comptime c: Command) []const u8 {
     return "    --" ++ c.long ++ ", -" ++ c.short ++ ", " ++ c.long ++ ", /" ++ c.short ++ "\n" ++

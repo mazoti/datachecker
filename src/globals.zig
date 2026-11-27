@@ -66,3 +66,14 @@ pub var io_buffer: [config.COMPTIME_IO_BUFFER_SIZE]u8 = undefined;
 
 /// Buffer for storing file paths
 pub var max_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+
+
+
+
+
+
+pub var ownership_GID: if (config.COMPTIME_OWNERSHIPS_PERMISSIONS) std.AutoHashMapUnmanaged(u32, void)
+    else void = if (config.COMPTIME_OWNERSHIPS_PERMISSIONS) .empty else {};
+
+pub var ownership_UID: if (config.COMPTIME_OWNERSHIPS_PERMISSIONS) std.AutoHashMapUnmanaged(u32, void)
+    else void = if (config.COMPTIME_OWNERSHIPS_PERMISSIONS) .empty else {};

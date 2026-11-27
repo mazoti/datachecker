@@ -451,3 +451,61 @@ pub fn createConfig() !void {
     try print.stdout("\x1b[1A\x1b[1A");
     return print.waitForEnter();
 }
+
+pub fn init() !void {
+    if (config.COMPTIME_OWNERSHIPS_PERMISSIONS) {
+        if (globals.config_parsed.value.OWNERSHIPS_PERMISSIONS) try loadGID_UID();
+    }
+}
+
+pub fn deinit() void {
+    if (config.COMPTIME_OWNERSHIPS_PERMISSIONS) {
+        if (globals.config_parsed.value.OWNERSHIPS_PERMISSIONS) {
+            globals.ownership_GID.deinit(globals.init.arena.allocator());
+            globals.ownership_UID.deinit(globals.init.arena.allocator());
+        }
+    }
+}
+
+fn loadGID_UID() !void {
+    if (!config.COMPTIME_OWNERSHIPS_PERMISSIONS) return;
+    if (!globals.config_parsed.value.OWNERSHIPS_PERMISSIONS) return;
+
+    // ---- users:  name:passwd:uid:gid:gecos:home:shell ----
+    const passwd = try std.Io.Dir.cwd().readFileAlloc(globals.init.io, "/etc/passwd", globals.init.arena.allocator(), .limited(4 << 20));
+    defer globals.init.arena.allocator().free(passwd);
+
+    var lines = std.mem.splitScalar(u8, passwd, '\n');
+    while (lines.next()) |line| {
+        if (line.len == 0 or line[0] == '#') continue;
+
+        var f = std.mem.splitScalar(u8, line, ':');
+        _ = f.next() orelse continue; // name
+        _ = f.next() orelse continue; // password field ("x" = see /etc/shadow)
+
+        const uid = std.fmt.parseInt(u32, f.next() orelse continue, 10) catch continue;
+        try globals.ownership_UID.put(globals.init.arena.allocator(), uid, {});
+
+        _ = std.fmt.parseInt(u32, f.next() orelse continue, 10) catch continue; // GID
+        _ = f.next() orelse continue; // gecos / full name
+        _ = f.next() orelse continue; // home
+        _ = f.next() orelse ""; // shell
+    }
+
+    // ---- groups:  name:passwd:gid:member1,member2,... ----
+    const group = try std.Io.Dir.cwd().readFileAlloc(globals.init.io, "/etc/group", globals.init.arena.allocator(), .limited(4 << 20));
+    defer globals.init.arena.allocator().free(group);
+
+    lines = std.mem.splitScalar(u8, group, '\n');
+    while (lines.next()) |line| {
+        if (line.len == 0 or line[0] == '#') continue;
+
+        var f = std.mem.splitScalar(u8, line, ':');
+        _ = f.next() orelse continue; // name
+        _ = f.next() orelse continue; // password field
+        const gid = std.fmt.parseInt(u32, f.next() orelse continue, 10) catch continue;
+        try globals.ownership_GID.put(globals.init.arena.allocator(), gid, {});
+
+        _ = f.next() orelse ""; // members
+    }
+}

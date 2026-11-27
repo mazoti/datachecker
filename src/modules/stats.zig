@@ -376,34 +376,64 @@ fn nonportable_chars_warning(args: anytype) !bool {
     return print.messageSumReturn(false, args[1], print.warning, i18n.NONPORTABLE_CHARS_WARNING, .{args[0]});
 }
 
-
-
-
-
-
-
-
+const Owner = struct { uid: u32, gid: u32 };
 
 /// Checks files and folders ownerships and permissions
 pub fn ownershipsPermissions(args: anytype) !bool {
 
     if (comptime builtin.os.tag == .windows) return true;
 
+    var count: bool = false;
+
     if ((args[2].permissions.toMode() & 0o777) == 0o777) {
         try output.add(&globals.output_results.ownerships_permissions, config.Status.WARNING, i18n.OWNERSHIPS_PERMISSIONS_WARNING, .{args[0]});
-        _ = try print.messageSumReturn(false, args[1], print.warning, i18n.OWNERSHIPS_PERMISSIONS_WARNING, .{args[0]});
+        try print.warning(i18n.OWNERSHIPS_PERMISSIONS_WARNING, .{args[0]});
+        count = true;
     }
 
-  //  else {
-    //    std.debug.print("File FOLDEr does not have permissions 777. Current: {o}\n", .{
-      //      mode & 0o777,
-      // });
-      // }
+    const path_z = try globals.init.arena.allocator().dupeSentinel(u8, args[0], 0);
+    defer globals.init.arena.allocator().free(path_z);
 
+    const gidUid: Owner = try getOwner(path_z);
+    if (!globals.ownership_UID.contains(gidUid.uid)) {
+        try output.add(&globals.output_results.ownerships_permissions, config.Status.WARNING, i18n.OWNERSHIPS_PERMISSIONS_UID_WARNING, .{args[0], gidUid.uid});
+        try print.warning(i18n.OWNERSHIPS_PERMISSIONS_UID_WARNING, .{args[0], gidUid.uid});
+        count = true;
+    }
 
+    if (!globals.ownership_GID.contains(gidUid.gid)) {
+        try output.add(&globals.output_results.ownerships_permissions, config.Status.WARNING, i18n.OWNERSHIPS_PERMISSIONS_GID_WARNING, .{args[0], gidUid.gid});
+        try print.warning(i18n.OWNERSHIPS_PERMISSIONS_GID_WARNING, .{args[0], gidUid.gid});
+        count = true;
+    }
 
+    if (count) args[1].* += 1;
+    return true;
+}
 
-
-
-return true;
+fn getOwner(path: [:0]const u8) !Owner {
+    switch (builtin.os.tag) {
+        .linux => {
+            const linux = std.os.linux;
+            var stx: linux.Statx = undefined;
+            const rc = linux.statx(linux.AT.FDCWD, path, 0, .{ .UID = true, .GID = true }, &stx);
+            return switch (linux.errno(rc)) {
+                .SUCCESS => .{ .uid = stx.uid, .gid = stx.gid },
+                .NOENT => error.FileNotFound,
+                .ACCES => error.AccessDenied,
+                else => |e| std.posix.unexpectedErrno(e),
+            };
+        },
+        .macos, .freebsd, .netbsd, .openbsd, .dragonfly => {
+            // needs libc: zig build-exe -lc owner.zig
+            var st: std.c.Stat = undefined;
+            return switch (std.c.errno(std.c.fstatat(std.c.AT.FDCWD, path, &st, 0))) {
+                .SUCCESS => .{ .uid = st.uid, .gid = st.gid },
+                .NOENT => error.FileNotFound,
+                .ACCES => error.AccessDenied,
+                else => |e| std.posix.unexpectedErrno(e),
+            };
+        },
+        else => return error.Unsupported,
+    }
 }
